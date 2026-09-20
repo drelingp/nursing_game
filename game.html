@@ -113,24 +113,32 @@
     }
     .home-hero {
       text-align: center;
-      padding-top: 8px;
+      padding-top: 4px;
+    }
+    .logo-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 10px;
     }
     .logo {
-      width: 88px;
-      height: 88px;
-      margin: 0 auto 12px;
-      border-radius: 24px;
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
       background: linear-gradient(160deg, #2db88a, #14725d);
       display: grid;
       place-items: center;
       color: white;
-      font-size: 40px;
+      font-size: 32px;
       font-weight: 800;
       box-shadow: 0 10px 24px rgba(0,0,0,.25);
     }
+    .logo.bird {
+      background: linear-gradient(160deg, #e0b03a, #c47a16);
+    }
     .home-hero h2 {
       margin: 0 0 8px;
-      font-size: 26px;
+      font-size: 24px;
     }
     .purpose, .legal {
       text-align: left;
@@ -144,6 +152,36 @@
       border-radius: 12px;
       padding: 12px;
       font-size: 14px;
+    }
+    .mode-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .mode-card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      min-height: 88px;
+      width: 100%;
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 16px;
+      text-align: left;
+      font-family: inherit;
+    }
+    .mode-card.primary { background: var(--teal); color: white; }
+    .mode-card.secondary { background: var(--gold); color: #2a2208; }
+    .mode-card strong {
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .mode-card span {
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 600;
+      opacity: 0.92;
     }
     .primary, .secondary, .ghost {
       display: inline-flex;
@@ -172,8 +210,8 @@
       border-radius: 14px;
       padding: 10px 12px;
       margin-bottom: 8px;
-      flex: 0 0 auto;
-      max-height: 38%;
+      flex: 0 1 auto;
+      max-height: 32%;
       overflow: auto;
     }
     .meta-row {
@@ -183,6 +221,7 @@
       font-size: 13px;
       color: var(--muted);
       margin-bottom: 6px;
+      flex-wrap: wrap;
     }
     .q-text {
       font-size: 17px;
@@ -220,8 +259,8 @@
       place-items: center;
     }
     .stage-wrap {
-      flex: 1 1 auto;
-      min-height: 180px;
+      flex: 1 1 0;
+      min-height: 160px;
       position: relative;
       background: #081c22;
       border-radius: 14px;
@@ -249,7 +288,7 @@
       max-width: 90%;
     }
     .hint.hidden { display: none; }
-    .controls {
+    .controls-snake {
       display: grid;
       grid-template-columns: 1fr 86px 1fr;
       grid-template-rows: 56px 56px 56px;
@@ -258,6 +297,18 @@
       margin: 10px auto 0;
       flex: 0 0 auto;
     }
+    .controls-bird {
+      display: none;
+      width: min(420px, 100%);
+      margin: 8px auto 0;
+      flex: 0 0 auto;
+      background: var(--bg);
+      position: relative;
+      z-index: 2;
+      padding: 4px 0 2px;
+    }
+    .mode-bird .controls-snake { display: none; }
+    .mode-bird .controls-bird { display: block; }
     .pad {
       border: 0;
       border-radius: 14px;
@@ -271,6 +322,23 @@
     .pad-left { grid-column: 1; grid-row: 2; }
     .pad-right { grid-column: 3; grid-row: 2; }
     .pad-down { grid-column: 2; grid-row: 3; }
+    .flap-btn {
+      width: 100%;
+      min-height: 68px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--gold);
+      color: #2a2208;
+      font-size: 24px;
+      font-weight: 800;
+    }
+    .flap-btn:active { background: #c9992a; }
+    .flap-note {
+      text-align: center;
+      font-size: 13px;
+      color: #c9ddd8;
+      margin-top: 6px;
+    }
     .overlay {
       display: none;
       position: fixed;
@@ -351,12 +419,14 @@
       .q-text { font-size: 15px; }
       .brand h1 { font-size: 16px; }
       .opt { font-size: 12px; min-height: 38px; padding: 6px 6px 6px 30px; }
-      .controls {
+      .controls-snake {
         width: min(240px, 100%);
         grid-template-rows: 48px 48px 48px;
       }
-      .play-head { max-height: 34%; }
-      .stage-wrap { min-height: 200px; }
+      .play-head { max-height: 30%; }
+      .stage-wrap { min-height: 160px; }
+      .mode-card strong { font-size: 20px; }
+      .flap-btn { min-height: 64px; font-size: 22px; }
     }
   </style>
 </head>
@@ -375,11 +445,14 @@
     <section class="screen active" id="screenHome">
       <div class="panel">
         <div class="home-hero">
-          <div class="logo" aria-hidden="true">蛇</div>
+          <div class="logo-row">
+            <div class="logo" aria-hidden="true">蛇</div>
+            <div class="logo bird" aria-hidden="true">鳥</div>
+          </div>
           <h2>護理安全訓練遊戲</h2>
-          <p>用貪食蛇吃答案，複習日常安全重點</p>
+          <p>揀一種玩法，用 A／B／C／D 複習病房流程</p>
         </div>
-        <p class="purpose">本遊戲協助病房與門診護理人員練習感染控制、藥物安全、病人識別與安全、生命徵象、文件記錄與職業安全等常見情境。所有題目皆為虛構訓練案例，不含真實病人或職員資料。</p>
+        <p class="purpose">本遊戲用虛構情境練習 M10→C9 現行指引、實用交更清單，以及 C7 專項（C7＝另一病房，唔好當 C9 日常 SOP）。所有題目皆為訓練案例，不含真實病人或職員資料。常改項目（rota、ceiling、感染名單）以當期 HA Teams／email／IC 為準。</p>
         <div class="legal">
           <strong>重要說明</strong>
           <ul>
@@ -389,15 +462,24 @@
             <li>不收集、不上傳任何個人資料；可完全離線遊玩。</li>
           </ul>
         </div>
-        <button class="primary" id="btnStart" type="button">開始訓練</button>
+        <div class="mode-grid">
+          <button class="mode-card primary" id="btnSnake" type="button">
+            <strong>貪食蛇問答</strong>
+            <span>用方向鍵或畫面按鈕控制蛇，吃到標示 A／B／C／D 的食物即作答。答錯不會結束遊戲。</span>
+          </button>
+          <button class="mode-card secondary" id="btnBird" type="button">
+            <strong>飛翔小鳥問答</strong>
+            <span>拍翅（點畫面、空白鍵或下方大按鈕）飛入標示 A／B／C／D 的閘門。答錯不會結束遊戲。</span>
+          </button>
+        </div>
       </div>
     </section>
 
     <section class="screen" id="screenPlay">
       <div class="play-head">
         <div class="meta-row">
-          <span id="progressText">第 1 / 20 題</span>
-          <span id="catText">感染控制</span>
+          <span id="progressText">第 1 / 47 題</span>
+          <span id="catText">收症／入院</span>
           <span id="scoreText">答對 0</span>
         </div>
         <div class="q-text" id="questionText"></div>
@@ -407,11 +489,15 @@
         <canvas id="gameCanvas"></canvas>
         <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答</div>
       </div>
-      <div class="controls" aria-label="方向鍵">
+      <div class="controls-snake" id="controlsSnake" aria-label="方向鍵">
         <button class="pad pad-up" type="button" data-dir="0,-1" aria-label="上">▲</button>
         <button class="pad pad-left" type="button" data-dir="-1,0" aria-label="左">◀</button>
         <button class="pad pad-right" type="button" data-dir="1,0" aria-label="右">▶</button>
         <button class="pad pad-down" type="button" data-dir="0,1" aria-label="下">▼</button>
+      </div>
+      <div class="controls-bird" id="controlsBird">
+        <button class="flap-btn" id="btnFlap" type="button">拍翅</button>
+        <div class="flap-note">空白鍵、點畫面或按此按鈕　閘門有 A／B／C／D 文字標示</div>
       </div>
     </section>
 
@@ -430,7 +516,7 @@
   <div class="overlay" id="overlayPause">
     <div class="modal">
       <h2>遊戲已暫停</h2>
-      <p>蛇已停止移動。分數只是學習回饋，不是績效考核。</p>
+      <p>畫面已停止。分數只是學習回饋，不是績效考核。</p>
       <p>本遊戲只供訓練用途，實際工作請依照部門指引。</p>
       <button class="primary" id="btnResume" type="button">繼續</button>
       <button class="ghost" id="btnQuit" type="button">返回主畫面</button>
@@ -441,266 +527,667 @@
   (function () {
     "use strict";
 
+    var SNAKE_HINT = "閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答";
+    var BIRD_HINT = "閱讀題目後，拍翅開始飛行<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
+
     var QUESTIONS = [
       {
-        category: "感染控制",
-        q: "執行抽血或放置周邊靜脈導管等侵入性處置前，手部衛生的正確做法是？",
+        source: "C7專項",
+        category: "C7身份／範圍",
+        q: "模擬交更（虛構）：新同事想把 C7 收症規則整份抄進 C9 日常 SOP。較適切的做法是？",
         options: [
-          "只要戴手套就可以省略洗手",
-          "先完成手部衛生，再戴上清潔手套",
-          "只在脫手套後才需要做手部衛生",
-          "用手套當毛巾擦乾雙手即可"
+          "可以，C7 同 C9 規則完全一樣",
+          "唔好。C7＝LD＋GA 收症房／Team C contact point，專項規則唔好當 C9 SOP；全院共用項先跟 C9 實用清單",
+          "只抄 ceiling 數字就當 C9 用",
+          "C7 規則優先，C9 要讓路"
         ],
         answer: 1,
-        explain: "手套不能取代手部衛生。戴手套前應先清潔雙手，脫手套後也要再做一次。侵入性處置前更需確認手部已清潔，以降低感染風險。",
-        points: ["手套 ≠ 洗手。", "戴前、脫後都要做手部衛生。", "實際步驟請依部門感染控制指引。"]
+        explain: "C7 係另一病房（LD＋GA／Team C），揸 T4 細 rota，本檔只供 C7 同事。全院共用項（3999、Omnicell、e-Vital、ADS、essential staff 等）跟 C9 實用清單。唔好倒過來當 C9 SOP。",
+        points: ["C7／C8＝LD＋GA 收症房；C7 揸 T4 細 rota。", "共用規則≠把 C7 本位當 C9 SOP。", "實際工作請依照部門指引同當期 HA Teams。"]
       },
       {
-        category: "感染控制",
-        q: "照顧標示接觸傳染隔離的病人時，進入病室前應如何做？",
+        source: "C7專項",
+        category: "C7電話／地點",
+        q: "模擬來電（虛構）：訪客問 C7 護士站電話。較適切的答覆是？",
         options: [
-          "只戴外科口罩即可",
-          "依隔離標示穿戴適當個人防護裝備，離開時依序正確脫除",
-          "把隔離衣留給下一位同事繼續穿",
-          "只要病人有戴口罩，工作人員可不穿防護衣"
+          "2752 3921（C9 病房電話）",
+          "2752 3211／3212",
+          "打 3999 問護士站",
+          "總機 2752 3000 就等於護士站"
         ],
         answer: 1,
-        explain: "隔離種類（接觸、飛沫、空氣）決定所需防護裝備。應在進入隔離環境前穿戴齊全，離開時在指定位置正確脫除並執行手部衛生，避免把病原帶到其他區域。",
-        points: ["先看隔離標示再穿戴。", "離開時依序脫除，避免污染。", "防護裝備不可共用。"]
+        explain: "C7 護士站係 2752 3211／3212。2752 3921 係 C9 病房電話，唔好混淆。3999 只用於真正緊急／救命。",
+        points: ["C7 護士站：2752 3211／3212。", "原 WKPC fax 2743 2527（如仍用）。", "CND 新址／wound nurse 以當期為準。"]
       },
       {
-        category: "感染控制",
-        q: "剛注射完的針頭應如何處理？",
+        source: "C7專項",
+        category: "C7探病",
+        q: "模擬預約（虛構）：家屬問 C7 探病時段。較適切的說明是？",
         options: [
-          "回套針帽後丟進一般垃圾桶",
-          "請同事幫忙把針帽套回去",
-          "立即放入耐穿刺的尖銳物收集盒，不要回套",
-          "先放在床旁桌上，等整批工作結束再處理"
+          "跟 C9 一樣用 6＋1 檯、無固定兩節",
+          "15:30–16:30 同 16:30–17:30 兩節，中間清潔",
+          "全日 14:00–18:00 開放",
+          "只得黃昏一節 17:30–18:30"
+        ],
+        answer: 1,
+        explain: "C7 探病係兩節：15:30–16:30／16:30–17:30，中間要清潔。呢個唔好直接套去 C9 6＋1 檯安排。",
+        points: ["兩節之間預留清潔。", "文員備下週名單。", "探病前可 print 全 ward 餐紙 master list（防哽塞）。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7探病",
+        q: "模擬預約（虛構）：同一 Party 想一次過約下週連續兩節。C7 較適切的處理是？",
+        options: [
+          "可以一次約滿兩節方便家人",
+          "一次只約下週一節；須等該 session 開始後先可以再約；同 Party 不連續兩節",
+          "只准約第二節",
+          "改為 walk-in 全日"
+        ],
+        answer: 1,
+        explain: "C7 一次只約下週一節，而且同 Party 唔可以連續兩節。該節開始後先再約。保留 15 分鐘後先釋放 walk-in。",
+        points: ["一次一節，唔好連約。", "同 Party 不連續兩節。", "保留 15 分鐘後釋放 walk-in。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬分症（虛構）：C7 分症 file 色應點理解？",
+        options: [
+          "紅＝LD、藍＝其他、黃＝AC",
+          "橙＝LD／白＝其他／綠＝AC",
+          "全部用白色就得",
+          "跟醫生個人喜好揀色"
+        ],
+        answer: 1,
+        explain: "C7 分症 file 色：橙＝LD、白＝其他、綠＝AC。呢個係 C7 本位，唔好當 C9 SOP。",
+        points: ["橙 LD、白其他、綠 AC。", "CSD Diagnosis＝LD 先 C7 收。", "實際仍以當期規則為準。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬討論（虛構）：有人話 C7 ceiling 永遠係 42 或者永遠 45。較適切的理解是？",
+        options: [
+          "永遠 42，寫死 SOP",
+          "永遠 45，寫死 SOP",
+          "actual 曾用 42／45 等，以當期指示為準；兩 ward 滿且非 LD／SA → call rota keeper",
+          "無上限，收得就收"
         ],
         answer: 2,
-        explain: "使用後的針頭屬於尖銳廢棄物，應立刻放入專用耐穿刺收集盒。回套針帽是針刺傷的常見原因，不應請他人幫忙回套，也不可暫放在床旁。",
-        points: ["不回套、不傳遞裸針。", "就近投入尖銳物盒。", "盒子滿至標示線即應更換。"]
+        explain: "Ceiling／overflow 常改，唔好把曾經報過嘅 42 或 45 當永遠有效。要以當期指示為準。兩 ward 滿而且唔係 LD／SA，就 call rota keeper。",
+        points: ["常改項目以當期 HA Teams／email／IC 為準。", "唔好背死一個數字。", "非 LD／SA 滿床 → rota keeper。"]
       },
       {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬入 sheet（虛構）：LD／PULD 病人應該點入 admission rota？",
+        options: [
+          "入 general 一齊計就得",
+          "分頁入 rota，勿入 general（以 HA Teams 為準）",
+          "只在 WhatsApp 報一聲",
+          "唔使入，等醫生自己記"
+        ],
+        answer: 1,
+        explain: "LD／PULD 要分頁入 rota，唔好入 general。呢個係全院計算都會用到嘅做法，細節以 HA Teams 為準。",
+        points: ["LD／PULD 分頁，勿入 general。", "入完 sheet 後要 reload 確認已 save。", "以當期 HA Teams 為準。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬睇 MO rota（虛構）：有人放短 AL，同事想略過藍色放假格加快。較適切的是？",
+        options: [
+          "略過藍格，反正已放假",
+          "放假藍／SKIP 黃／OFF 黑；短 AL 必須保留 SKIP，勿略過藍",
+          "把 SKIP 改成 OFF 就得",
+          "刪走黃格以免混淆"
+        ],
+        answer: 1,
+        explain: "MO rota 色：放假藍／SKIP 黃／OFF 黑。短 AL 必須保留 SKIP，唔好略過藍色放假格。",
+        points: ["藍＝放假、黃＝SKIP、黑＝OFF。", "短 AL 保留 SKIP。", "大 rota 派醫生，move-in／派房 rota 派病房，兩套分開。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬分症（虛構）：CSD Diagnosis 寫住 LD+SA dual。C7 收唔收？",
+        options: [
+          "有 LD 就一定 C7 收",
+          "CSD Diagnosis＝LD 先 C7 收；其餘 Dx（含 LD+SA dual）→ B7 等（跟當期規則）",
+          "全部改去 C9",
+          "護士自己決定收邊個 ward"
+        ],
+        answer: 1,
+        explain: "C7 收症睇 CSD Diagnosis：LD 先入 C7。其餘 Dx，包括 LD+SA dual，跟當期規則去 B7 等，唔好因為見到 LD 就一律收。",
+        points: ["純 LD 先 C7。", "dual／其他 Dx 跟當期規則。", "唔好發明自己嘅分症口訣。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7本位運作",
+        q: "模擬照顧（虛構）：clozapine／LD 腸塞高危病人。較適切的做法是？",
+        options: [
+          "腸塞唔使特別記",
+          "BO chart 寫底；沖涼前觀察；laxative 須足夠饮水",
+          "一律停所有 laxative",
+          "只在出院先記一筆"
+        ],
+        answer: 1,
+        explain: "C7 腸塞高危（尤其 clozapine／LD）要喺 BO chart 寫底，沖涼前觀察，laxative 要有足夠饮水。Withhold 藥病人：TPR 獨立放藥紙籃，提醒伙記。",
+        points: ["BO chart 寫底＋沖涼前觀察。", "laxative 要足夠饮水。", "Withhold 藥：TPR 獨立籃提醒伙記。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7本位運作",
+        q: "模擬見症（虛構）：醫生想喺護士站見病人。較適切的是？",
+        options: [
+          "護士站方便，喺度見就得",
+          "盡量請 MO 回 consultation room 見症；4 條 key 掛匙箱給 MO 自取，用後鎖門（護士站有潛在危險物品）",
+          "改去大廳見，當探病",
+          "請醫生用 Electronic Dashboard 當 CMS 見症"
+        ],
+        answer: 1,
+        explain: "護士站有潛在危險物品，盡量請 MO 回 consultation room。Consultation room keys（4 條）掛匙箱給 MO 自取，用後鎖門。Dashboard 唔好給醫生用嚟當 CMS 見症。",
+        points: ["見症回 consultation room。", "4 條匙掛箱、用後鎖門。", "Dashboard 勿給醫生作 CMS 見症。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7搬遷／過渡",
+        q: "模擬新人跟更（虛構）：同事仍把搬遷日程同過渡鎖匙當每日 SOP。較適切的是？",
+        options: [
+          "繼續當現行每日必做",
+          "多數已完結，屬歷史事件；已完成則勿再當現行；如仍遇過渡指示 → 以當期 email／經理為準",
+          "全部銷毁、以後唔使理任何經理指示",
+          "抄去 C9 當新院流程"
+        ],
+        answer: 1,
+        explain: "搬遷日程／過渡鎖匙／搬病人當日清單多數已完結，唔好再當現行 SOP。如果仍然收到過渡指示，以當期 email／經理為準。",
+        points: ["已完成嘅搬遷清單＝歷史。", "未完結先跟當期經理／email。", "唔好把過渡做法寫成永遠 SOP。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬轉介（虛構）：PICU 想轉 PACU。較適切的理解是？",
+        options: [
+          "PACU 一定收，包括 TT out",
+          "只收 informal（HA Team waitlist）；PACU 不收 TT out（以當期為準）",
+          "全部當普通轉 ward",
+          "護士站自己加床就得"
+        ],
+        answer: 1,
+        explain: "PICU→PACU 只收 informal（HA Team waitlist），PACU 不收 TT out。細節以當期為準。",
+        points: ["informal／waitlist 先考慮。", "PACU 不收 TT out。", "以當期指示為準。"]
+      },
+      {
+        source: "C7專項",
+        category: "C7收症／Rota",
+        q: "模擬編更（虛構）：有人用「大 rota」同時派醫生又派病房。較適切的是？",
+        options: [
+          "一套 rota 可以兩用",
+          "大 rota＝派醫生；move-in／派房 rota＝派病房——兩套分開",
+          "只睇 WhatsApp 口頭就得",
+          "全部跟 C9 call list"
+        ],
+        answer: 1,
+        explain: "大 rota 同 move-in／派房 rota 係兩套：一個派醫生，一個派病房。唔好混用。P1／P2 表交文員 outtray→CND，並上 HA Teams 填 file。",
+        points: ["派醫生同派房分開兩套 rota。", "P1／P2：文員 outtray→CND＋HA Teams。", "PCHOS eDiary 新症等 CMO 第一次 interview 用 Medical appointment 註明來源。"]
+      },
+      {
+        source: "現行指引",
+        category: "事故通報／緊急",
+        q: "模擬緊急（虛構）：病房有人要真正救命／000。較適切的做法是？",
+        options: [
+          "打舊緊急電話（非 3999）",
+          "打 3999，講明「000／緊急／救命」；真正 000 再直接 Ambulance control",
+          "只在 CMS book P1，等幾耐都得",
+          "先完成其他文書再打電話"
+        ],
+        answer: 1,
+        explain: "真正緊急／救命打 3999，講明 000／緊急／救命。真正 000 要直接 Ambulance control。CMS book P1 逾 5 分鐘無回覆亦要 control。舊緊急電話已取代。",
+        points: ["救命＝3999。", "真正 000 → Ambulance control。", "SABS 填正確 location＋病房電話。"]
+      },
+      {
+        source: "現行指引",
+        category: "用藥／e-Vital",
+        q: "模擬派藥（虛構）：大廳有人、睡房都有人。較適切的派藥做法是？",
+        options: [
+          "叫 PCA 把藥送到床邊（包括送藥）",
+          "Zoning：先大廳，再推藥車入房；禁止送藥（含禁止 PCA 送藥）；一人完成執／派／簽",
+          "兩人一齊分開執藥再各自派",
+          "三餐期間唔使清睡房"
+        ],
+        answer: 1,
+        explain: "派藥兩大守則：zoning（先大廳再推藥車入房，禁止送藥，包括 PCA）；同一人完成執／派／簽。DDA 必須兩人核對簽名。三餐前盡量清活動病人出廳並鎖睡房門，完成派藥後才回房。",
+        points: ["禁止送藥（含 PCA）。", "一人執／派／簽；DDA 兩人核對。", "三餐前清廳、鎖睡房。"]
+      },
+      {
+        source: "現行指引",
+        category: "用藥／e-Vital",
+        q: "模擬取藥（虛構）：Omnicell 開唔到門。較適切的是？",
+        options: [
+          "去舊址，並必 call DWM",
+          "Omnicell 在 BC-2-044 拍卡；只填 Omnicell form；開唔到門 call Duty Foreman 2752 3974",
+          "影 MAR 代替 form",
+          "自己撬門再補記錄"
+        ],
+        answer: 1,
+        explain: "Omnicell 而家係 BC-2-044，拍卡取藥，只填 Omnicell form，唔使影 MAR。開唔到門 call Duty Foreman 2752 3974（曾報／後備待確認：3975）。舊址／必 call DWM 已取代。",
+        points: ["位置：BC-2-044。", "Foreman：2752 3974（3975 待確認）。", "只填 Omnicell form，勿影 MAR。"]
+      },
+      {
+        source: "現行指引",
+        category: "收症／入院",
+        q: "模擬新症（虛構）：DMO 已睇過 cover sheet，同事想即刻抽起。較適切的是？",
+        options: [
+          "DMO 睇完就可以抽",
+          "所有 New admission／TTO 夾新排版 cover sheet；須 CMO 完成 admission procedure 先可以抽起",
+          "護士自己簽就得",
+          "可以不夾 cover sheet"
+        ],
+        answer: 1,
+        explain: "2026-08-03 起，New admission／TTO 都要夾新排版 cover sheet。DMO 睇完唔算，要 CMO 完成 admission procedure 先抽。",
+        points: ["DMO 睇完 ≠ 可以抽。", "等 CMO 完成 admission。", "實際以部門最新排版為準。"]
+      },
+      {
+        source: "現行指引",
+        category: "文件／法律／出院",
+        q: "模擬轉 L1（虛構）：CMS Transfer 應該點選先有藥？",
+        options: [
+          "隨便選一個 paediatric 相關項",
+          "必須選 “CH: Child & Adolescent”，否則無藥；收回 L1 須醫生重開紙本 MAR",
+          "唔使選，藥會自動跟",
+          "只寫 nursing note 就有藥"
+        ],
+        answer: 1,
+        explain: "轉 L1（IPMOE）時 CMS Transfer 必須選 “CH: Child & Adolescent”，否則無藥。收回 L1 要醫生重開紙本 MAR。",
+        points: ["選 CH: Child & Adolescent。", "選錯就無藥。", "收回 L1 → 重開紙本 MAR。"]
+      },
+      {
+        source: "現行指引",
+        category: "文件／法律／出院",
+        q: "模擬轉院（虛構）：寫 transfer slip 時 special precaution 應該點？",
+        options: [
+          "得閒先寫一兩句",
+          "transfer slip 藥欄抄齊；MAR＋Nursing Note 標 page no.；special precaution 寫齊過往 risks（可抄 Dashboard Other Risk）",
+          "只寫而家見到嘅行為",
+          "等接收 ward 自己問"
+        ],
+        answer: 1,
+        explain: "轉出要藥欄抄齊、MAR／Nursing Note 標頁，而且 special precaution 要寫齊過往 risks，可以抄 Dashboard Other Risk。",
+        points: ["藥欄抄齊、標頁碼。", "過往 risks 寫齊。", "可抄 Dashboard Other Risk。"]
+      },
+      {
+        source: "現行指引",
+        category: "文件／法律／出院",
+        q: "模擬出院（虛構）：病人 DAMA。CMS code 較適切的是？",
+        options: [
+          "HOME WITH FU",
+          "DAMA（並做 Telecare）",
+          "只寫 nursing note，唔使 code",
+          "用 ABSCOND 代替"
+        ],
+        answer: 1,
+        explain: "DAMA 要用 code DAMA，並做 Telecare，唔好用 HOME WITH FU。CPS planned DC 最少提前 3 個工作天 referral，DAMA 做唔到呢個時限。",
+        points: ["Code 用 DAMA，勿 HOME WITH FU。", "記得 Telecare。", "去 AED／瑪記：一出病房即 CMS discharge。"]
+      },
+      {
+        source: "現行指引",
+        category: "用藥／e-Vital",
+        q: "模擬夜更（虛構）：e-Vital 晚間時序較適切的是？",
+        options: [
+          "下午 5 點先量 BP 再開餐",
+          "18:00 開餐 → 量 BP（官方 7pm，勿早於 6pm）→ 派藥",
+          "先派齊藥再隨便量",
+          "夜間可以唔跟 frequency"
+        ],
+        answer: 1,
+        explain: "晚間時序：18:00 開餐 → BP → 派藥。BP 官方 7pm，唔好早於 6pm。e-Vital 仍要依處方 frequency。",
+        points: ["開餐 → BP → 派藥。", "BP 勿早於 6pm。", "依處方 frequency；用後充電。"]
+      },
+      {
+        source: "現行指引",
+        category: "文件／法律／出院",
+        q: "模擬夜更存款（虛構）：Night deposit 應該去邊？",
+        options: [
+          "舊址繼續用",
+          "BC 座地下",
+          "護士站夾萬就當 deposit",
+          "藥房 2/F 順便存"
+        ],
+        answer: 1,
+        explain: "Night deposit 而家係 BC 座地下，舊址已取代。出院藥則往 Pharmacy（2/F Blk BC）取，唔好同 deposit 地點搞亂。",
+        points: ["Night deposit：BC 座地下。", "出院藥：Pharmacy 2/F BC。", "唔好沿用舊址。"]
+      },
+      {
+        source: "現行指引",
+        category: "文件／法律／出院",
+        q: "模擬出院藥（虛構）：Supporting Service 話已經停送。較適切的是？",
+        options: [
+          "繼續等 Supporting Service 送藥",
+          "職員／病人往 Pharmacy（2/F Blk BC）取；緊急可由 OPA 行但先電話藥房；其餘用 ADS",
+          "全部叫 PCA 外出買藥",
+          "病人自己決定要唔要藥"
+        ],
+        answer: 1,
+        explain: "Supporting Service 停送出院藥後，改為 Pharmacy 2/F BC 自取／派職員取。緊急先電話藥房再考慮 OPA，其餘用 ADS。",
+        points: ["取藥地：Pharmacy 2/F BC。", "緊急 OPA 前先電話藥房。", "其餘 ADS。"]
+      },
+      {
+        source: "現行指引",
+        category: "文件／法律／出院",
+        q: "模擬法律 due（虛構）：Form 123／4 due 應該入邊？",
+        options: [
+          "只靠水牌就得",
+          "F123／4 due 必須 Electronic Dashboard＋PCHOS 雙入；DASA／SO 可只入 dashboard",
+          "只入 PCHOS",
+          "只入 dashboard"
+        ],
+        answer: 1,
+        explain: "水牌唔再係唯一提示。F123／4 due 必須 dashboard＋PCHOS 雙入。DASA／SO 可以只入 dashboard。Form 4／7 用日曆逐日計 due。",
+        points: ["Legal due：Dashboard＋PCHOS。", "DASA／SO 可只入 dashboard。", "F4／F7 日曆計 due，due 前三日 PCHOS。"]
+      },
+      {
+        source: "現行指引",
+        category: "用藥／e-Vital",
+        q: "模擬 clozapine 監測（虛構）：同事想用舊 N／C2–4／Monitoring Chart fax 去 CND。較適切的是？",
+        options: [
+          "照 fax，舊表仍然有效",
+          "舊 N／C2–4／Monitoring Chart 已 obsolete——勿再 fax CND",
+          "改 fax 去總機",
+          "只 fax 封面就得"
+        ],
+        answer: 1,
+        explain: "Clozapine 舊 N／C 表同 Monitoring Chart 已停用，唔好再 fax CND。",
+        points: ["舊表 obsolete。", "停 fax CND。", "跟而家部門監測安排。"]
+      },
+      {
+        source: "現行指引",
+        category: "用藥／e-Vital",
+        q: "模擬核藥（虛構）：藥袋、CCDS 同 Omnicell 顯示唔一致。較適切的是？",
+        options: [
+          "以 CCDS 為準就得",
+          "以藥袋核對，並 double check",
+          "以 Omnicell 螢幕為準，唔使再對",
+          "問病人「和平常一樣嗎」就給"
+        ],
+        answer: 1,
+        explain: "藥袋 vs CCDS／Omnicell 不一致時，以藥袋核對並 double check。病人質疑劑量時都係同一原則。",
+        points: ["以藥袋為準。", "再 double check。", "High Alert 要 independent checking。"]
+      },
+      {
+        source: "現行指引",
+        category: "鎖匙／日常／人力",
+        q: "模擬 8 號風球／黑雨（虛構）：邊啲人必須返？",
+        options: [
+          "全院所有人即刻返，無例外",
+          "A／P／N＝essential 須返；其他候命，解除後 2 小時內到",
+          "全部喺屋企等第二日",
+          "只有經理返"
+        ],
+        answer: 1,
+        explain: "8 號／黑雨：A／P／N 係 essential，須返。其他人候命，解除後 2 小時內到。",
+        points: ["A／P／N essential 須返。", "其他人候命。", "解除後 2 小時內到。"]
+      },
+      {
+        source: "實用清單",
+        category: "收症／入院",
+        q: "模擬入 rota（虛構）：剛喺 HA Teams 填完 admission sheet。下一步較適切的是？",
+        options: [
+          "當已經 save，即刻叫車",
+          "入完要 reload 確認已 save；未 confirm 本 team 1:1 前，勿叫 AED／OPD book 車",
+          "只截圖 WhatsApp 就當完成",
+          "等第二日先 reload"
+        ],
+        answer: 1,
+        explain: "查當更 Admission rota 以 HA Teams 為準，入完要 reload 確認已 save。未 confirm 本 team 1:1 前，唔好叫 AED／OPD book 車。",
+        points: ["入完 reload 確認 save。", "未 1:1 勿 book 車。", "LD／PULD／老人／Child／AC／瑪記回歸跟當期分頁／排除規則。"]
+      },
+      {
+        source: "實用清單",
+        category: "收症／入院",
+        q: "模擬收症（虛構）：未 confirm 本 team 1:1，AED 催住 book 車。較適切的是？",
+        options: [
+          "先 book 車再慢慢 confirm",
+          "未 confirm 本 team 1:1 前，勿叫 AED／OPD book 車",
+          "叫家屬自己叫的士當 admission",
+          "用私人電話叫車就唔使 1:1"
+        ],
+        answer: 1,
+        explain: "未 confirm 本 team 1:1 之前，唔好通知 AED／OPD book 車，以免車到但無位／無 team。",
+        points: ["1:1 先，車後。", "收症 call 正確分區 DMO。", "Primary nurse：同事一星期 AL 期間不收症。"]
+      },
+      {
+        source: "實用清單",
+        category: "收症／入院",
+        q: "模擬收症（虛構）：他院 escort 同家屬一齊到。較適切的離院路線是？",
+        options: [
+          "留低喺職員𨋢大堂等",
+          "經 Intake→探病入口→訪客𨋢落三樓離院；勿留職員𨋢大堂",
+          "由後樓梯職員通道送走",
+          "請佢哋用 staff 卡出入"
+        ],
+        answer: 1,
+        explain: "隨行家屬／他院 escort 經 Intake→探病入口→訪客𨋢落三樓離院，唔好留喺職員𨋢大堂。",
+        points: ["訪客通道落三樓。", "入口命名：Visitor／Intake／Staff／Back。", "勿留職員𨋢大堂。"]
+      },
+      {
+        source: "實用清單",
+        category: "文件／法律／出院",
+        q: "模擬收症（虛構）：病人話「我無帶私人物品」。個人物品存取記錄點做？",
+        options: [
+          "無物品就唔使簽名",
+          "每病人一張夾排版；有無物品均護士＋病人簽名；封存至出院；轉房簽收",
+          "只由護士代簽加快",
+          "出院先補一張"
+        ],
+        answer: 1,
+        explain: "個人物品存取記錄每病人一張，有無物品都要護士＋病人簽名，封存至出院，轉房要簽收。私家衫用特厚透明膠袋封好入包頭房。",
+        points: ["有無物品都要簽。", "封存至出院；轉房簽收。", "私家衫：特厚透明膠袋入包頭房。"]
+      },
+      {
+        source: "實用清單",
+        category: "用藥／e-Vital",
+        q: "模擬交更（虛構）：e-Vital 見到金色未量，同一次異常讀數。較適切的是？",
+        options: [
+          "異常值先確認／upload，返嚟再算",
+          "每更查金色未量；異常閾值先勿確認／upload；H'stix device 選 A；用後充電",
+          "H'stix 揀邊個 device 都得",
+          "downtime 就空住唔記錄"
+        ],
+        answer: 1,
+        explain: "每更查金色未量。異常閾值唔好亂確認／upload。H'stix device 選 A。Downtime 用經理櫃絕密信封＋retrospective。用後充電。",
+        points: ["金色＝未量，要跟。", "異常勿亂確認。", "device 選 A；downtime 用絕密信封。"]
+      },
+      {
+        source: "實用清單",
+        category: "用藥／e-Vital",
+        q: "模擬派 Inderal／血壓藥（虛構）：e-Vital 顯示 HR 58。較適切的是？",
+        options: [
+          "照派，反正有醫囑",
+          "check HR＞60 先派（iPad／CMS／e-Vital）",
+          "HR＜60 就加倍劑量",
+          "叫 PCA 代決定"
+        ],
+        answer: 1,
+        explain: "Inderal／血壓藥要 check HR＞60 先派。58 未達門檻，應再評估並依醫生／部門指引處理，唔好照派。",
+        points: ["HR＞60 先派。", "用 e-Vital／CMS 核對。", "Panadol 已 max 勿再加 PRN；Dologesic allergy 不可 Panadol。"]
+      },
+      {
+        source: "實用清單",
         category: "感染控制",
-        q: "雙手明顯髒污，或剛處理排泄物後，較適切的手部衛生是？",
+        q: "模擬外勤（虛構）：去碧瑤收化驗，空手就去。較適切的是？",
         options: [
-          "只擦酒精性乾洗手液就夠了",
-          "用肥皂與清水洗手，再依需要使用乾洗手液",
-          "用衣服擦一擦即可繼續工作",
-          "戴著戒指就不必洗手"
+          "得閒先搵紙袋裝",
+          "必須帶膠箱，無則拒收",
+          "用病人外套袋返嚟",
+          "只帶尿杯就得"
         ],
         answer: 1,
-        explain: "酒精性乾洗手液適合雙手無明顯髒污時。當雙手看得見髒污、接觸血液體液或某些腸胃道病原後，應以肥皂與清水洗手。飾品會藏污，應依部門規定處理。",
-        points: ["髒污或排泄物暴露：肥皂洗手。", "無可見髒污：可依指引使用乾洗手液。", "記住「手部衛生五時機」。"]
+        explain: "碧瑤收樣本必須帶膠箱，無則拒收。C. auris／Candida 篩查名單以 ICN 最新 email／表為準。",
+        points: ["必帶膠箱。", "C. auris 對照 ICN 最新名單。", "發燒／傳染病／針傷 → email ICN。"]
       },
       {
-        category: "藥物安全",
-        q: "給藥前最少應核對哪些項目？",
+        source: "實用清單",
+        category: "事故通報／緊急",
+        q: "模擬夜更（虛構）：遠離護士站，電門故障。較適切的是？",
         options: [
-          "只核對藥名即可",
-          "正確的病人、藥物、劑量、途徑、時間，並完成紀錄",
-          "只看藥車格子編號",
-          "只叫病人姓氏，確定有人答應就給藥"
+          "等第二朝工程先算",
+          "隨身 security alarm＋walkie；電門故障用 Break Glass；C9 護士站救命鐘直駁 B9（每週互測）",
+          "只靠大聲叫",
+          "用私人手機群組代替 alarm"
         ],
         answer: 1,
-        explain: "給藥安全仰賴完整核對，而非單一項目。應以至少兩項病人識別資料核對身分，再核對藥物、劑量、途徑與時間，給藥後依規定記錄。只靠床號、藥車位置或面孔並不夠。",
-        points: ["核對病人、藥、量、途徑、時間。", "用腕帶與紀錄，不只靠叫名字。", "給藥後完成紀錄。"]
+        explain: "夜更／遠離護士站要隨身 security alarm＋walkie。電門故障用 Break Glass。C9 救命鐘駁 B9，要每週互測。",
+        points: ["alarm＋walkie 隨身。", "電門故障：Break Glass。", "C9 救命鐘 ↔ B9。"]
       },
       {
-        category: "藥物安全",
-        q: "胰島素、抗凝血劑等高警訊藥物，給藥前較安全的做法是？",
+        source: "實用清單",
+        category: "事故通報／緊急",
+        q: "模擬事件（虛構）：未肯定夠唔夠 AIRS。較適切的第一步是？",
         options: [
-          "自己加快速度完成即可",
-          "由兩位合格人員獨立雙重核對後再給藥",
-          "先給藥，等有空再補簽名",
-          "病人說「和平常一樣」就可以省略核對"
+          "唔講，以免麻煩",
+          "未定是否 AIRS → KCH Risk Alert（先通知經理）；已 submit AIRS → FU email＋cc KCH Risk Alert",
+          "只同朋友講",
+          "等一週睇有無事再報"
         ],
         answer: 1,
-        explain: "高警訊藥物一旦給錯，傷害可能很大。多數機構要求獨立雙人核對（各自計算與核對，而不是一人念、一人點頭）。病人熟悉度不能取代核對流程。",
-        points: ["高警訊藥物要獨立雙重核對。", "先核對再給藥，不可事後補簽。", "以部門藥品清單為準。"]
+        explain: "未定 AIRS 就走 KCH Risk Alert，並先通知經理。Submitted AIRS 後 FU email 而且要 cc KCH Risk Alert。寫清 brief history／DASA score。今次入院有 AIRS／Risk Alert，Discharge Summary remarks 同 ePAF 都要交代。",
+        points: ["未定 → Risk Alert＋通知經理。", "已 submit → FU email cc Risk Alert。", "Discharge Summary＋ePAF 都要寫。"]
       },
       {
-        category: "藥物安全",
-        q: "準備給藥時發現藥錠外觀、劑量標示或包裝與平時不同，應如何處理？",
+        source: "實用清單",
+        category: "病人安全／安檢",
+        q: "模擬安檢（虛構）：收症要做金屬探測。較適切的流程是？",
         options: [
-          "先給一半劑量試試看",
-          "依照自己記得的習慣劑量給藥",
-          "暫停給藥，向藥劑人員或主管查證後再執行",
-          "請病人自行決定要不要吃"
-        ],
-        answer: 2,
-        explain: "外觀或標示異常可能是看錯藥、劑型變更或調劑問題。應暫停，查證醫囑與藥品後再給。自行減量、憑記憶給藥或把決定交給病人，都可能造成傷害。",
-        points: ["有疑就停，查證後再給。", "不要憑記憶或習慣給藥。", "查證過程應記錄。"]
-      },
-      {
-        category: "病人識別與安全",
-        q: "執行治療、檢查或給藥前，正確的病人識別是？",
-        options: [
-          "只叫床號",
-          "使用至少兩項獨立識別資料（如姓名及出生日期），並與腕帶或紀錄核對",
-          "只認面孔，因為已經照顧好幾天",
-          "只看病房門口名牌"
+          "一個人喺大廳公開掃就得",
+          "屏風私隱 → 解釋 → 雙人（一探測一見證）→ 危險品交回家人並記 nursing note",
+          "唔解釋，以免病人拒絕",
+          "只在出院先做一次"
         ],
         answer: 1,
-        explain: "床號、房間號與面孔都可能出錯（換床、相似外貌、訪客坐在床上）。應主動核對至少兩項獨立識別資料，並與腕帶、檢查單或藥單比對，請病人說出資料而不是只回答「對」。",
-        points: ["至少兩項識別資料。", "核對腕帶，不只叫床號。", "請病人說出姓名，避免誘導式問句。"]
+        explain: "金屬探測時機包括收症、探病後回房前、家屬帶物同每日安檢。流程：屏風、解釋、雙人見證，危險品交家人並記 note。每日最少一次環境＋病人安檢；星期日朝早加 weekly 床頭櫃／床／單人房。",
+        points: ["屏風、解釋、雙人。", "危險品交家人＋記 note。", "每日安檢；星期日 weekly 櫃／床。"]
       },
       {
-        category: "病人識別與安全",
-        q: "病人表示對青黴素過敏，但醫囑開立相關抗生素，此時應？",
+        source: "實用清單",
+        category: "病人安全／安檢",
+        q: "模擬包頭（虛構）：病人想用普通金屬筆，同事又想留床頭板。較適切的是？",
         options: [
-          "先給藥再觀察有沒有反應",
-          "暫停給藥，立即通知醫師，並完整記錄過敏史",
-          "把劑量減半後再給",
-          "改由家屬決定要不要注射"
+          "普通筆得，床頭板可留",
+          "只准安全筆；床頭板全拆；有「恤」先留床尾板；防鎅手套查包頭",
+          "普通筆、金屬匙羹都可以",
+          "鬚刨放床頭讓病人自取"
         ],
         answer: 1,
-        explain: "已知或疑似藥物過敏時，不可逕行給藥或自行調整劑量。應暫停、通知開立醫師並依藥劑／過敏流程處理，同時把過敏原、反應型態記入紀錄與識別標示。",
-        points: ["疑似過敏：先停藥再通報。", "不可自行減量試試。", "更新過敏紀錄與標示。"]
+        explain: "尖物／筆管控：只准安全筆。床頭板全拆；有「恤」先留床尾板。禁金屬匙羹；鬚刨職員派發即還。防鎅手套查包頭。",
+        points: ["只准安全筆。", "床頭板全拆；「恤」床尾板。", "鬚刨即派即還；鬆綁回收綁帶及紅帶。"]
       },
       {
-        category: "病人識別與安全",
-        q: "預防住院病人跌倒，下列何者最適切？",
+        source: "實用清單",
+        category: "病人安全／安檢",
+        q: "模擬餵食（虛構）：綁紮中的病人躺住，家屬想瞓餵。較適切的是？",
         options: [
-          "把所有病人都約束起來",
-          "評估跌倒風險，保持呼叫鈴可及、地面乾燥，並協助如廁",
-          "關掉夜燈以免干擾睡眠，讓走道全暗",
-          "禁止所有家屬陪伴"
+          "瞓餵快啲，可以",
+          "必須坐起餵，禁止瞓餵；是否餵食＝護士臨床決定（可餵水）",
+          "一律完全禁食，連水都唔得",
+          "交俾家屬全權決定"
         ],
         answer: 1,
-        explain: "跌倒預防以評估與環境安全為主，而不是一律約束。應維持呼叫鈴可及、鞋履合適、照明足夠、地面乾燥，並對高風險病人加強如廁陪伴。約束有適應症與時限，不能當成常規防跌方法。",
-        points: ["先評估再介入。", "環境：照明、乾燥、呼叫鈴。", "約束不是第一線防跌手段。"]
+        explain: "綁紮餵食必須坐起，禁止瞓餵。餵唔餵係護士臨床決定，可以餵水。探病亦要留意家屬餵食同哽塞風險。",
+        points: ["坐起餵，禁止瞓餵。", "臨床決定；可餵水。", "≥65／MD 最低碎餐；堅持正餐轉介言語治療。"]
       },
       {
-        category: "病人識別與安全",
-        q: "執行輸血前，最關鍵的安全步驟是？",
+        source: "實用清單",
+        category: "探訪／私隱",
+        q: "模擬探病（虛構）：C9 空間同拍攝。較適切的是？",
         options: [
-          "愈快開始愈好，可在走廊先把血接上",
-          "在床邊以兩項識別資料核對病人與血品，確認醫囑與相容性後再輸",
-          "只看血袋顏色是否像血液",
-          "先輸一半，等有空再核對"
+          "無限檯；可以喺醫院範圍自拍上傳",
+          "探病預約；C9 約 6 檯＋1 buffer（以當更 IC 為準）；嚴禁醫院範圍擅自拍攝（HA 附例）",
+          "個別禁探當作全 ward 站立 SOP",
+          "家屬食物唔使檢查"
         ],
         answer: 1,
-        explain: "輸血錯誤可能致命。必須在床邊核對病人身分與血品資料、醫囑及相容性，確認無誤才可開始，並依指引觀察輸血反應。不可憑外觀或事後補核對。",
-        points: ["輸血核對在床邊完成。", "病人與血品都要雙重識別。", "開始後持續觀察反應。"]
+        explain: "C9 探病約 6＋1 檯，以當更 IC／最新安排為準。醫院範圍禁擅自拍攝。個別禁探係 CMO 個案指示，唔係站立 SOP。家屬送食物要面前詳細檢查。",
+        points: ["C9：6＋1 檯。", "禁擅自拍攝。", "個別禁探跟 CMO order，非 SOP。"]
       },
       {
-        category: "生命徵象",
-        q: "要測量血壓時，病人剛走回病房且正在說話，較適切的做法是？",
+        source: "實用清單",
+        category: "文件／法律／出院",
+        q: "模擬運送（虛構）：住院病人 NEATS 上車，司機叫你去地面。較適切的是？",
         options: [
-          "立刻測量，結果一定準確",
-          "讓病人坐下休息、保持安靜後，再依標準流程測量",
-          "隔著厚外套測量以節省時間",
-          "只量一次後，之後都沿用這個數字"
+          "跟司機去地面就得",
+          "NEATS 住院上車：LGM／F；勿被叫去地面則應要求返 LG",
+          "全部用普通的士",
+          "Escort 回程禁止用 NEATS"
         ],
         answer: 1,
-        explain: "活動、說話、衣物過厚與姿勢不正確都會影響血壓讀數。應讓病人休息、採正確姿勢、選擇合適壓脈帶後再量。異常值應再確認，並依病情趨勢觀察，而不是永遠沿用單一次結果。",
-        points: ["休息後再量，避免邊走邊量。", "壓脈帶尺寸與姿勢要正確。", "異常值應複測並通報。"]
+        explain: "NEATS 住院上車係 LGM／F。如果被叫去地面，應要求返 LG。Escort 回程：AED 優先 NEATS。ADS 起終點填 C9。",
+        points: ["上車：LGM／F。", "被叫去地面 → 要求返 LG。", "ADS 起終點填 C9；備註寫交回物品。"]
       },
       {
-        category: "生命徵象",
-        q: "成人休息時心跳每分鐘約 42 下，並表示頭暈，你應如何處理？",
+        source: "實用清單",
+        category: "鎖匙／日常／人力",
+        q: "模擬返工（虛構）：未到 ward 就想取 key，病假想交紙本。較適切的是？",
         options: [
-          "當成運動員正常現象，不需處理",
-          "立即再確認生命徵象，評估意識與循環，並依指引通報",
-          "請病人自行慢跑把心跳跑高",
-          "等交班時再順便提一下"
+          "大堂先取 key；紙本病假交人事",
+          "返到 ward 才取 key；還 key 只交 IC／2nd IC；病假手機上傳（注意 30 日上限），人事不收紙本",
+          "PO／Clerk 都可以代收所有 key",
+          "Learner Access Card 唔使點算"
         ],
         answer: 1,
-        explain: "心跳過慢合併頭暈可能是心輸出量不足。即使有人平時心跳較慢，出現症狀就應立即再測、評估意識、膚色、血壓，並依早期預警或部門流程通報，不可拖延到交班。",
-        points: ["看數值也要看症狀。", "異常生命徵象要再確認並通報。", "不要把處理留到交班。"]
+        explain: "鎖匙實名：返到 ward 先取；還 key 只交 IC／2nd IC。病假用手機上傳，注意系統 30 日上限，人事不收紙本。Learner Access Card 每更點算。",
+        points: ["到 ward 先取 key；還 IC／2nd IC。", "病假手機上傳，30 日上限。", "Learner Access Card 每更點算。"]
       },
       {
-        category: "生命徵象",
-        q: "血氧飽和度突然下降，病人呼吸費力、說話不成句，優先做法是？",
+        source: "實用清單",
+        category: "感染控制",
+        q: "模擬篩查（虛構）：新症可能要做 Candida／C. auris，同事憑記憶話「九西全部都要做」。較適切的是？",
         options: [
-          "先去完成其他病人的點滴再回來",
-          "留在病人旁，評估呼吸道與呼吸，依醫囑或指引給氧並呼叫協助",
-          "把血氧機拿掉以免一直響",
-          "只把數字寫進紀錄，不需通知任何人"
+          "憑舊記憶一律篩查或一律豁免",
+          "對照 ICN 最新名單（HA Teams／ICN email／表為準）；爆發院舍 → PCR",
+          "只做普通細菌培養就當 C. auris",
+          "出院先補做"
         ],
         answer: 1,
-        explain: "呼吸窘迫是緊急情況。應先確保現場安全與呼吸道通暢，給氧與呼叫協助，同時持續監測。關掉警報或離開病人去完成其他工作，都可能延誤救援。",
-        points: ["先處理氣道與呼吸。", "留在病人旁並呼叫協助。", "不要關掉警報來「解決」問題。"]
+        explain: "C. auris／Candida 篩查名單常改，要以 ICN 最新 email／表為準，唔好背死「全部要做」或「全部豁免」。爆發老人院考慮 C. auris PCR。CPE：side／single＋contact；Flu A：單人房＋口罩；疑 TB：單人房＋N95。",
+        points: ["篩查名單跟 ICN，唔好憑記憶。", "爆發院舍 → PCR（跟當期）。", "CPE／Flu A／疑 TB 跟對應隔離。"]
       },
       {
-        category: "文件記錄",
-        q: "剛完成一項重要處置後，護理紀錄應如何處理？",
+        source: "現行指引",
+        category: "病人安全／安檢",
+        q: "模擬急救（虛構）：C9 指定急救位同氧氣／吸引。較適切的是？",
         options: [
-          "等下班一次補寫全部內容",
-          "盡快、客觀、完整記錄時間、內容、病人反應與執行者",
-          "請同事用你的帳號代為簽署",
-          "只寫在自己的便條紙，不進入正式紀錄"
+          "邊張床近就用邊張",
+          "指定急救位 A34（wall O₂／suction）＋E-trolley",
+          "只用大廳梳化",
+          "去 B9 先可以急救"
         ],
         answer: 1,
-        explain: "紀錄應及時、真實、可追溯。延後補記容易漏掉關鍵變化；借用帳號或只寫便條都不符合文件與法律要求。應記錄事實而非猜測，並依機構規定簽署。",
-        points: ["即時記錄，不要整批補寫。", "不可借用他人帳號。", "寫觀察到的事實與時間。"]
+        explain: "C9 指定急救位係 A34，有 wall O₂／suction，並配合 E-trolley。救命鐘駁 B9 係呼叫支援，唔等於急救要搬去 B9 先做。",
+        points: ["C9 急救位：A34。", "wall O₂／suction＋E-trolley。", "實際佈局以部門現場為準。"]
       },
       {
-        category: "文件記錄",
-        q: "書寫或輸入護理紀錄時，下列何者正確？",
+        source: "現行指引",
+        category: "病人安全／安檢",
+        q: "模擬火警演習（虛構）：大門燈號同走火通道。較適切的是？",
         options: [
-          "使用自己發明的縮寫，同事應該看得懂",
-          "使用機構核准用語，內容清楚；若需更正，依規定修正並可辨識原文",
-          "把尚未證實的猜測寫成確定診斷",
-          "用塗黑方式讓錯誤內容完全看不見"
+          "正常應該上紅下綠",
+          "大門電磁正常上綠下紅；火警解鎖走火通道後須留守崗位防逃",
+          "解鎖後全部職員跟住疏散，通道唔使有人",
+          "燈號壞咗都唔使報修"
         ],
         answer: 1,
-        explain: "不核准的縮寫容易造成用藥或處置錯誤。紀錄應清楚、客觀。紙本更正通常是劃線、簽名、註記時間，而不是塗黑；電子紀錄依系統更正軌跡處理。",
-        points: ["只用核准縮寫與用語。", "更正要可追溯，不可塗黑。", "區分事實與判斷。"]
+        explain: "大門電磁正常係上綠下紅。火警解鎖走火通道後要留守崗位，防止趁亂離開。走火梯旁 ensuite 唔好堆雜物。",
+        points: ["上綠下紅。", "解鎖走火通道 → 留守防逃。", "異常燈號要檢查／報修。"]
       },
       {
-        category: "文件記錄",
-        q: "發現給錯藥，或差一點給錯藥時，應如何做？",
+        source: "實用清單",
+        category: "收症／入院",
+        q: "模擬收症（虛構）：未滿 18 歲病人入成人病房。較適切的是？",
         options: [
-          "隱瞞以免被責備",
-          "先確保病人安全，再依機構流程立即呈報與記錄",
-          "只私下告訴朋友，不要寫進系統",
-          "等一週後看病人有沒有事再決定"
+          "同成人一齊大房、一齊沖涼無分別",
+          "單人房或第一格，並與成人分時洗澡如廁",
+          "一定要轉去另一間醫院先收",
+          "只在夜更先分開"
         ],
         answer: 1,
-        explain: "病人安全事件與差錯（包括未造成傷害的近誤）都應呈報，目的是改善系統，不是懲罰個人。第一優先是評估與穩定病人，再依異常事件流程通報主管與相關單位。",
-        points: ["先顧病人，再呈報。", "近誤也值得報告。", "呈報是學習，不是績效扣分遊戲。"]
-      },
-      {
-        category: "職業安全",
-        q: "被使用過的針頭刺到後，第一步較正確的處理是？",
-        options: [
-          "繼續把剩下的工作做完再處理",
-          "用力擠壓傷口並用嘴巴把血吸出",
-          "立即用清水或生理食鹽水沖洗傷口，依職業暴露流程呈報並接受評估",
-          "自己塗藥就好，不必告訴任何人"
-        ],
-        answer: 2,
-        explain: "針刺後應立刻沖洗，不要用嘴吸或過度擠壓。接著依職業暴露流程通報、完成風險評估與必要追蹤。延後處理或隱瞞會影響預防性投藥時機與同事安全。",
-        points: ["立即沖洗，不要用嘴吸。", "依職業暴露流程呈報。", "保留針具來源資訊供評估。"]
-      },
-      {
-        category: "職業安全",
-        q: "協助移動或翻身病人時，較安全的做法是？",
-        options: [
-          "彎腰用背部力量硬拉",
-          "先評估病人能力，調整床高，用腿力，並使用輔具或尋求協助",
-          "一次抱起超過自己能力的重量以節省人力",
-          "站在剛拖地、仍濕滑的地面快速轉身"
-        ],
-        answer: 1,
-        explain: "肌肉骨骼傷害是護理常見職業傷害。應評估病人配合度與體重、調整工作高度、保持脊柱中立、用下肢發力，並善用滑布、移位機或同事協助。濕滑地面與扭轉最危險。",
-        points: ["先評估再搬。", "調床高、用腿力、少扭轉。", "不要硬扛，請人幫忙或用輔具。"]
-      },
-      {
-        category: "職業安全",
-        q: "血液或體液濺入眼睛時，應如何處理？",
-        options: [
-          "用手揉眼睛把異物揉掉",
-          "立即用清水或洗眼設備沖洗，並依暴露流程呈報",
-          "等下班再回家處理",
-          "戴上眼鏡遮住即可，不必沖洗"
-        ],
-        answer: 1,
-        explain: "黏膜暴露應立刻到洗眼設備或用大量清水沖洗，避免揉眼造成更多損傷。之後依血液體液暴露流程呈報、記錄與追蹤。延後處理會增加感染風險。",
-        points: ["立刻沖洗，不要揉眼。", "知道洗眼設備位置。", "依暴露流程呈報與追蹤。"]
+        explain: "未滿 18 歲：單人房或第一格，並與成人分時洗澡如廁。",
+        points: ["單人房或第一格。", "與成人分時洗澡如廁。", "實際安排跟部門同當更 IC。"]
       }
     ];
 
@@ -709,6 +1196,7 @@
     var STEP_MS = 135;
     var LETTERS = ["A", "B", "C", "D"];
     var FOOD_COLORS = ["#e0b03a", "#5aa9e6", "#d46eb5", "#7bc96f"];
+    var LANE_COLORS = ["rgba(224,176,58,0.28)", "rgba(90,169,230,0.28)", "rgba(212,110,181,0.28)", "rgba(123,201,111,0.28)"];
 
     var canvas = document.getElementById("gameCanvas");
     var ctx = canvas.getContext("2d");
@@ -723,15 +1211,26 @@
     var paused = false;
     var running = false;
     var awaitingMove = true;
+    var gameMode = "snake";
     var dir = { x: 1, y: 0 };
     var pendingDir = null;
     var snake = [];
     var foods = [];
     var lastStep = 0;
+    var lastTs = 0;
     var cell = 20;
     var originX = 0;
     var originY = 0;
     var animId = 0;
+    var bird = {
+      y: 0,
+      vy: 0,
+      r: 16,
+      gateX: 0,
+      gateW: 70,
+      scored: false,
+      wing: 0
+    };
 
     var order = [];
     var qIndex = 0;
@@ -747,6 +1246,14 @@
         a[j] = t;
       }
       return a;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
 
     function ensureAudio() {
@@ -788,6 +1295,7 @@
         setTimeout(function () { tone(147, 0.25, "sawtooth", 0.05); }, 120);
       }
       if (kind === "click") tone(440, 0.05, "square", 0.03);
+      if (kind === "flap") tone(660, 0.06, "square", 0.03);
     }
 
     function showScreen(id) {
@@ -798,6 +1306,17 @@
 
     function setPauseEnabled(on) {
       document.getElementById("btnPause").disabled = !on;
+    }
+
+    function overlayOpen() {
+      return overlays.result.classList.contains("show") || overlays.pause.classList.contains("show");
+    }
+
+    function playWidth() {
+      return canvas.clientWidth || 1;
+    }
+    function playHeight() {
+      return canvas.clientHeight || 1;
     }
 
     function resizeCanvas() {
@@ -838,12 +1357,27 @@
       ];
     }
 
+    function resetBird() {
+      var w = playWidth();
+      var h = playHeight();
+      bird.y = h * 0.5;
+      bird.vy = 0;
+      bird.r = Math.max(14, Math.min(22, h * 0.048));
+      bird.gateW = Math.max(64, Math.min(96, w * 0.16));
+      bird.gateX = w + 24;
+      bird.scored = false;
+      bird.wing = 0;
+      awaitingMove = true;
+      moveHint.classList.remove("hidden");
+    }
+
     function prepareQuestion() {
       var raw = QUESTIONS[order[qIndex]];
       var map = [0, 1, 2, 3];
       map = shuffle(map);
       current = {
         sourceIndex: order[qIndex],
+        source: raw.source,
         category: raw.category,
         q: raw.q,
         options: map.map(function (i) { return raw.options[i]; }),
@@ -852,19 +1386,23 @@
         points: raw.points
       };
       document.getElementById("progressText").textContent = "第 " + (qIndex + 1) + " / " + QUESTIONS.length + " 題";
-      document.getElementById("catText").textContent = current.category;
+      document.getElementById("catText").textContent = current.source + " · " + current.category;
       var correctCount = answers.filter(function (a) { return a.correct; }).length;
       document.getElementById("scoreText").textContent = "答對 " + correctCount;
       document.getElementById("questionText").textContent = current.q;
       document.getElementById("optionsBox").innerHTML = current.options.map(function (text, i) {
-        return '<div class="opt"><span class="tag">' + LETTERS[i] + "</span>" + text + "</div>";
+        return '<div class="opt"><span class="tag">' + LETTERS[i] + "</span>" + escapeHtml(text) + "</div>";
       }).join("");
       document.getElementById("statusLine").textContent = "分數只是學習回饋，不是績效考核";
-      resetSnake();
-      placeFoods();
+      if (gameMode === "bird") resetBird();
+      else {
+        resetSnake();
+        placeFoods();
+      }
     }
 
     function setDir(nx, ny) {
+      if (gameMode !== "snake") return;
       if (!running || paused) return;
       if (awaitingMove) {
         awaitingMove = false;
@@ -879,6 +1417,18 @@
       pendingDir = { x: nx, y: ny };
     }
 
+    function flap() {
+      if (gameMode !== "bird") return;
+      if (!running || paused || overlayOpen()) return;
+      if (awaitingMove) {
+        awaitingMove = false;
+        moveHint.classList.add("hidden");
+      }
+      bird.vy = -Math.max(7.2, playHeight() * 0.019);
+      bird.wing = 1;
+      sfx("flap");
+    }
+
     function wrap(v, max) {
       if (v < 0) return max - 1;
       if (v >= max) return 0;
@@ -886,7 +1436,7 @@
     }
 
     function stepSnake() {
-      if (!running || paused || awaitingMove) return;
+      if (!running || paused || awaitingMove || gameMode !== "snake") return;
       if (pendingDir) {
         if (!(pendingDir.x === -dir.x && pendingDir.y === -dir.y)) dir = pendingDir;
         pendingDir = null;
@@ -915,10 +1465,53 @@
       }
     }
 
+    function laneFromY(y, h) {
+      var laneH = h / 4;
+      var lane = Math.floor(y / laneH);
+      if (lane < 0) lane = 0;
+      if (lane > 3) lane = 3;
+      return lane;
+    }
+
+    function stepBird(dt) {
+      if (!running || paused || awaitingMove || gameMode !== "bird" || bird.scored) return;
+      var w = playWidth();
+      var h = playHeight();
+      var g = h * 0.00125 * dt;
+      var maxV = h * 0.02;
+      bird.vy = Math.min(maxV, bird.vy + g);
+      bird.y += bird.vy * (dt / 16.67);
+      if (bird.wing > 0) bird.wing -= dt / 180;
+      var margin = bird.r + 3;
+      if (bird.y < margin) {
+        bird.y = margin;
+        if (bird.vy < 0) bird.vy = 0;
+      }
+      if (bird.y > h - margin) {
+        bird.y = h - margin;
+        if (bird.vy > 0) bird.vy = 0;
+      }
+      var speed = Math.max(2.4, w * 0.0052);
+      bird.gateX -= speed * (dt / 16.67);
+      var birdX = w * 0.22;
+      var lane = laneFromY(bird.y, h);
+      var passed = birdX >= bird.gateX + bird.gateW * 0.4;
+      var gone = bird.gateX + bird.gateW < birdX - bird.r;
+      if (!bird.scored && (passed || gone)) {
+        bird.scored = true;
+        running = false;
+        sfx("eat");
+        finishRound(lane);
+      }
+      canvas.dataset.lane = String(lane);
+      canvas.dataset.gateX = String(Math.round(bird.gateX));
+    }
+
     function finishRound(choice) {
       var correct = choice === current.answer;
       answers.push({
         sourceIndex: current.sourceIndex,
+        source: current.source,
         category: current.category,
         q: current.q,
         options: current.options.slice(),
@@ -931,17 +1524,18 @@
       sfx(correct ? "ok" : "bad");
       var modal = document.getElementById("resultModal");
       var badge = correct ? '<span class="badge ok">正確</span>' : '<span class="badge bad">再想想</span>';
-      var chosen = LETTERS[choice] + ". " + current.options[choice];
-      var right = LETTERS[current.answer] + ". " + current.options[current.answer];
+      var chosen = LETTERS[choice] + ". " + escapeHtml(current.options[choice]);
+      var right = LETTERS[current.answer] + ". " + escapeHtml(current.options[current.answer]);
       var more = qIndex < QUESTIONS.length - 1;
       modal.innerHTML =
         badge +
         "<h2 style='margin:6px 0 10px;font-size:22px;'>" + (correct ? "答對了" : "這題還可以再看一次") + "</h2>" +
+        '<p style="font-size:14px;color:#5c6e72;">' + escapeHtml(current.source) + " · " + escapeHtml(current.category) + "</p>" +
         '<p style="font-size:15px;"><strong>你的選擇：</strong>' + chosen + "</p>" +
         (correct ? "" : '<p style="font-size:15px;"><strong>較適切的答案：</strong>' + right + "</p>") +
-        '<p class="explain"><strong>解釋：</strong>' + current.explain + "</p>" +
+        '<p class="explain"><strong>解釋：</strong>' + escapeHtml(current.explain) + "</p>" +
         "<p><strong>學習重點</strong></p><ul class='learn'>" +
-        current.points.map(function (p) { return "<li>" + p + "</li>"; }).join("") +
+        current.points.map(function (p) { return "<li>" + escapeHtml(p) + "</li>"; }).join("") +
         "</ul>" +
         '<p class="score-note">分數只是學習回饋，不是績效考核。本遊戲只供訓練用途，實際工作請依照部門指引。</p>' +
         '<button class="primary" id="btnNext" type="button">' + (more ? "下一題" : "查看結果") + "</button>";
@@ -961,36 +1555,41 @@
       });
     }
 
-    function showResults() {
-      showScreen("screenResults");
+    function groupRows(list, key) {
       var cats = [];
       var map = {};
-      answers.forEach(function (a) {
-        if (!map[a.category]) {
-          map[a.category] = { name: a.category, ok: 0, total: 0 };
-          cats.push(map[a.category]);
+      list.forEach(function (a) {
+        var name = a[key];
+        if (!map[name]) {
+          map[name] = { name: name, ok: 0, total: 0 };
+          cats.push(map[name]);
         }
-        map[a.category].total += 1;
-        if (a.correct) map[a.category].ok += 1;
+        map[name].total += 1;
+        if (a.correct) map[name].ok += 1;
       });
-      var ok = answers.filter(function (a) { return a.correct; }).length;
-      var wrong = answers.filter(function (a) { return !a.correct; });
-      var rows = cats.map(function (c) {
+      return cats.map(function (c) {
         var pct = Math.round((c.ok / c.total) * 100);
-        return '<div class="cat-row"><span>' + c.name + "　" + c.ok + " / " + c.total +
+        return '<div class="cat-row"><span>' + escapeHtml(c.name) + "　" + c.ok + " / " + c.total +
           '</span><div class="bar"><span style="width:' + pct + '%"></span></div></div>';
       }).join("");
+    }
+
+    function showResults() {
+      showScreen("screenResults");
+      var ok = answers.filter(function (a) { return a.correct; }).length;
+      var wrong = answers.filter(function (a) { return !a.correct; });
       document.getElementById("resultsPanel").innerHTML =
         "<h2>本次練習結果</h2>" +
         '<p style="font-size:18px;">答對 <strong>' + ok + "</strong> / " + answers.length + " 題</p>" +
         '<p class="score-note">以上結果只是學習回饋，不是績效考核、人事評核或能力鑑定。本遊戲只供訓練用途，實際工作請依照部門指引。</p>' +
-        "<h3>各學習類別</h3><div class='cat-grid'>" + rows + "</div>" +
+        "<h3>按題目來源</h3><div class='cat-grid'>" + groupRows(answers, "source") + "</div>" +
+        "<h3>各學習類別</h3><div class='cat-grid'>" + groupRows(answers, "category") + "</div>" +
         (wrong.length
           ? '<button class="secondary" id="btnReview" type="button">複習未答對的題目（' + wrong.length + "）</button>"
           : "<p>這回合每題都選到較適切的答案。仍請在實際工作中依部門指引執行。</p>") +
-        '<button class="primary" id="btnRestart" type="button">再練習一次</button>' +
+        '<button class="primary" id="btnRestart" type="button">用同一玩法再練習</button>' +
         '<button class="ghost" id="btnHome" type="button">返回主畫面</button>';
-      document.getElementById("btnRestart").onclick = function () { sfx("click"); startGame(); };
+      document.getElementById("btnRestart").onclick = function () { sfx("click"); startGame(gameMode); };
       document.getElementById("btnHome").onclick = function () { sfx("click"); goHome(); };
       var rev = document.getElementById("btnReview");
       if (rev) rev.onclick = function () { sfx("click"); showReview(wrong); };
@@ -1000,11 +1599,11 @@
       showScreen("screenReview");
       var html = "<h2>複習未答對的題目</h2><p>本遊戲只供訓練用途，實際工作請依照部門指引。</p>";
       html += wrong.map(function (a, i) {
-        return '<div class="review-item"><p><strong>' + (i + 1) + ". [" + a.category + "]</strong> " + a.q + "</p>" +
-          '<p>你的選擇：' + LETTERS[a.choice] + ". " + a.options[a.choice] + "</p>" +
-          "<p>較適切的答案：" + LETTERS[a.answer] + ". " + a.options[a.answer] + "</p>" +
-          "<p>" + a.explain + "</p><ul class='learn'>" +
-          a.points.map(function (p) { return "<li>" + p + "</li>"; }).join("") +
+        return '<div class="review-item"><p><strong>' + (i + 1) + ". [" + escapeHtml(a.source) + " · " + escapeHtml(a.category) + "]</strong> " + escapeHtml(a.q) + "</p>" +
+          '<p>你的選擇：' + LETTERS[a.choice] + ". " + escapeHtml(a.options[a.choice]) + "</p>" +
+          "<p>較適切的答案：" + LETTERS[a.answer] + ". " + escapeHtml(a.options[a.answer]) + "</p>" +
+          "<p>" + escapeHtml(a.explain) + "</p><ul class='learn'>" +
+          a.points.map(function (p) { return "<li>" + escapeHtml(p) + "</li>"; }).join("") +
           "</ul></div>";
       }).join("");
       html += '<button class="primary" id="btnReviewDone" type="button">返回結果</button>';
@@ -1109,28 +1708,130 @@
       });
     }
 
-    function loop(ts) {
-      animId = requestAnimationFrame(loop);
-      if (!lastStep) lastStep = ts;
-      if (running && !paused && !awaitingMove && ts - lastStep >= STEP_MS) {
-        lastStep = ts;
-        stepSnake();
+    function drawBirdWorld() {
+      var w = playWidth();
+      var h = playHeight();
+      var i;
+      ctx.fillStyle = "#7ec8e3";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#5bb1d6";
+      ctx.fillRect(0, h * 0.72, w, h * 0.28);
+      var laneH = h / 4;
+      var bar = Math.max(8, h * 0.03);
+      for (i = 0; i < 4; i++) {
+        ctx.fillStyle = LANE_COLORS[i];
+        ctx.fillRect(0, i * laneH, w, laneH);
+        ctx.fillStyle = FOOD_COLORS[i];
+        roundRect(8, i * laneH + laneH * 0.22, Math.max(36, w * 0.08), laneH * 0.56, 10);
+        ctx.fill();
+        ctx.strokeStyle = "#fff8ee";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#142226";
+        ctx.font = "bold " + Math.floor(laneH * 0.34) + "px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(LETTERS[i], 8 + Math.max(36, w * 0.08) / 2, i * laneH + laneH * 0.5);
       }
-      drawGrid();
-      drawFoods();
-      drawSnake();
-      if (snake[0]) {
-        canvas.dataset.x = String(snake[0].x);
-        canvas.dataset.y = String(snake[0].y);
-        canvas.dataset.awaiting = awaitingMove ? "1" : "0";
-        canvas.dataset.running = running ? "1" : "0";
-        canvas.dataset.paused = paused ? "1" : "0";
+      var gx = bird.gateX;
+      var gw = bird.gateW;
+      ctx.fillStyle = "#2f8f46";
+      ctx.strokeStyle = "#1f5e2e";
+      ctx.lineWidth = 3;
+      for (i = 0; i <= 4; i++) {
+        var by = i === 0 ? 0 : (i === 4 ? h - bar : i * laneH - bar / 2);
+        var bh = i === 0 || i === 4 ? bar : bar;
+        if (i === 0) { by = 0; bh = bar + 4; }
+        if (i === 4) { by = h - bar - 4; bh = bar + 4; }
+        roundRect(gx, by, gw, bh, 6);
+        ctx.fill();
+        ctx.stroke();
       }
+      for (i = 0; i < 4; i++) {
+        var cx = gx + gw / 2;
+        var cy = i * laneH + laneH / 2;
+        ctx.fillStyle = "#fff8ee";
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.min(22, laneH * 0.22), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#142226";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#142226";
+        ctx.font = "bold " + Math.floor(Math.min(28, laneH * 0.28)) + "px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(LETTERS[i], cx, cy + 1);
+      }
+      var bx = w * 0.22;
+      var byb = bird.y;
+      ctx.save();
+      ctx.translate(bx, byb);
+      ctx.rotate(Math.max(-0.45, Math.min(0.55, bird.vy * 0.04)));
+      ctx.fillStyle = "#f6c445";
+      ctx.beginPath();
+      ctx.arc(0, 0, bird.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#6a4b10";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#f0a020";
+      ctx.beginPath();
+      ctx.arc(-5, 3, bird.r * (0.42 + Math.max(0, bird.wing) * 0.18), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e37b2a";
+      ctx.beginPath();
+      ctx.moveTo(bird.r * 0.9, -4);
+      ctx.lineTo(bird.r * 1.55, 0);
+      ctx.lineTo(bird.r * 0.9, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#142226";
+      ctx.beginPath();
+      ctx.arc(6, -4, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(7, -5, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
-    function startGame() {
+    function loop(ts) {
+      animId = requestAnimationFrame(loop);
+      if (!lastTs) lastTs = ts;
+      var dt = Math.min(40, ts - lastTs);
+      lastTs = ts;
+      if (gameMode === "snake") {
+        if (!lastStep) lastStep = ts;
+        if (running && !paused && !awaitingMove && ts - lastStep >= STEP_MS) {
+          lastStep = ts;
+          stepSnake();
+        }
+        drawGrid();
+        drawFoods();
+        drawSnake();
+        if (snake[0]) {
+          canvas.dataset.x = String(snake[0].x);
+          canvas.dataset.y = String(snake[0].y);
+        }
+      } else {
+        stepBird(dt);
+        drawBirdWorld();
+        canvas.dataset.birdY = String(Math.round(bird.y));
+      }
+      canvas.dataset.mode = gameMode;
+      canvas.dataset.awaiting = awaitingMove ? "1" : "0";
+      canvas.dataset.running = running ? "1" : "0";
+      canvas.dataset.paused = paused ? "1" : "0";
+    }
+
+    function startGame(mode) {
       ensureAudio();
       sfx("click");
+      gameMode = mode === "bird" ? "bird" : "snake";
+      document.getElementById("screenPlay").classList.toggle("mode-bird", gameMode === "bird");
+      moveHint.innerHTML = gameMode === "bird" ? BIRD_HINT : SNAKE_HINT;
       overlays.result.classList.remove("show");
       overlays.pause.classList.remove("show");
       paused = false;
@@ -1143,8 +1844,13 @@
       prepareQuestion();
       running = true;
       lastStep = 0;
+      lastTs = 0;
       resizeCanvas();
-      requestAnimationFrame(function () { resizeCanvas(); });
+      if (gameMode === "bird") resetBird();
+      requestAnimationFrame(function () {
+        resizeCanvas();
+        if (gameMode === "bird") resetBird();
+      });
     }
 
     function goHome() {
@@ -1164,7 +1870,10 @@
       paused = !paused;
       document.getElementById("btnPause").setAttribute("aria-pressed", paused ? "true" : "false");
       overlays.pause.classList.toggle("show", paused);
-      if (!paused) lastStep = 0;
+      if (!paused) {
+        lastStep = 0;
+        lastTs = 0;
+      }
     }
 
     function toggleMute() {
@@ -1178,13 +1887,27 @@
       }
     }
 
-    document.getElementById("btnStart").addEventListener("click", startGame);
+    document.getElementById("btnSnake").addEventListener("click", function () { startGame("snake"); });
+    document.getElementById("btnBird").addEventListener("click", function () { startGame("bird"); });
     document.getElementById("btnMute").addEventListener("click", toggleMute);
     document.getElementById("btnPause").addEventListener("click", togglePause);
     document.getElementById("btnResume").addEventListener("click", function () {
       if (paused) togglePause();
     });
     document.getElementById("btnQuit").addEventListener("click", goHome);
+    document.getElementById("btnFlap").addEventListener("pointerdown", function (ev) {
+      if (ev.cancelable) ev.preventDefault();
+      flap();
+    });
+    document.getElementById("btnFlap").addEventListener("click", function (ev) {
+      if (ev.cancelable) ev.preventDefault();
+      flap();
+    });
+    canvas.addEventListener("pointerdown", function (ev) {
+      if (gameMode !== "bird") return;
+      if (ev.cancelable) ev.preventDefault();
+      flap();
+    });
 
     document.querySelectorAll(".pad").forEach(function (btn) {
       function press(ev) {
@@ -1197,21 +1920,31 @@
     });
 
     window.addEventListener("keydown", function (e) {
+      if (e.key === "m" || e.key === "M") {
+        toggleMute();
+        return;
+      }
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+        return;
+      }
+      if (overlayOpen()) return;
+      if (gameMode === "bird" && (e.key === " " || e.key === "Spacebar" || e.key === "ArrowUp")) {
+        e.preventDefault();
+        flap();
+        return;
+      }
       var map = {
         ArrowUp: [0, -1],
         ArrowDown: [0, 1],
         ArrowLeft: [-1, 0],
         ArrowRight: [1, 0]
       };
-      if (map[e.key]) {
+      if (map[e.key] && gameMode === "snake") {
         e.preventDefault();
         setDir(map[e.key][0], map[e.key][1]);
       }
-      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
-        e.preventDefault();
-        togglePause();
-      }
-      if (e.key === "m" || e.key === "M") toggleMute();
     }, { passive: false });
 
     window.addEventListener("resize", function () {
@@ -1221,6 +1954,33 @@
     window.addEventListener("orientationchange", function () {
       setTimeout(resizeCanvas, 200);
     });
+
+    window.__TRAINING_GAME = {
+      questions: QUESTIONS,
+      start: startGame,
+      goHome: goHome,
+      finish: function (i) {
+        if (!current) return;
+        running = false;
+        finishRound(i);
+      },
+      next: function () {
+        var btn = document.getElementById("btnNext");
+        if (btn) btn.click();
+      },
+      current: function () { return current; },
+      answers: function () { return answers; },
+      mode: function () { return gameMode; },
+      flap: flap,
+      counts: function () {
+        var out = { total: QUESTIONS.length, bySource: {}, byCategory: {} };
+        QUESTIONS.forEach(function (q) {
+          out.bySource[q.source] = (out.bySource[q.source] || 0) + 1;
+          out.byCategory[q.category] = (out.byCategory[q.category] || 0) + 1;
+        });
+        return out;
+      }
+    };
 
     resizeCanvas();
     requestAnimationFrame(loop);
