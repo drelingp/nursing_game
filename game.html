@@ -68,25 +68,10 @@
       font-size: 18px;
     }
     body.is-playing .home-switch-btn { min-height: 44px; font-size: 13px; }
-    body.is-playing #screenPlay .play-head {
-      max-height: 15%;
-      padding: 6px 8px;
-      margin-bottom: 3px;
-    }
-    body.is-playing #screenPlay .opt {
-      min-height: 32px;
-      font-size: 12px;
-    }
     body.is-playing .stage-wrap {
       min-height: 0;
       border-width: 2px;
       border-radius: 10px;
-    }
-    body.is-playing .controls-snake {
-      margin: 6px auto 0;
-      gap: 6px;
-      grid-template-rows: 52px 52px 52px;
-      width: min(280px, 100%);
     }
     button {
       font-family: inherit;
@@ -287,6 +272,71 @@
       flex: 0 1 auto;
       max-height: 20%;
       overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+    #screenPlay:not(.mode-bird) {
+      flex-direction: row;
+      align-items: stretch;
+      gap: 8px;
+    }
+    #screenPlay:not(.mode-bird) .play-head {
+      flex: 0 0 clamp(260px, 34%, 420px);
+      max-width: 42%;
+      max-height: none;
+      min-height: 0;
+      margin-bottom: 0;
+      padding: 12px 14px;
+    }
+    #screenPlay:not(.mode-bird) .play-stage {
+      flex: 1 1 0;
+      min-width: 0;
+      flex-direction: row;
+      align-items: stretch;
+      gap: 8px;
+    }
+    #screenPlay:not(.mode-bird) .controls-snake {
+      flex: 0 0 148px;
+      width: 148px;
+      margin: auto 0;
+      gap: 6px;
+      grid-template-columns: 1fr 52px 1fr;
+      grid-template-rows: 52px 52px 52px;
+    }
+    #screenPlay:not(.mode-bird) .options {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    #screenPlay:not(.mode-bird) .opt {
+      min-height: 52px;
+      font-size: 15px;
+      line-height: 1.45;
+      padding: 10px 12px 10px 42px;
+      overflow-wrap: anywhere;
+    }
+    #screenPlay:not(.mode-bird) .opt .tag {
+      width: 24px;
+      height: 24px;
+      font-size: 13px;
+      left: 10px;
+      top: 12px;
+    }
+    #screenPlay:not(.mode-bird) .q-text {
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    #screenPlay.mode-bird {
+      flex-direction: column;
+    }
+    #screenPlay.mode-bird .play-head {
+      flex: 0 1 auto;
+      max-width: none;
+      max-height: 18%;
+      margin-bottom: 4px;
+    }
+    #screenPlay.mode-bird .play-stage {
+      flex-direction: column;
     }
     .meta-row {
       display: flex;
@@ -512,40 +562,46 @@
         grid-template-rows: 56px 56px 56px;
         gap: 8px;
       }
+      #screenPlay:not(.mode-bird) .controls-snake {
+        width: 148px;
+        grid-template-columns: 1fr 52px 1fr;
+        grid-template-rows: 52px 52px 52px;
+      }
       .pad { font-size: 28px; border-radius: 16px; }
       .flap-btn { min-height: 80px; font-size: 28px; }
       .icon-btn, .home-switch-btn { min-height: 52px; }
-      .play-head { max-height: 18%; }
+      #screenPlay.mode-bird .play-head { max-height: 18%; }
       .stage-wrap { min-height: 320px; }
+      #screenPlay:not(.mode-bird) .q-text { font-size: 17px; }
+      #screenPlay:not(.mode-bird) .opt { font-size: 16px; min-height: 56px; }
     }
-    @media (min-width: 768px) and (orientation: landscape) {
-      body.is-playing #screenPlay:not(.mode-bird) .play-stage {
-        flex-direction: row;
-        align-items: stretch;
-        gap: 8px;
+    @media (max-width: 640px) and (orientation: portrait) {
+      #screenPlay:not(.mode-bird) {
+        flex-direction: column;
       }
-      body.is-playing #screenPlay:not(.mode-bird) .controls-snake {
-        width: 148px;
-        margin: auto 0;
-        grid-template-columns: 1fr 52px 1fr;
-        grid-template-rows: 52px 52px 52px;
-        flex: 0 0 148px;
+      #screenPlay:not(.mode-bird) .play-head {
+        flex: 0 1 auto;
+        max-width: none;
+        width: 100%;
+        max-height: 34%;
+        margin-bottom: 6px;
       }
-      body.is-playing #screenPlay .play-head { max-height: 14%; }
-    }
-    @media (max-width: 640px) {
-      .q-text { font-size: 15px; }
-      .brand h1 { font-size: 16px; }
-      .opt { font-size: 12px; min-height: 38px; padding: 6px 6px 6px 30px; }
-      .controls-snake {
+      #screenPlay:not(.mode-bird) .play-stage {
+        flex-direction: column;
+      }
+      #screenPlay:not(.mode-bird) .controls-snake {
         width: min(280px, 100%);
+        flex-basis: auto;
+        margin: 6px auto 0;
         grid-template-columns: 1fr 72px 1fr;
         grid-template-rows: 56px 56px 56px;
       }
-      .play-head { max-height: 28%; }
-      .stage-wrap { min-height: 200px; }
+      .q-text { font-size: 15px; }
+      .brand h1 { font-size: 16px; }
       .home-switch-btn { font-size: 13px; padding: 4px 8px; }
       .home-switch-btn small { font-size: 10px; }
+      #screenPlay.mode-bird .play-head { max-height: 28%; }
+      .stage-wrap { min-height: 180px; }
     }
   </style>
 </head>
