@@ -44,6 +44,50 @@
     body.is-playing {
       touch-action: none;
     }
+    body.is-playing .app {
+      max-width: none;
+      width: 100%;
+      padding: calc(4px + env(safe-area-inset-top, 0px)) 6px calc(4px + var(--safe));
+    }
+    body.is-playing .disclaimer-bar {
+      font-size: 11px;
+      padding: 3px 8px;
+      margin-bottom: 3px;
+    }
+    body.is-playing .topbar {
+      margin-bottom: 3px;
+      min-height: 40px;
+      gap: 6px;
+    }
+    body.is-playing .brand h1 { font-size: 15px; }
+    body.is-playing .brand p { display: none; }
+    body.is-playing .icon-btn {
+      width: 44px;
+      height: 44px;
+      flex-basis: 44px;
+      font-size: 18px;
+    }
+    body.is-playing .home-switch-btn { min-height: 44px; font-size: 13px; }
+    body.is-playing #screenPlay .play-head {
+      max-height: 15%;
+      padding: 6px 8px;
+      margin-bottom: 3px;
+    }
+    body.is-playing #screenPlay .opt {
+      min-height: 32px;
+      font-size: 12px;
+    }
+    body.is-playing .stage-wrap {
+      min-height: 0;
+      border-width: 2px;
+      border-radius: 10px;
+    }
+    body.is-playing .controls-snake {
+      margin: 6px auto 0;
+      gap: 6px;
+      grid-template-rows: 52px 52px 52px;
+      width: min(280px, 100%);
+    }
     button {
       font-family: inherit;
       cursor: pointer;
@@ -241,7 +285,7 @@
       padding: 10px 12px;
       margin-bottom: 8px;
       flex: 0 1 auto;
-      max-height: 26%;
+      max-height: 20%;
       overflow: auto;
     }
     .meta-row {
@@ -287,6 +331,12 @@
       font-weight: 800;
       display: grid;
       place-items: center;
+    }
+    .play-stage {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
     .stage-wrap {
       flex: 1 1 0;
@@ -457,16 +507,31 @@
     }
     @media (min-width: 768px) {
       .controls-snake {
-        width: min(380px, 100%);
-        grid-template-columns: 1fr 100px 1fr;
-        grid-template-rows: 68px 68px 68px;
-        gap: 10px;
+        width: min(300px, 100%);
+        grid-template-columns: 1fr 72px 1fr;
+        grid-template-rows: 56px 56px 56px;
+        gap: 8px;
       }
-      .pad { font-size: 32px; border-radius: 18px; }
+      .pad { font-size: 28px; border-radius: 16px; }
       .flap-btn { min-height: 80px; font-size: 28px; }
       .icon-btn, .home-switch-btn { min-height: 52px; }
-      .play-head { max-height: 22%; }
-      .stage-wrap { min-height: 300px; }
+      .play-head { max-height: 18%; }
+      .stage-wrap { min-height: 320px; }
+    }
+    @media (min-width: 768px) and (orientation: landscape) {
+      body.is-playing #screenPlay:not(.mode-bird) .play-stage {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 8px;
+      }
+      body.is-playing #screenPlay:not(.mode-bird) .controls-snake {
+        width: 148px;
+        margin: auto 0;
+        grid-template-columns: 1fr 52px 1fr;
+        grid-template-rows: 52px 52px 52px;
+        flex: 0 0 148px;
+      }
+      body.is-playing #screenPlay .play-head { max-height: 14%; }
     }
     @media (max-width: 640px) {
       .q-text { font-size: 15px; }
@@ -529,19 +594,21 @@
         <div class="q-text" id="questionText"></div>
         <div class="options" id="optionsBox"></div>
       </div>
-      <div class="stage-wrap" id="stageWrap">
-        <canvas id="gameCanvas"></canvas>
-        <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答</div>
-      </div>
-      <div class="controls-snake" id="controlsSnake" aria-label="方向鍵">
-        <button class="pad pad-up" type="button" data-dir="0,-1" aria-label="上">▲</button>
-        <button class="pad pad-left" type="button" data-dir="-1,0" aria-label="左">◀</button>
-        <button class="pad pad-right" type="button" data-dir="1,0" aria-label="右">▶</button>
-        <button class="pad pad-down" type="button" data-dir="0,1" aria-label="下">▼</button>
-      </div>
-      <div class="controls-bird" id="controlsBird">
-        <button class="flap-btn" id="btnFlap" type="button">拍翅</button>
-        <div class="flap-note">點畫面或撳「拍翅」都會向上飛　閘門有 A／B／C／D 文字標示</div>
+      <div class="play-stage">
+        <div class="stage-wrap" id="stageWrap">
+          <canvas id="gameCanvas"></canvas>
+          <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答</div>
+        </div>
+        <div class="controls-snake" id="controlsSnake" aria-label="方向鍵">
+          <button class="pad pad-up" type="button" data-dir="0,-1" aria-label="上">▲</button>
+          <button class="pad pad-left" type="button" data-dir="-1,0" aria-label="左">◀</button>
+          <button class="pad pad-right" type="button" data-dir="1,0" aria-label="右">▶</button>
+          <button class="pad pad-down" type="button" data-dir="0,1" aria-label="下">▼</button>
+        </div>
+        <div class="controls-bird" id="controlsBird">
+          <button class="flap-btn" id="btnFlap" type="button">拍翅</button>
+          <div class="flap-note">點畫面或撳「拍翅」都會向上飛　閘門有 A／B／C／D 文字標示</div>
+        </div>
       </div>
     </section>
 
@@ -571,7 +638,7 @@
   (function () {
     "use strict";
 
-    var SNAKE_HINT = "用下方大方向鍵開始移動（唔使鍵盤）<br>A 左　B 右　C 上　D 下，吃到字母即作答";
+    var SNAKE_HINT = "用大方向鍵開始移動（唔使鍵盤）<br>A 左　B 右　C 上　D 下　穿過邊界會由另一邊出現";
     var BIRD_HINT = "用手指或滑鼠點畫面拍翅向上飛<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
 
     var QUESTIONS = [
@@ -1235,10 +1302,11 @@
       }
     ];
 
-    var COLS = 10;
-    var ROWS = 6;
-    var STEP_MS = 155;
-    var MAX_SNAKE = 36;
+    var MIN_CELL = 16;
+    var COLS = 32;
+    var ROWS = 20;
+    var STEP_MS = 105;
+    var MAX_SNAKE = 80;
     var LETTERS = ["A", "B", "C", "D"];
     var FOOD_COLORS = ["#e0b03a", "#5aa9e6", "#d46eb5", "#7bc96f"];
     var LANE_COLORS = ["rgba(224,176,58,0.28)", "rgba(90,169,230,0.28)", "rgba(212,110,181,0.28)", "rgba(123,201,111,0.28)"];
@@ -1376,7 +1444,29 @@
       canvas.style.width = w + "px";
       canvas.style.height = h + "px";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cell = Math.max(8, Math.floor(Math.min(w / COLS, h / ROWS)));
+      if (gameMode === "snake") {
+        layoutSnakeGrid(w, h);
+      } else {
+        cell = Math.max(8, Math.floor(Math.min(w / 18, h / 12)));
+        originX = Math.floor((w - cell * 18) / 2);
+        originY = Math.floor((h - cell * 12) / 2);
+      }
+    }
+
+    function layoutSnakeGrid(w, h) {
+      if (w < 40 || h < 40) return;
+      var keep = !awaitingMove && snake.length > 3;
+      if (keep) {
+        cell = Math.max(8, Math.floor(Math.min(w / COLS, h / ROWS)));
+      } else {
+        cell = MIN_CELL;
+        COLS = Math.max(16, Math.floor(w / cell));
+        ROWS = Math.max(12, Math.floor(h / cell));
+        cell = Math.max(8, Math.floor(Math.min(w / COLS, h / ROWS)));
+        COLS = Math.max(16, Math.floor(w / cell));
+        ROWS = Math.max(12, Math.floor(h / cell));
+        MAX_SNAKE = Math.max(48, Math.min(160, Math.floor(COLS * ROWS * 0.2)));
+      }
       originX = Math.floor((w - cell * COLS) / 2);
       originY = Math.floor((h - cell * ROWS) / 2);
     }
@@ -1781,7 +1871,7 @@
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(cell * 1.05) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.max(16, cell * (f.w || 1) * 0.7)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(f.letter, x, y + 1);
@@ -1896,6 +1986,8 @@
           canvas.dataset.y = String(snake[0].y);
           canvas.dataset.snakeLen = String(snake.length);
           canvas.dataset.cell = String(cell);
+          canvas.dataset.cols = String(COLS);
+          canvas.dataset.rows = String(ROWS);
         }
       } else {
         stepBird(dt);
@@ -1926,15 +2018,21 @@
       document.body.classList.remove("is-home");
       document.body.classList.add("is-playing");
       setPauseEnabled(true);
-      prepareQuestion();
       running = true;
       lastStep = 0;
       lastTs = 0;
       resizeCanvas();
+      prepareQuestion();
       if (gameMode === "bird") resetBird();
       requestAnimationFrame(function () {
+        var prevC = COLS;
+        var prevR = ROWS;
         resizeCanvas();
         if (gameMode === "bird" && awaitingMove) resetBird();
+        if (gameMode === "snake" && awaitingMove && (COLS !== prevC || ROWS !== prevR)) {
+          resetSnake();
+          placeFoods();
+        }
       });
     }
 
@@ -2102,7 +2200,17 @@
       answers: function () { return answers; },
       mode: function () { return gameMode; },
       snakeState: function () {
-        return { len: snake.length, cell: cell, cols: COLS, rows: ROWS };
+        return {
+          len: snake.length,
+          cell: cell,
+          cols: COLS,
+          rows: ROWS,
+          canvasW: playWidth(),
+          canvasH: playHeight(),
+          gridW: COLS * cell,
+          gridH: ROWS * cell,
+          foods: foods.map(function (f) { return { x: f.x, y: f.y, w: f.w, h: f.h, letter: f.letter }; })
+        };
       },
       birdState: function () {
         return {
