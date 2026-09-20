@@ -597,7 +597,7 @@
       <div class="play-stage">
         <div class="stage-wrap" id="stageWrap">
           <canvas id="gameCanvas"></canvas>
-          <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答</div>
+          <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>吃到標示 A／B／C／D 的食物即作答（位置每題不同）</div>
         </div>
         <div class="controls-snake" id="controlsSnake" aria-label="方向鍵">
           <button class="pad pad-up" type="button" data-dir="0,-1" aria-label="上">▲</button>
@@ -607,7 +607,7 @@
         </div>
         <div class="controls-bird" id="controlsBird">
           <button class="flap-btn" id="btnFlap" type="button">拍翅</button>
-          <div class="flap-note">點畫面或撳「拍翅」都會向上飛　閘門有 A／B／C／D 文字標示</div>
+          <div class="flap-note">點畫面或撳「拍翅」都會向上飛　飛入標示 A／B／C／D 的閘門（位置每題不同）</div>
         </div>
       </div>
     </section>
@@ -638,8 +638,8 @@
   (function () {
     "use strict";
 
-    var SNAKE_HINT = "用大方向鍵開始移動（唔使鍵盤）<br>A 左　B 右　C 上　D 下　穿過邊界會由另一邊出現";
-    var BIRD_HINT = "用手指或滑鼠點畫面拍翅向上飛<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
+    var SNAKE_HINT = "用大方向鍵開始移動（唔使鍵盤）<br>吃到標示 A／B／C／D 的食物即作答（位置每題不同，穿過邊界會由另一邊出現）";
+    var BIRD_HINT = "用手指或滑鼠點畫面拍翅向上飛<br>飛入標示 A／B／C／D 的閘門即作答（位置每題不同，唔好只靠顏色）";
 
     var QUESTIONS = [
       {
@@ -1309,7 +1309,6 @@
     var MAX_SNAKE = 80;
     var LETTERS = ["A", "B", "C", "D"];
     var FOOD_COLORS = ["#e0b03a", "#5aa9e6", "#d46eb5", "#7bc96f"];
-    var LANE_COLORS = ["rgba(224,176,58,0.28)", "rgba(90,169,230,0.28)", "rgba(212,110,181,0.28)", "rgba(123,201,111,0.28)"];
 
     var canvas = document.getElementById("gameCanvas");
     var ctx = canvas.getContext("2d");
@@ -1343,7 +1342,8 @@
       gateW: 70,
       scored: false,
       wing: 0,
-      flightMs: 0
+      flightMs: 0,
+      targets: []
     };
     var lastFlapAt = 0;
 
@@ -1487,20 +1487,149 @@
       moveHint.classList.remove("hidden");
     }
 
+    function rectsOverlap(a, b, pad) {
+      pad = pad || 0;
+      return a.x - pad < b.x + b.w && a.x + a.w + pad > b.x &&
+        a.y - pad < b.y + b.h && a.y + a.h + pad > b.y;
+    }
+
+    function snakeHitsRect(x, y, w, h, pad) {
+      pad = pad || 0;
+      var i, s;
+      for (i = 0; i < snake.length; i++) {
+        s = snake[i];
+        if (s.x >= x - pad && s.x < x + w + pad && s.y >= y - pad && s.y < y + h + pad) return true;
+      }
+      return false;
+    }
+
+    function foodAllowed(x, y, w, h, placed) {
+      var i;
+      if (x < 0 || y < 0 || x + w > COLS || y + h > ROWS) return false;
+      if (snakeHitsRect(x, y, w, h, 1)) return false;
+      for (i = 0; i < placed.length; i++) {
+        if (rectsOverlap(placed[i], { x: x, y: y, w: w, h: h }, 1)) return false;
+      }
+      return true;
+    }
+
     function placeFoods() {
       var fw = 2;
       var fh = 2;
-      var midY = Math.max(0, Math.floor(ROWS / 2) - 1);
-      var midX = Math.max(0, Math.floor(COLS / 2) - 1);
-      foods = [
-        { x: 0, y: midY, w: fw, h: fh, letter: LETTERS[0], optionIndex: 0 },
-        { x: COLS - fw, y: midY, w: fw, h: fh, letter: LETTERS[1], optionIndex: 1 },
-        { x: midX, y: 0, w: fw, h: fh, letter: LETTERS[2], optionIndex: 2 },
-        { x: midX, y: ROWS - fh, w: fw, h: fh, letter: LETTERS[3], optionIndex: 3 }
-      ];
+      var prev = foods.map(function (f) { return f.letter + ":" + f.x + "," + f.y; }).join("|");
+      var round, i, attempt, x, y, placed, sig, sx, sy;
+      for (round = 0; round < 10; round++) {
+        placed = [];
+        for (i = 0; i < 4; i++) {
+          var cand = null;
+          for (attempt = 0; attempt < 500; attempt++) {
+            x = Math.floor(Math.random() * Math.max(1, COLS - fw + 1));
+            y = Math.floor(Math.random() * Math.max(1, ROWS - fh + 1));
+            if (foodAllowed(x, y, fw, fh, placed)) {
+              cand = { x: x, y: y, w: fw, h: fh, letter: LETTERS[i], optionIndex: i };
+              break;
+            }
+          }
+          if (!cand) {
+            for (sy = 0; sy <= ROWS - fh && !cand; sy++) {
+              for (sx = 0; sx <= COLS - fw; sx++) {
+                if (foodAllowed(sx, sy, fw, fh, placed)) {
+                  cand = { x: sx, y: sy, w: fw, h: fh, letter: LETTERS[i], optionIndex: i };
+                  break;
+                }
+              }
+            }
+          }
+          if (!cand) {
+            cand = {
+              x: Math.min(i * 3, Math.max(0, COLS - fw)),
+              y: Math.min(i * 2, Math.max(0, ROWS - fh)),
+              w: fw,
+              h: fh,
+              letter: LETTERS[i],
+              optionIndex: i
+            };
+          }
+          placed.push(cand);
+        }
+        sig = placed.map(function (f) { return f.letter + ":" + f.x + "," + f.y; }).join("|");
+        if (sig !== prev || !prev) {
+          foods = placed;
+          return;
+        }
+      }
+      foods = placed;
     }
 
-    function resetBird() {
+    function spacedUnits(n, minGap) {
+      var units = [];
+      var attempt = 0;
+      var y, ok, i, j;
+      while (units.length < n && attempt < 2000) {
+        attempt += 1;
+        y = 0.05 + Math.random() * 0.9;
+        ok = true;
+        for (i = 0; i < units.length; i++) {
+          if (Math.abs(units[i] - y) < minGap) { ok = false; break; }
+        }
+        if (ok) units.push(y);
+      }
+      if (units.length < n) {
+        units = [];
+        for (i = 0; i < n; i++) units.push(Math.random());
+        units.sort(function (a, b) { return a - b; });
+        for (j = 0; j < 10; j++) {
+          for (i = 1; i < n; i++) {
+            if (units[i] - units[i - 1] < minGap) units[i] = Math.min(1, units[i - 1] + minGap);
+          }
+          for (i = n - 2; i >= 0; i--) {
+            if (units[i + 1] - units[i] < minGap) units[i] = Math.max(0, units[i + 1] - minGap);
+          }
+        }
+      }
+      return shuffle(units);
+    }
+
+    function placeBirdTargets() {
+      var prev = (bird.targets || []).map(function (t) { return t.letter + ":" + t.t.toFixed(3); }).join("|");
+      var round, ts, next, sig;
+      for (round = 0; round < 10; round++) {
+        ts = spacedUnits(4, 0.16);
+        next = [0, 1, 2, 3].map(function (i) {
+          return { t: ts[i], letter: LETTERS[i], optionIndex: i };
+        });
+        sig = next.map(function (t) { return t.letter + ":" + t.t.toFixed(3); }).join("|");
+        if (sig !== prev || !prev) {
+          bird.targets = next;
+          return;
+        }
+      }
+      bird.targets = next;
+    }
+
+    function targetY(t, h) {
+      var margin = Math.max(34, (bird.r || 16) * 2.2);
+      if (h <= margin * 2 + 10) margin = Math.max(18, h * 0.1);
+      return margin + t * (h - margin * 2);
+    }
+
+    function nearestBirdOption(y, h) {
+      var targets = bird.targets || [];
+      var best = 0;
+      var bestD = Infinity;
+      var i, cy, d;
+      for (i = 0; i < targets.length; i++) {
+        cy = targetY(targets[i].t, h);
+        d = Math.abs(cy - y);
+        if (d < bestD) {
+          bestD = d;
+          best = targets[i].optionIndex;
+        }
+      }
+      return best;
+    }
+
+    function resetBird(keepTargets) {
       var w = playWidth();
       var h = playHeight();
       bird.y = h * 0.5;
@@ -1511,6 +1640,7 @@
       bird.scored = false;
       bird.wing = 0;
       bird.flightMs = 0;
+      if (!keepTargets || !bird.targets || bird.targets.length !== 4) placeBirdTargets();
       awaitingMove = true;
       moveHint.classList.remove("hidden");
     }
@@ -1620,14 +1750,6 @@
       }
     }
 
-    function laneFromY(y, h) {
-      var laneH = h / 4;
-      var lane = Math.floor(y / laneH);
-      if (lane < 0) lane = 0;
-      if (lane > 3) lane = 3;
-      return lane;
-    }
-
     function stepBird(dt) {
       if (!running || paused || awaitingMove || gameMode !== "bird" || bird.scored) return;
       var w = playWidth();
@@ -1652,7 +1774,7 @@
       var speed = 52 * Math.min(scale, 1.15);
       bird.gateX -= speed * dtSec;
       var birdX = w * 0.22;
-      var lane = laneFromY(bird.y, h);
+      var choice = nearestBirdOption(bird.y, h);
       var gateHit = birdX + bird.r > bird.gateX && birdX - bird.r < bird.gateX + bird.gateW;
       var passed = birdX >= bird.gateX + bird.gateW * 0.45;
       var gone = bird.gateX + bird.gateW < birdX - bird.r;
@@ -1660,9 +1782,9 @@
         bird.scored = true;
         running = false;
         sfx("eat");
-        finishRound(lane);
+        finishRound(choice);
       }
-      canvas.dataset.lane = String(lane);
+      canvas.dataset.choice = String(choice);
       canvas.dataset.gateX = String(Math.round(bird.gateX));
       canvas.dataset.birdY = String(Math.round(bird.y));
     }
@@ -1871,7 +1993,7 @@
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(Math.max(16, cell * (f.w || 1) * 0.7)) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.max(15, cell * (f.w || 1) * 0.72)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(f.letter, x, y + 1);
@@ -1881,57 +2003,68 @@
     function drawBirdWorld() {
       var w = playWidth();
       var h = playHeight();
-      var i;
+      var i, t, cy, cx, rr;
+      var targets = bird.targets || [];
       ctx.fillStyle = "#7ec8e3";
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = "#5bb1d6";
       ctx.fillRect(0, h * 0.72, w, h * 0.28);
-      var laneH = h / 4;
-      var bar = Math.max(8, h * 0.03);
-      for (i = 0; i < 4; i++) {
-        ctx.fillStyle = LANE_COLORS[i];
-        ctx.fillRect(0, i * laneH, w, laneH);
+      var gx = bird.gateX;
+      var gw = bird.gateW;
+      var badgeW = Math.max(52, w * 0.1);
+      for (i = 0; i < targets.length; i++) {
+        t = targets[i];
+        cy = targetY(t.t, h);
+        ctx.save();
+        ctx.strokeStyle = FOOD_COLORS[i];
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 3;
+        if (ctx.setLineDash) ctx.setLineDash([10, 8]);
+        ctx.beginPath();
+        ctx.moveTo(10 + badgeW, cy);
+        ctx.lineTo(Math.max(10 + badgeW, gx), cy);
+        ctx.stroke();
+        if (ctx.setLineDash) ctx.setLineDash([]);
+        ctx.restore();
         ctx.fillStyle = FOOD_COLORS[i];
-        roundRect(8, i * laneH + laneH * 0.18, Math.max(48, w * 0.1), laneH * 0.64, 12);
+        roundRect(8, cy - 24, badgeW, 48, 12);
         ctx.fill();
         ctx.strokeStyle = "#fff8ee";
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(laneH * 0.42) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.min(28, 48 * 0.55)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(LETTERS[i], 8 + Math.max(48, w * 0.1) / 2, i * laneH + laneH * 0.5);
+        ctx.fillText(t.letter, 8 + badgeW / 2, cy + 1);
       }
-      var gx = bird.gateX;
-      var gw = bird.gateW;
       ctx.fillStyle = "#2f8f46";
       ctx.strokeStyle = "#1f5e2e";
       ctx.lineWidth = 3;
-      for (i = 0; i <= 4; i++) {
-        var by = i === 0 ? 0 : (i === 4 ? h - bar : i * laneH - bar / 2);
-        var bh = i === 0 || i === 4 ? bar : bar;
-        if (i === 0) { by = 0; bh = bar + 4; }
-        if (i === 4) { by = h - bar - 4; bh = bar + 4; }
-        roundRect(gx, by, gw, bh, 6);
-        ctx.fill();
-        ctx.stroke();
-      }
-      for (i = 0; i < 4; i++) {
-        var cx = gx + gw / 2;
-        var cy = i * laneH + laneH / 2;
+      roundRect(gx, 4, gw, h - 8, 10);
+      ctx.fill();
+      ctx.stroke();
+      rr = Math.min(38, Math.max(26, h * 0.085));
+      for (i = 0; i < targets.length; i++) {
+        t = targets[i];
+        cy = targetY(t.t, h);
+        cx = gx + gw / 2;
         ctx.fillStyle = "#fff8ee";
         ctx.beginPath();
-        ctx.arc(cx, cy, Math.min(34, laneH * 0.34), 0, Math.PI * 2);
+        ctx.arc(cx, cy, rr, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#142226";
         ctx.lineWidth = 3;
         ctx.stroke();
+        ctx.fillStyle = FOOD_COLORS[i];
+        ctx.beginPath();
+        ctx.arc(cx, cy, rr * 0.78, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(Math.min(40, laneH * 0.4)) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.min(42, rr * 1.15)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(LETTERS[i], cx, cy + 1);
+        ctx.fillText(t.letter, cx, cy + 1);
       }
       var bx = w * 0.22;
       var byb = bird.y;
@@ -2023,12 +2156,11 @@
       lastTs = 0;
       resizeCanvas();
       prepareQuestion();
-      if (gameMode === "bird") resetBird();
       requestAnimationFrame(function () {
         var prevC = COLS;
         var prevR = ROWS;
         resizeCanvas();
-        if (gameMode === "bird" && awaitingMove) resetBird();
+        if (gameMode === "bird" && awaitingMove) resetBird(true);
         if (gameMode === "snake" && awaitingMove && (COLS !== prevC || ROWS !== prevR)) {
           resetSnake();
           placeFoods();
@@ -2209,17 +2341,23 @@
           canvasH: playHeight(),
           gridW: COLS * cell,
           gridH: ROWS * cell,
-          foods: foods.map(function (f) { return { x: f.x, y: f.y, w: f.w, h: f.h, letter: f.letter }; })
+          foods: foods.map(function (f) { return { x: f.x, y: f.y, w: f.w, h: f.h, letter: f.letter }; }),
+          body: snake.map(function (p) { return { x: p.x, y: p.y }; })
         };
       },
       birdState: function () {
+        var h = playHeight();
         return {
           y: bird.y,
           vy: bird.vy,
           awaiting: awaitingMove,
           running: running,
           scored: bird.scored,
-          gateX: bird.gateX
+          gateX: bird.gateX,
+          gateW: bird.gateW,
+          targets: (bird.targets || []).map(function (t) {
+            return { t: t.t, y: targetY(t.t, h), letter: t.letter, optionIndex: t.optionIndex };
+          })
         };
       },
       counts: function () {
