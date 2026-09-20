@@ -25,27 +25,36 @@
     html, body {
       margin: 0;
       padding: 0;
-      min-height: 100%;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
       background: var(--bg);
       color: var(--paper);
       font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Heiti TC", "Source Han Sans TC", sans-serif;
       touch-action: manipulation;
       -webkit-text-size-adjust: 100%;
+      -webkit-touch-callout: none;
       overscroll-behavior: none;
+      overflow: hidden;
     }
     body {
       min-height: 100dvh;
-      overflow: hidden;
+      min-height: -webkit-fill-available;
+    }
+    body.is-playing {
+      touch-action: none;
     }
     button {
       font-family: inherit;
       cursor: pointer;
+      touch-action: manipulation;
     }
     .app {
       height: 100dvh;
+      height: 100%;
       display: flex;
       flex-direction: column;
-      max-width: 920px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: calc(8px + env(safe-area-inset-top, 0px)) 12px calc(8px + var(--safe));
     }
@@ -82,28 +91,28 @@
       color: #c9ddd8;
     }
     .icon-btn {
-      width: 48px;
-      height: 48px;
+      width: 52px;
+      height: 52px;
       border: 0;
       border-radius: 12px;
       background: #1a4c56;
       color: var(--paper);
-      font-size: 20px;
+      font-size: 22px;
       display: grid;
       place-items: center;
-      flex: 0 0 48px;
+      flex: 0 0 52px;
     }
     .icon-btn[aria-pressed="true"] {
       background: #c44738;
     }
     .home-switch-btn {
-      min-height: 48px;
+      min-height: 52px;
       padding: 4px 12px;
       border: 0;
       border-radius: 12px;
       background: #1a4c56;
       color: var(--paper);
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 800;
       line-height: 1.15;
       text-align: center;
@@ -133,77 +142,76 @@
       overflow: auto;
       flex: 1;
     }
-    .home-hero {
-      text-align: center;
-      padding-top: 4px;
-    }
-    .logo-row {
+    .home-panel {
       display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 10px;
+      flex-direction: column;
+      min-height: 0;
     }
-    .logo {
-      width: 72px;
-      height: 72px;
-      border-radius: 20px;
-      background: linear-gradient(160deg, #2db88a, #14725d);
-      display: grid;
-      place-items: center;
-      color: white;
-      font-size: 32px;
+    .pick-title {
+      margin: 0 0 12px;
+      text-align: center;
+      font-size: 22px;
       font-weight: 800;
-      box-shadow: 0 10px 24px rgba(0,0,0,.25);
-    }
-    .logo.bird {
-      background: linear-gradient(160deg, #e0b03a, #c47a16);
-    }
-    .home-hero h2 {
-      margin: 0 0 8px;
-      font-size: 24px;
-    }
-    .purpose, .legal {
-      text-align: left;
-      font-size: 15px;
-      line-height: 1.65;
-      margin: 12px 0;
-    }
-    .legal {
-      background: #f6efe0;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
-      font-size: 14px;
+      color: var(--ink);
     }
     .mode-grid {
       display: grid;
-      gap: 10px;
-      margin-top: 8px;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      flex: 1 1 auto;
+      min-height: 0;
     }
     .mode-card {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-      min-height: 88px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 160px;
       width: 100%;
       border: 0;
-      border-radius: 16px;
-      padding: 14px 16px;
-      text-align: left;
+      border-radius: 20px;
+      padding: 20px 18px;
+      text-align: center;
       font-family: inherit;
+      touch-action: manipulation;
     }
     .mode-card.primary { background: var(--teal); color: white; }
     .mode-card.secondary { background: var(--gold); color: #2a2208; }
+    .mode-emoji {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      font-size: 36px;
+      font-weight: 800;
+      background: rgba(255,255,255,.18);
+    }
     .mode-card strong {
-      font-size: 22px;
+      font-size: 28px;
       font-weight: 800;
     }
     .mode-card span {
-      font-size: 14px;
+      font-size: 16px;
       line-height: 1.45;
       font-weight: 600;
-      opacity: 0.92;
+      opacity: 0.95;
+      max-width: 28em;
+    }
+    .home-foot {
+      margin: 12px 0 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--muted);
+      text-align: center;
+    }
+    @media (min-width: 720px) {
+      .mode-grid { grid-template-columns: 1fr 1fr; align-items: stretch; }
+      .mode-card { min-height: 240px; padding: 28px 22px; }
+      .mode-card strong { font-size: 32px; }
+      .mode-emoji { width: 88px; height: 88px; font-size: 44px; }
+      .pick-title { font-size: 26px; }
     }
     .primary, .secondary, .ghost {
       display: inline-flex;
@@ -288,6 +296,9 @@
       border-radius: 14px;
       overflow: hidden;
       border: 3px solid #1e5c67;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     canvas {
       display: block;
@@ -312,12 +323,13 @@
     .hint.hidden { display: none; }
     .controls-snake {
       display: grid;
-      grid-template-columns: 1fr 86px 1fr;
-      grid-template-rows: 56px 56px 56px;
-      gap: 8px;
-      width: min(280px, 100%);
+      grid-template-columns: 1fr 88px 1fr;
+      grid-template-rows: 64px 64px 64px;
+      gap: 10px;
+      width: min(320px, 100%);
       margin: 10px auto 0;
       flex: 0 0 auto;
+      touch-action: none;
     }
     .controls-bird {
       display: none;
@@ -333,11 +345,14 @@
     .mode-bird .controls-bird { display: block; }
     .pad {
       border: 0;
-      border-radius: 14px;
+      border-radius: 16px;
       background: #1a4c56;
       color: white;
-      font-size: 26px;
+      font-size: 28px;
       font-weight: 800;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     .pad:active { background: var(--teal); }
     .pad-up { grid-column: 2; grid-row: 1; }
@@ -346,13 +361,14 @@
     .pad-down { grid-column: 2; grid-row: 3; }
     .flap-btn {
       width: 100%;
-      min-height: 68px;
+      min-height: 72px;
       border: 0;
       border-radius: 16px;
       background: var(--gold);
       color: #2a2208;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 800;
+      touch-action: none;
     }
     .flap-btn:active { background: #c9992a; }
     .flap-note {
@@ -439,13 +455,25 @@
       padding: 10px;
       margin: 10px 0;
     }
+    @media (min-width: 768px) {
+      .controls-snake {
+        width: min(380px, 100%);
+        grid-template-columns: 1fr 100px 1fr;
+        grid-template-rows: 76px 76px 76px;
+        gap: 12px;
+      }
+      .pad { font-size: 34px; border-radius: 20px; }
+      .flap-btn { min-height: 80px; font-size: 28px; }
+      .icon-btn, .home-switch-btn { min-height: 52px; }
+    }
     @media (max-width: 640px) {
       .q-text { font-size: 15px; }
       .brand h1 { font-size: 16px; }
       .opt { font-size: 12px; min-height: 38px; padding: 6px 6px 6px 30px; }
       .controls-snake {
-        width: min(240px, 100%);
-        grid-template-rows: 48px 48px 48px;
+        width: min(280px, 100%);
+        grid-template-columns: 1fr 72px 1fr;
+        grid-template-rows: 56px 56px 56px;
       }
       .play-head { max-height: 30%; }
       .stage-wrap { min-height: 160px; }
@@ -471,35 +499,21 @@
     </div>
 
     <section class="screen active" id="screenHome">
-      <div class="panel">
-        <div class="home-hero">
-          <div class="logo-row">
-            <div class="logo" aria-hidden="true">蛇</div>
-            <div class="logo bird" aria-hidden="true">鳥</div>
-          </div>
-          <h2>護理安全訓練遊戲</h2>
-          <p>揀一種玩法，用 A／B／C／D 複習病房流程</p>
-        </div>
-        <p class="purpose">本遊戲用虛構情境練習 M10→C9 現行指引、實用交更清單，以及 C7 專項（C7＝另一病房，唔好當 C9 日常 SOP）。所有題目皆為訓練案例，不含真實病人或職員資料。常改項目（rota、ceiling、感染名單）以當期 HA Teams／email／IC 為準。</p>
-        <div class="legal">
-          <strong>重要說明</strong>
-          <ul>
-            <li>本遊戲只供訓練用途，實際工作請依照部門指引。</li>
-            <li>內容不是考試認證，也不是醫療建議。</li>
-            <li>分數只是學習回饋，不作績效考核、人事評核或能力鑑定。</li>
-            <li>不收集、不上傳任何個人資料；可完全離線遊玩。</li>
-          </ul>
-        </div>
+      <div class="panel home-panel">
+        <p class="pick-title">揀一種玩法開始</p>
         <div class="mode-grid">
           <button class="mode-card primary" id="btnSnake" type="button">
+            <span class="mode-emoji" aria-hidden="true">蛇</span>
             <strong>貪食蛇問答</strong>
-            <span>用方向鍵或畫面按鈕控制蛇，吃到標示 A／B／C／D 的食物即作答。答錯不會結束遊戲。</span>
+            <span>用畫面大方向鍵控制蛇，吃標示 A／B／C／D 的食物。唔使鍵盤。答錯唔會結束遊戲。</span>
           </button>
           <button class="mode-card secondary" id="btnBird" type="button">
+            <span class="mode-emoji" aria-hidden="true">鳥</span>
             <strong>飛翔小鳥問答</strong>
-            <span>拍翅（點畫面、空白鍵或下方大按鈕）飛入標示 A／B／C／D 的閘門。答錯不會結束遊戲。</span>
+            <span>手指或滑鼠點畫面就拍翅，飛入標示 A／B／C／D 的閘門。答錯唔會結束遊戲。</span>
           </button>
         </div>
+        <p class="home-foot">本遊戲只供訓練用途，實際工作請依照部門指引。分數只是學習回饋，不是績效考核。內容為虛構訓練案例。</p>
       </div>
     </section>
 
@@ -513,7 +527,7 @@
         <div class="q-text" id="questionText"></div>
         <div class="options" id="optionsBox"></div>
       </div>
-      <div class="stage-wrap">
+      <div class="stage-wrap" id="stageWrap">
         <canvas id="gameCanvas"></canvas>
         <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答</div>
       </div>
@@ -525,7 +539,7 @@
       </div>
       <div class="controls-bird" id="controlsBird">
         <button class="flap-btn" id="btnFlap" type="button">拍翅</button>
-        <div class="flap-note">空白鍵、點畫面或按此按鈕都會向上飛　閘門有 A／B／C／D 文字標示</div>
+        <div class="flap-note">點畫面或撳「拍翅」都會向上飛　閘門有 A／B／C／D 文字標示</div>
       </div>
     </section>
 
@@ -555,8 +569,8 @@
   (function () {
     "use strict";
 
-    var SNAKE_HINT = "閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答";
-    var BIRD_HINT = "拍翅、點畫面或撳空白鍵令小鳥向上飛<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
+    var SNAKE_HINT = "用下方大方向鍵開始移動（唔使鍵盤）<br>A 左　B 右　C 上　D 下，吃到字母即作答";
+    var BIRD_HINT = "用手指或滑鼠點畫面拍翅向上飛<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
 
     var QUESTIONS = [
       {
@@ -1260,6 +1274,7 @@
       wing: 0,
       flightMs: 0
     };
+    var lastFlapAt = 0;
 
     var order = [];
     var qIndex = 0;
@@ -1455,6 +1470,9 @@
       if (gameMode !== "bird") return;
       if (!document.getElementById("screenPlay").classList.contains("active")) return;
       if (!running || paused || overlayOpen() || bird.scored) return;
+      var now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (now - lastFlapAt < 55) return;
+      lastFlapAt = now;
       if (awaitingMove) {
         awaitingMove = false;
         moveHint.classList.add("hidden");
@@ -1894,6 +1912,7 @@
       answers = [];
       showScreen("screenPlay");
       document.body.classList.remove("is-home");
+      document.body.classList.add("is-playing");
       setPauseEnabled(true);
       prepareQuestion();
       running = true;
@@ -1918,6 +1937,7 @@
       document.getElementById("btnPause").setAttribute("aria-pressed", "false");
       document.getElementById("statusLine").textContent = "分數只是學習回饋，不是績效考核";
       document.body.classList.add("is-home");
+      document.body.classList.remove("is-playing");
       showScreen("screenHome");
     }
 
@@ -1963,22 +1983,46 @@
       if (ev.stopPropagation) ev.stopPropagation();
       flap();
     }
-    document.getElementById("btnFlap").addEventListener("pointerdown", onFlapPointer);
-    document.getElementById("btnFlap").addEventListener("click", function (ev) {
-      if (ev.cancelable) ev.preventDefault();
-      flap();
-    });
-    canvas.parentElement.addEventListener("pointerdown", onFlapPointer);
+    function bindFlapTarget(el) {
+      if (!el) return;
+      el.addEventListener("pointerdown", onFlapPointer, { passive: false });
+      el.addEventListener("touchstart", onFlapPointer, { passive: false });
+    }
+    bindFlapTarget(document.getElementById("btnFlap"));
+    bindFlapTarget(canvas);
+    bindFlapTarget(document.getElementById("stageWrap"));
 
     document.querySelectorAll(".pad").forEach(function (btn) {
       function press(ev) {
         if (ev.cancelable) ev.preventDefault();
+        if (ev.stopPropagation) ev.stopPropagation();
         var parts = btn.getAttribute("data-dir").split(",");
         setDir(parseInt(parts[0], 10), parseInt(parts[1], 10));
       }
-      btn.addEventListener("pointerdown", press);
-      btn.addEventListener("click", press);
+      btn.addEventListener("pointerdown", press, { passive: false });
+      btn.addEventListener("touchstart", press, { passive: false });
     });
+
+    document.addEventListener("touchmove", function (e) {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+        return;
+      }
+      if (!document.body.classList.contains("is-playing")) return;
+      var t = e.target;
+      var allow = false;
+      while (t && t !== document.body) {
+        if (t.classList && (t.classList.contains("modal") || t.classList.contains("play-head") || t.classList.contains("panel"))) {
+          allow = true;
+          break;
+        }
+        t = t.parentElement;
+      }
+      if (!allow && e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+    document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, { passive: false });
 
     function isSpaceKey(e) {
       return e.code === "Space" || e.key === " " || e.key === "Spacebar" || e.keyCode === 32;
