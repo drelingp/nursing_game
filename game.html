@@ -1487,6 +1487,20 @@
       moveHint.classList.remove("hidden");
     }
 
+    function foodFootprint() {
+      var n = Math.round(84 / Math.max(cell, 8));
+      if (n < 4) n = 4;
+      if (n > 6) n = 6;
+      n = Math.min(n, Math.max(3, COLS - 2), Math.max(3, ROWS - 2));
+      return n;
+    }
+
+    function foodContains(f, x, y) {
+      var fw = f.w || 1;
+      var fh = f.h || 1;
+      return x >= f.x && y >= f.y && x < f.x + fw && y < f.y + fh;
+    }
+
     function rectsOverlap(a, b, pad) {
       pad = pad || 0;
       return a.x - pad < b.x + b.w && a.x + a.w + pad > b.x &&
@@ -1503,10 +1517,47 @@
       return false;
     }
 
-    function foodAllowed(x, y, w, h, placed) {
-      var i;
+    function reachableCells() {
+      var blocked = {};
+      var vis = {};
+      var q = [];
+      var i, n, k, nx, ny, d;
+      var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (i = 1; i < snake.length - 1; i++) {
+        blocked[snake[i].x + "," + snake[i].y] = true;
+      }
+      if (!snake[0]) return vis;
+      q.push(snake[0]);
+      vis[snake[0].x + "," + snake[0].y] = true;
+      while (q.length) {
+        n = q.pop();
+        for (d = 0; d < 4; d++) {
+          nx = wrap(n.x + dirs[d][0], COLS);
+          ny = wrap(n.y + dirs[d][1], ROWS);
+          k = nx + "," + ny;
+          if (vis[k] || blocked[k]) continue;
+          vis[k] = true;
+          q.push({ x: nx, y: ny });
+        }
+      }
+      return vis;
+    }
+
+    function foodReachable(x, y, w, h, vis) {
+      var sx, sy;
+      for (sy = y; sy < y + h; sy++) {
+        for (sx = x; sx < x + w; sx++) {
+          if (vis[sx + "," + sy]) return true;
+        }
+      }
+      return false;
+    }
+
+    function foodAllowed(x, y, w, h, placed, vis) {
       if (x < 0 || y < 0 || x + w > COLS || y + h > ROWS) return false;
-      if (snakeHitsRect(x, y, w, h, 1)) return false;
+      if (snakeHitsRect(x, y, w, h, 0)) return false;
+      if (vis && !foodReachable(x, y, w, h, vis)) return false;
+      var i;
       for (i = 0; i < placed.length; i++) {
         if (rectsOverlap(placed[i], { x: x, y: y, w: w, h: h }, 1)) return false;
       }
@@ -1514,26 +1565,39 @@
     }
 
     function placeFoods() {
-      var fw = 2;
-      var fh = 2;
-      var prev = foods.map(function (f) { return f.letter + ":" + f.x + "," + f.y; }).join("|");
-      var round, i, attempt, x, y, placed, sig, sx, sy;
-      for (round = 0; round < 10; round++) {
+      var fw = foodFootprint();
+      var fh = fw;
+      var vis = reachableCells();
+      var prev = foods.map(function (f) { return f.letter + ":" + f.x + "," + f.y + ":" + f.w + "x" + f.h; }).join("|");
+      var round, i, attempt, x, y, placed, sig, sx, sy, maxX, maxY;
+      maxX = Math.max(0, COLS - fw);
+      maxY = Math.max(0, ROWS - fh);
+      for (round = 0; round < 12; round++) {
         placed = [];
         for (i = 0; i < 4; i++) {
           var cand = null;
-          for (attempt = 0; attempt < 500; attempt++) {
-            x = Math.floor(Math.random() * Math.max(1, COLS - fw + 1));
-            y = Math.floor(Math.random() * Math.max(1, ROWS - fh + 1));
-            if (foodAllowed(x, y, fw, fh, placed)) {
+          for (attempt = 0; attempt < 800; attempt++) {
+            x = Math.floor(Math.random() * (maxX + 1));
+            y = Math.floor(Math.random() * (maxY + 1));
+            if (foodAllowed(x, y, fw, fh, placed, vis)) {
               cand = { x: x, y: y, w: fw, h: fh, letter: LETTERS[i], optionIndex: i };
               break;
             }
           }
           if (!cand) {
-            for (sy = 0; sy <= ROWS - fh && !cand; sy++) {
-              for (sx = 0; sx <= COLS - fw; sx++) {
-                if (foodAllowed(sx, sy, fw, fh, placed)) {
+            for (sy = 0; sy <= maxY && !cand; sy++) {
+              for (sx = 0; sx <= maxX; sx++) {
+                if (foodAllowed(sx, sy, fw, fh, placed, vis)) {
+                  cand = { x: sx, y: sy, w: fw, h: fh, letter: LETTERS[i], optionIndex: i };
+                  break;
+                }
+              }
+            }
+          }
+          if (!cand) {
+            for (sy = 0; sy <= maxY && !cand; sy++) {
+              for (sx = 0; sx <= maxX; sx++) {
+                if (foodAllowed(sx, sy, fw, fh, placed, null)) {
                   cand = { x: sx, y: sy, w: fw, h: fh, letter: LETTERS[i], optionIndex: i };
                   break;
                 }
@@ -1542,8 +1606,8 @@
           }
           if (!cand) {
             cand = {
-              x: Math.min(i * 3, Math.max(0, COLS - fw)),
-              y: Math.min(i * 2, Math.max(0, ROWS - fh)),
+              x: Math.min(1 + i, maxX),
+              y: Math.min(1 + i * 2, maxY),
               w: fw,
               h: fh,
               letter: LETTERS[i],
@@ -1552,7 +1616,7 @@
           }
           placed.push(cand);
         }
-        sig = placed.map(function (f) { return f.letter + ":" + f.x + "," + f.y; }).join("|");
+        sig = placed.map(function (f) { return f.letter + ":" + f.x + "," + f.y + ":" + f.w + "x" + f.h; }).join("|");
         if (sig !== prev || !prev) {
           foods = placed;
           return;
@@ -1731,11 +1795,8 @@
       var ny = wrap(head.y + dir.y, ROWS);
       var eaten = null;
       for (var i = 0; i < foods.length; i++) {
-        var f = foods[i];
-        var fw = f.w || 1;
-        var fh = f.h || 1;
-        if (nx >= f.x && nx < f.x + fw && ny >= f.y && ny < f.y + fh) {
-          eaten = f;
+        if (foodContains(foods[i], nx, ny)) {
+          eaten = foods[i];
           break;
         }
       }
@@ -1966,37 +2027,42 @@
       foods.forEach(function (f, i) {
         var fw = f.w || 1;
         var fh = f.h || 1;
-        var x = originX + (f.x + fw / 2) * cell;
-        var y = originY + (f.y + fh / 2) * cell;
-        var r = cell * 1.15;
+        var x = originX + f.x * cell;
+        var y = originY + f.y * cell;
+        var bw = fw * cell;
+        var bh = fh * cell;
+        var pad = Math.max(1, cell * 0.06);
+        var cx = x + bw / 2;
+        var cy = y + bh / 2;
+        var rr = Math.max(8, Math.min(bw, bh) / 2 - pad);
         ctx.fillStyle = FOOD_COLORS[i];
         ctx.strokeStyle = "#fff8ee";
-        ctx.lineWidth = Math.max(3, cell * 0.1);
+        ctx.lineWidth = Math.max(3, cell * 0.12);
         ctx.beginPath();
         if (i === 0) {
-          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.arc(cx, cy, rr, 0, Math.PI * 2);
         } else if (i === 1) {
-          roundRect(x - r, y - r, r * 2, r * 2, r * 0.25);
+          roundRect(x + pad, y + pad, bw - pad * 2, bh - pad * 2, Math.min(bw, bh) * 0.18);
         } else if (i === 2) {
-          ctx.moveTo(x, y - r);
-          ctx.lineTo(x + r, y);
-          ctx.lineTo(x, y + r);
-          ctx.lineTo(x - r, y);
+          ctx.moveTo(cx, y + pad);
+          ctx.lineTo(x + bw - pad, cy);
+          ctx.lineTo(cx, y + bh - pad);
+          ctx.lineTo(x + pad, cy);
           ctx.closePath();
         } else {
-          ctx.moveTo(x - r, y - r * 0.5);
-          ctx.lineTo(x + r, y - r * 0.5);
-          ctx.lineTo(x + r * 0.5, y + r);
-          ctx.lineTo(x - r * 0.5, y + r);
+          ctx.moveTo(x + pad, y + bh * 0.28);
+          ctx.lineTo(x + bw - pad, y + bh * 0.28);
+          ctx.lineTo(x + bw * 0.72, y + bh - pad);
+          ctx.lineTo(x + bw * 0.28, y + bh - pad);
           ctx.closePath();
         }
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(Math.max(15, cell * (f.w || 1) * 0.72)) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.max(22, Math.min(bw, bh) * 0.58)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(f.letter, x, y + 1);
+        ctx.fillText(f.letter, cx, cy + 1);
       });
     }
 
@@ -2304,7 +2370,13 @@
     }, { passive: false, capture: true });
 
     window.addEventListener("resize", function () {
+      var prevC = COLS;
+      var prevR = ROWS;
       resizeCanvas();
+      if (gameMode === "snake" && awaitingMove && (COLS !== prevC || ROWS !== prevR)) {
+        resetSnake();
+        placeFoods();
+      }
       if (gameMode === "bird") {
         var h = playHeight();
         bird.y = Math.max(bird.r + 3, Math.min(h - bird.r - 3, bird.y || h * 0.5));
@@ -2342,7 +2414,8 @@
           gridW: COLS * cell,
           gridH: ROWS * cell,
           foods: foods.map(function (f) { return { x: f.x, y: f.y, w: f.w, h: f.h, letter: f.letter }; }),
-          body: snake.map(function (p) { return { x: p.x, y: p.y }; })
+          body: snake.map(function (p) { return { x: p.x, y: p.y }; }),
+          foodPx: foods[0] ? foods[0].w * cell : 0
         };
       },
       birdState: function () {
