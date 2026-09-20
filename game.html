@@ -96,6 +96,28 @@
     .icon-btn[aria-pressed="true"] {
       background: #c44738;
     }
+    .home-switch-btn {
+      min-height: 48px;
+      padding: 4px 12px;
+      border: 0;
+      border-radius: 12px;
+      background: #1a4c56;
+      color: var(--paper);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.15;
+      text-align: center;
+      flex: 0 0 auto;
+      max-width: 42%;
+    }
+    .home-switch-btn small {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.88;
+    }
+    body.is-home .home-switch-btn { display: none; }
+    .disclaimer-bar, .topbar { position: relative; z-index: 40; }
     .screen {
       display: none;
       flex: 1;
@@ -348,6 +370,7 @@
       padding: 16px;
       align-items: center;
       justify-content: center;
+      pointer-events: none;
     }
     .overlay.show { display: flex; }
     .modal {
@@ -358,6 +381,7 @@
       overflow: auto;
       border-radius: 18px;
       padding: 18px;
+      pointer-events: auto;
     }
     .badge {
       display: inline-block;
@@ -425,12 +449,12 @@
       }
       .play-head { max-height: 30%; }
       .stage-wrap { min-height: 160px; }
-      .mode-card strong { font-size: 20px; }
-      .flap-btn { min-height: 64px; font-size: 22px; }
+      .home-switch-btn { font-size: 13px; padding: 4px 8px; }
+      .home-switch-btn small { font-size: 10px; }
     }
   </style>
 </head>
-<body>
+<body class="is-home">
   <div class="app">
     <div class="disclaimer-bar">本遊戲只供訓練用途，實際工作請依照部門指引</div>
     <div class="topbar">
@@ -438,6 +462,10 @@
         <h1>護理安全訓練遊戲</h1>
         <p id="statusLine">分數只是學習回饋，不是績效考核</p>
       </div>
+      <button class="home-switch-btn" id="btnHomeTop" type="button">
+        返回主畫面
+        <small>轉遊戲</small>
+      </button>
       <button class="icon-btn" id="btnMute" type="button" aria-pressed="false" aria-label="靜音">🔊</button>
       <button class="icon-btn" id="btnPause" type="button" aria-pressed="false" aria-label="暫停" disabled>⏸</button>
     </div>
@@ -497,7 +525,7 @@
       </div>
       <div class="controls-bird" id="controlsBird">
         <button class="flap-btn" id="btnFlap" type="button">拍翅</button>
-        <div class="flap-note">空白鍵、點畫面或按此按鈕　閘門有 A／B／C／D 文字標示</div>
+        <div class="flap-note">空白鍵、點畫面或按此按鈕都會向上飛　閘門有 A／B／C／D 文字標示</div>
       </div>
     </section>
 
@@ -519,7 +547,7 @@
       <p>畫面已停止。分數只是學習回饋，不是績效考核。</p>
       <p>本遊戲只供訓練用途，實際工作請依照部門指引。</p>
       <button class="primary" id="btnResume" type="button">繼續</button>
-      <button class="ghost" id="btnQuit" type="button">返回主畫面</button>
+      <button class="ghost" id="btnQuit" type="button">返回主畫面／轉遊戲</button>
     </div>
   </div>
 
@@ -528,7 +556,7 @@
     "use strict";
 
     var SNAKE_HINT = "閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答";
-    var BIRD_HINT = "閱讀題目後，拍翅開始飛行<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
+    var BIRD_HINT = "拍翅、點畫面或撳空白鍵令小鳥向上飛<br>飛入標示 A／B／C／D 的閘門即作答（唔好只靠顏色）";
 
     var QUESTIONS = [
       {
@@ -1229,7 +1257,8 @@
       gateX: 0,
       gateW: 70,
       scored: false,
-      wing: 0
+      wing: 0,
+      flightMs: 0
     };
 
     var order = [];
@@ -1362,13 +1391,18 @@
       var h = playHeight();
       bird.y = h * 0.5;
       bird.vy = 0;
-      bird.r = Math.max(14, Math.min(22, h * 0.048));
+      bird.r = Math.max(16, Math.min(26, h * 0.055));
       bird.gateW = Math.max(64, Math.min(96, w * 0.16));
-      bird.gateX = w + 24;
+      bird.gateX = Math.max(w * 0.58, w * 0.22 + 160);
       bird.scored = false;
       bird.wing = 0;
+      bird.flightMs = 0;
       awaitingMove = true;
       moveHint.classList.remove("hidden");
+    }
+
+    function birdScale() {
+      return Math.max(0.9, Math.min(1.4, playHeight() / 280));
     }
 
     function prepareQuestion() {
@@ -1419,12 +1453,16 @@
 
     function flap() {
       if (gameMode !== "bird") return;
-      if (!running || paused || overlayOpen()) return;
+      if (!document.getElementById("screenPlay").classList.contains("active")) return;
+      if (!running || paused || overlayOpen() || bird.scored) return;
       if (awaitingMove) {
         awaitingMove = false;
         moveHint.classList.add("hidden");
+        bird.flightMs = 0;
+        lastTs = 0;
       }
-      bird.vy = -Math.max(7.2, playHeight() * 0.019);
+      var scale = birdScale();
+      bird.vy = -440 * scale;
       bird.wing = 1;
       sfx("flap");
     }
@@ -1477,11 +1515,14 @@
       if (!running || paused || awaitingMove || gameMode !== "bird" || bird.scored) return;
       var w = playWidth();
       var h = playHeight();
-      var g = h * 0.00125 * dt;
-      var maxV = h * 0.02;
-      bird.vy = Math.min(maxV, bird.vy + g);
-      bird.y += bird.vy * (dt / 16.67);
-      if (bird.wing > 0) bird.wing -= dt / 180;
+      var scale = birdScale();
+      var dtSec = Math.max(0.008, Math.min(0.032, dt / 1000));
+      bird.flightMs += dtSec * 1000;
+      bird.vy += 780 * scale * dtSec;
+      if (bird.vy > 380 * scale) bird.vy = 380 * scale;
+      if (bird.vy < -480 * scale) bird.vy = -480 * scale;
+      bird.y += bird.vy * dtSec;
+      if (bird.wing > 0) bird.wing -= dtSec * 5;
       var margin = bird.r + 3;
       if (bird.y < margin) {
         bird.y = margin;
@@ -1491,13 +1532,14 @@
         bird.y = h - margin;
         if (bird.vy > 0) bird.vy = 0;
       }
-      var speed = Math.max(2.4, w * 0.0052);
-      bird.gateX -= speed * (dt / 16.67);
+      var speed = 110 * scale;
+      bird.gateX -= speed * dtSec;
       var birdX = w * 0.22;
       var lane = laneFromY(bird.y, h);
-      var passed = birdX >= bird.gateX + bird.gateW * 0.4;
+      var gateHit = birdX + bird.r > bird.gateX && birdX - bird.r < bird.gateX + bird.gateW;
+      var passed = birdX >= bird.gateX + bird.gateW * 0.45;
       var gone = bird.gateX + bird.gateW < birdX - bird.r;
-      if (!bird.scored && (passed || gone)) {
+      if (!bird.scored && bird.flightMs > 280 && (passed || gone || (gateHit && passed))) {
         bird.scored = true;
         running = false;
         sfx("eat");
@@ -1505,6 +1547,7 @@
       }
       canvas.dataset.lane = String(lane);
       canvas.dataset.gateX = String(Math.round(bird.gateX));
+      canvas.dataset.birdY = String(Math.round(bird.y));
     }
 
     function finishRound(choice) {
@@ -1538,7 +1581,8 @@
         current.points.map(function (p) { return "<li>" + escapeHtml(p) + "</li>"; }).join("") +
         "</ul>" +
         '<p class="score-note">分數只是學習回饋，不是績效考核。本遊戲只供訓練用途，實際工作請依照部門指引。</p>' +
-        '<button class="primary" id="btnNext" type="button">' + (more ? "下一題" : "查看結果") + "</button>";
+        '<button class="primary" id="btnNext" type="button">' + (more ? "下一題" : "查看結果") + "</button>" +
+        '<button class="ghost" id="btnHomeFromResult" type="button">返回主畫面／轉遊戲</button>';
       overlays.result.classList.add("show");
       document.getElementById("btnNext").focus();
       document.getElementById("btnNext").addEventListener("click", function () {
@@ -1552,6 +1596,10 @@
           running = true;
           prepareQuestion();
         }
+      });
+      document.getElementById("btnHomeFromResult").addEventListener("click", function () {
+        sfx("click");
+        goHome();
       });
     }
 
@@ -1588,7 +1636,7 @@
           ? '<button class="secondary" id="btnReview" type="button">複習未答對的題目（' + wrong.length + "）</button>"
           : "<p>這回合每題都選到較適切的答案。仍請在實際工作中依部門指引執行。</p>") +
         '<button class="primary" id="btnRestart" type="button">用同一玩法再練習</button>' +
-        '<button class="ghost" id="btnHome" type="button">返回主畫面</button>';
+        '<button class="ghost" id="btnHome" type="button">返回主畫面／轉遊戲</button>';
       document.getElementById("btnRestart").onclick = function () { sfx("click"); startGame(gameMode); };
       document.getElementById("btnHome").onclick = function () { sfx("click"); goHome(); };
       var rev = document.getElementById("btnReview");
@@ -1607,10 +1655,15 @@
           "</ul></div>";
       }).join("");
       html += '<button class="primary" id="btnReviewDone" type="button">返回結果</button>';
+      html += '<button class="ghost" id="btnHomeFromReview" type="button">返回主畫面／轉遊戲</button>';
       document.getElementById("reviewPanel").innerHTML = html;
       document.getElementById("btnReviewDone").onclick = function () {
         sfx("click");
         showScreen("screenResults");
+      };
+      document.getElementById("btnHomeFromReview").onclick = function () {
+        sfx("click");
+        goHome();
       };
     }
 
@@ -1840,6 +1893,7 @@
       qIndex = 0;
       answers = [];
       showScreen("screenPlay");
+      document.body.classList.remove("is-home");
       setPauseEnabled(true);
       prepareQuestion();
       running = true;
@@ -1849,18 +1903,21 @@
       if (gameMode === "bird") resetBird();
       requestAnimationFrame(function () {
         resizeCanvas();
-        if (gameMode === "bird") resetBird();
+        if (gameMode === "bird" && awaitingMove) resetBird();
       });
     }
 
     function goHome() {
       running = false;
       paused = false;
+      bird.scored = false;
+      awaitingMove = true;
       overlays.pause.classList.remove("show");
       overlays.result.classList.remove("show");
       setPauseEnabled(false);
       document.getElementById("btnPause").setAttribute("aria-pressed", "false");
       document.getElementById("statusLine").textContent = "分數只是學習回饋，不是績效考核";
+      document.body.classList.add("is-home");
       showScreen("screenHome");
     }
 
@@ -1895,19 +1952,23 @@
       if (paused) togglePause();
     });
     document.getElementById("btnQuit").addEventListener("click", goHome);
-    document.getElementById("btnFlap").addEventListener("pointerdown", function (ev) {
-      if (ev.cancelable) ev.preventDefault();
-      flap();
+    document.getElementById("btnHomeTop").addEventListener("click", function () {
+      sfx("click");
+      goHome();
     });
+
+    function onFlapPointer(ev) {
+      if (gameMode !== "bird") return;
+      if (ev.cancelable) ev.preventDefault();
+      if (ev.stopPropagation) ev.stopPropagation();
+      flap();
+    }
+    document.getElementById("btnFlap").addEventListener("pointerdown", onFlapPointer);
     document.getElementById("btnFlap").addEventListener("click", function (ev) {
       if (ev.cancelable) ev.preventDefault();
       flap();
     });
-    canvas.addEventListener("pointerdown", function (ev) {
-      if (gameMode !== "bird") return;
-      if (ev.cancelable) ev.preventDefault();
-      flap();
-    });
+    canvas.parentElement.addEventListener("pointerdown", onFlapPointer);
 
     document.querySelectorAll(".pad").forEach(function (btn) {
       function press(ev) {
@@ -1919,18 +1980,26 @@
       btn.addEventListener("click", press);
     });
 
+    function isSpaceKey(e) {
+      return e.code === "Space" || e.key === " " || e.key === "Spacebar" || e.keyCode === 32;
+    }
+
     window.addEventListener("keydown", function (e) {
+      var playing = document.getElementById("screenPlay").classList.contains("active");
+      if (isSpaceKey(e) && playing) {
+        e.preventDefault();
+      }
       if (e.key === "m" || e.key === "M") {
         toggleMute();
         return;
       }
       if (e.key === "p" || e.key === "P" || e.key === "Escape") {
-        e.preventDefault();
+        if (playing) e.preventDefault();
         togglePause();
         return;
       }
       if (overlayOpen()) return;
-      if (gameMode === "bird" && (e.key === " " || e.key === "Spacebar" || e.key === "ArrowUp")) {
+      if (gameMode === "bird" && (isSpaceKey(e) || e.key === "ArrowUp")) {
         e.preventDefault();
         flap();
         return;
@@ -1945,10 +2014,14 @@
         e.preventDefault();
         setDir(map[e.key][0], map[e.key][1]);
       }
-    }, { passive: false });
+    }, { passive: false, capture: true });
 
     window.addEventListener("resize", function () {
       resizeCanvas();
+      if (gameMode === "bird") {
+        var h = playHeight();
+        bird.y = Math.max(bird.r + 3, Math.min(h - bird.r - 3, bird.y || h * 0.5));
+      }
     });
 
     window.addEventListener("orientationchange", function () {
@@ -1972,6 +2045,16 @@
       answers: function () { return answers; },
       mode: function () { return gameMode; },
       flap: flap,
+      birdState: function () {
+        return {
+          y: bird.y,
+          vy: bird.vy,
+          awaiting: awaitingMove,
+          running: running,
+          scored: bird.scored,
+          gateX: bird.gateX
+        };
+      },
       counts: function () {
         var out = { total: QUESTIONS.length, bySource: {}, byCategory: {} };
         QUESTIONS.forEach(function (q) {
