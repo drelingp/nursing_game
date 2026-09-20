@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+  <title>護理安全訓練遊戲</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%230e3a42' width='64' height='64' rx='12'/%3E%3Ccircle cx='32' cy='32' r='14' fill='%232db88a'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='22' fill='white' font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #0c3038;
+      --bg-2: #14515c;
+      --ink: #142226;
+      --paper: #fff8ee;
+      --paper-2: #f3ead8;
+      --line: #d9cbb0;
+      --gold: #e0b03a;
+      --teal: #1f9b7e;
+      --teal-d: #14725d;
+      --red: #c44738;
+      --muted: #5c6e72;
+      --safe: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--paper);
+      font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Heiti TC", "Source Han Sans TC", sans-serif;
+      touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior: none;
+    }
+    body {
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+    button {
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .app {
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: calc(8px + env(safe-area-inset-top, 0px)) 12px calc(8px + var(--safe));
+    }
+    .disclaimer-bar {
+      flex: 0 0 auto;
+      background: #071c22;
+      color: #f0d48a;
+      font-size: 13px;
+      line-height: 1.4;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      min-height: 48px;
+    }
+    .brand {
+      flex: 1;
+      min-width: 0;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.04em;
+    }
+    .brand p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: #c9ddd8;
+    }
+    .icon-btn {
+      width: 48px;
+      height: 48px;
+      border: 0;
+      border-radius: 12px;
+      background: #1a4c56;
+      color: var(--paper);
+      font-size: 20px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 48px;
+    }
+    .icon-btn[aria-pressed="true"] {
+      background: #c44738;
+    }
+    .screen {
+      display: none;
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+    }
+    .screen.active { display: flex; }
+    .panel {
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 16px;
+      padding: 16px;
+      overflow: auto;
+      flex: 1;
+    }
+    .home-hero {
+      text-align: center;
+      padding-top: 8px;
+    }
+    .logo {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 12px;
+      border-radius: 24px;
+      background: linear-gradient(160deg, #2db88a, #14725d);
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 40px;
+      font-weight: 800;
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+    }
+    .home-hero h2 {
+      margin: 0 0 8px;
+      font-size: 26px;
+    }
+    .purpose, .legal {
+      text-align: left;
+      font-size: 15px;
+      line-height: 1.65;
+      margin: 12px 0;
+    }
+    .legal {
+      background: #f6efe0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+    }
+    .primary, .secondary, .ghost {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      margin-top: 10px;
+      padding: 0 16px;
+    }
+    .primary { background: var(--teal); color: white; }
+    .primary:active { background: var(--teal-d); }
+    .secondary { background: var(--gold); color: #2a2208; }
+    .ghost {
+      background: transparent;
+      color: var(--teal-d);
+      border: 2px solid var(--teal);
+    }
+    .play-head {
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 14px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      flex: 0 0 auto;
+      max-height: 38%;
+      overflow: auto;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .q-text {
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .opt {
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 8px 8px 34px;
+      position: relative;
+      font-size: 13px;
+      line-height: 1.35;
+      min-height: 44px;
+    }
+    .opt .tag {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-2);
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+    }
+    .stage-wrap {
+      flex: 1 1 auto;
+      min-height: 180px;
+      position: relative;
+      background: #081c22;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 3px solid #1e5c67;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    .hint {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(7, 28, 34, .82);
+      color: #fff8ee;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      text-align: center;
+      pointer-events: none;
+      max-width: 90%;
+    }
+    .hint.hidden { display: none; }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 86px 1fr;
+      grid-template-rows: 56px 56px 56px;
+      gap: 8px;
+      width: min(280px, 100%);
+      margin: 10px auto 0;
+      flex: 0 0 auto;
+    }
+    .pad {
+      border: 0;
+      border-radius: 14px;
+      background: #1a4c56;
+      color: white;
+      font-size: 26px;
+      font-weight: 800;
+    }
+    .pad:active { background: var(--teal); }
+    .pad-up { grid-column: 2; grid-row: 1; }
+    .pad-left { grid-column: 1; grid-row: 2; }
+    .pad-right { grid-column: 3; grid-row: 2; }
+    .pad-down { grid-column: 2; grid-row: 3; }
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 20, 24, .72);
+      z-index: 20;
+      padding: 16px;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: var(--paper);
+      color: var(--ink);
+      width: min(560px, 100%);
+      max-height: min(86dvh, 720px);
+      overflow: auto;
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .ok { background: #d7f3e6; color: #0d5c3d; }
+    .bad { background: #fde0db; color: #8a2418; }
+    .explain, .learn li {
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .learn {
+      margin: 8px 0 0;
+      padding-left: 1.2em;
+    }
+    .cat-grid {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .cat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--paper-2);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+    }
+    .bar {
+      height: 8px;
+      background: #e6dcc8;
+      border-radius: 99px;
+      overflow: hidden;
+      width: 42%;
+      margin-left: 8px;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: var(--teal);
+    }
+    .review-item {
+      border-top: 1px solid var(--line);
+      padding: 12px 0;
+    }
+    .score-note {
+      font-size: 14px;
+      background: #fff3cc;
+      border-radius: 10px;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    @media (max-width: 640px) {
+      .q-text { font-size: 15px; }
+      .brand h1 { font-size: 16px; }
+      .opt { font-size: 12px; min-height: 38px; padding: 6px 6px 6px 30px; }
+      .controls {
+        width: min(240px, 100%);
+        grid-template-rows: 48px 48px 48px;
+      }
+      .play-head { max-height: 34%; }
+      .stage-wrap { min-height: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="disclaimer-bar">本遊戲只供訓練用途，實際工作請依照部門指引</div>
+    <div class="topbar">
+      <div class="brand">
+        <h1>護理安全訓練遊戲</h1>
+        <p id="statusLine">分數只是學習回饋，不是績效考核</p>
+      </div>
+      <button class="icon-btn" id="btnMute" type="button" aria-pressed="false" aria-label="靜音">🔊</button>
+      <button class="icon-btn" id="btnPause" type="button" aria-pressed="false" aria-label="暫停" disabled>⏸</button>
+    </div>
+
+    <section class="screen active" id="screenHome">
+      <div class="panel">
+        <div class="home-hero">
+          <div class="logo" aria-hidden="true">蛇</div>
+          <h2>護理安全訓練遊戲</h2>
+          <p>用貪食蛇吃答案，複習日常安全重點</p>
+        </div>
+        <p class="purpose">本遊戲協助病房與門診護理人員練習感染控制、藥物安全、病人識別與安全、生命徵象、文件記錄與職業安全等常見情境。所有題目皆為虛構訓練案例，不含真實病人或職員資料。</p>
+        <div class="legal">
+          <strong>重要說明</strong>
+          <ul>
+            <li>本遊戲只供訓練用途，實際工作請依照部門指引。</li>
+            <li>內容不是考試認證，也不是醫療建議。</li>
+            <li>分數只是學習回饋，不作績效考核、人事評核或能力鑑定。</li>
+            <li>不收集、不上傳任何個人資料；可完全離線遊玩。</li>
+          </ul>
+        </div>
+        <button class="primary" id="btnStart" type="button">開始訓練</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screenPlay">
+      <div class="play-head">
+        <div class="meta-row">
+          <span id="progressText">第 1 / 20 題</span>
+          <span id="catText">感染控制</span>
+          <span id="scoreText">答對 0</span>
+        </div>
+        <div class="q-text" id="questionText"></div>
+        <div class="options" id="optionsBox"></div>
+      </div>
+      <div class="stage-wrap">
+        <canvas id="gameCanvas"></canvas>
+        <div class="hint" id="moveHint">閱讀題目後，用方向鍵或下方按鈕開始移動<br>A 左　B 右　C 上　D 下，吃到字母即作答</div>
+      </div>
+      <div class="controls" aria-label="方向鍵">
+        <button class="pad pad-up" type="button" data-dir="0,-1" aria-label="上">▲</button>
+        <button class="pad pad-left" type="button" data-dir="-1,0" aria-label="左">◀</button>
+        <button class="pad pad-right" type="button" data-dir="1,0" aria-label="右">▶</button>
+        <button class="pad pad-down" type="button" data-dir="0,1" aria-label="下">▼</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screenResults">
+      <div class="panel" id="resultsPanel"></div>
+    </section>
+
+    <section class="screen" id="screenReview">
+      <div class="panel" id="reviewPanel"></div>
+    </section>
+  </div>
+
+  <div class="overlay" id="overlayResult">
+    <div class="modal" id="resultModal"></div>
+  </div>
+  <div class="overlay" id="overlayPause">
+    <div class="modal">
+      <h2>遊戲已暫停</h2>
+      <p>蛇已停止移動。分數只是學習回饋，不是績效考核。</p>
+      <p>本遊戲只供訓練用途，實際工作請依照部門指引。</p>
+      <button class="primary" id="btnResume" type="button">繼續</button>
+      <button class="ghost" id="btnQuit" type="button">返回主畫面</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var QUESTIONS = [
+      {
+        category: "感染控制",
+        q: "執行抽血或放置周邊靜脈導管等侵入性處置前，手部衛生的正確做法是？",
+        options: [
+          "只要戴手套就可以省略洗手",
+          "先完成手部衛生，再戴上清潔手套",
+          "只在脫手套後才需要做手部衛生",
+          "用手套當毛巾擦乾雙手即可"
+        ],
+        answer: 1,
+        explain: "手套不能取代手部衛生。戴手套前應先清潔雙手，脫手套後也要再做一次。侵入性處置前更需確認手部已清潔，以降低感染風險。",
+        points: ["手套 ≠ 洗手。", "戴前、脫後都要做手部衛生。", "實際步驟請依部門感染控制指引。"]
+      },
+      {
+        category: "感染控制",
+        q: "照顧標示接觸傳染隔離的病人時，進入病室前應如何做？",
+        options: [
+          "只戴外科口罩即可",
+          "依隔離標示穿戴適當個人防護裝備，離開時依序正確脫除",
+          "把隔離衣留給下一位同事繼續穿",
+          "只要病人有戴口罩，工作人員可不穿防護衣"
+        ],
+        answer: 1,
+        explain: "隔離種類（接觸、飛沫、空氣）決定所需防護裝備。應在進入隔離環境前穿戴齊全，離開時在指定位置正確脫除並執行手部衛生，避免把病原帶到其他區域。",
+        points: ["先看隔離標示再穿戴。", "離開時依序脫除，避免污染。", "防護裝備不可共用。"]
+      },
+      {
+        category: "感染控制",
+        q: "剛注射完的針頭應如何處理？",
+        options: [
+          "回套針帽後丟進一般垃圾桶",
+          "請同事幫忙把針帽套回去",
+          "立即放入耐穿刺的尖銳物收集盒，不要回套",
+          "先放在床旁桌上，等整批工作結束再處理"
+        ],
+        answer: 2,
+        explain: "使用後的針頭屬於尖銳廢棄物，應立刻放入專用耐穿刺收集盒。回套針帽是針刺傷的常見原因，不應請他人幫忙回套，也不可暫放在床旁。",
+        points: ["不回套、不傳遞裸針。", "就近投入尖銳物盒。", "盒子滿至標示線即應更換。"]
+      },
+      {
+        category: "感染控制",
+        q: "雙手明顯髒污，或剛處理排泄物後，較適切的手部衛生是？",
+        options: [
+          "只擦酒精性乾洗手液就夠了",
+          "用肥皂與清水洗手，再依需要使用乾洗手液",
+          "用衣服擦一擦即可繼續工作",
+          "戴著戒指就不必洗手"
+        ],
+        answer: 1,
+        explain: "酒精性乾洗手液適合雙手無明顯髒污時。當雙手看得見髒污、接觸血液體液或某些腸胃道病原後，應以肥皂與清水洗手。飾品會藏污，應依部門規定處理。",
+        points: ["髒污或排泄物暴露：肥皂洗手。", "無可見髒污：可依指引使用乾洗手液。", "記住「手部衛生五時機」。"]
+      },
+      {
+        category: "藥物安全",
+        q: "給藥前最少應核對哪些項目？",
+        options: [
+          "只核對藥名即可",
+          "正確的病人、藥物、劑量、途徑、時間，並完成紀錄",
+          "只看藥車格子編號",
+          "只叫病人姓氏，確定有人答應就給藥"
+        ],
+        answer: 1,
+        explain: "給藥安全仰賴完整核對，而非單一項目。應以至少兩項病人識別資料核對身分，再核對藥物、劑量、途徑與時間，給藥後依規定記錄。只靠床號、藥車位置或面孔並不夠。",
+        points: ["核對病人、藥、量、途徑、時間。", "用腕帶與紀錄，不只靠叫名字。", "給藥後完成紀錄。"]
+      },
+      {
+        category: "藥物安全",
+        q: "胰島素、抗凝血劑等高警訊藥物，給藥前較安全的做法是？",
+        options: [
+          "自己加快速度完成即可",
+          "由兩位合格人員獨立雙重核對後再給藥",
+          "先給藥，等有空再補簽名",
+          "病人說「和平常一樣」就可以省略核對"
+        ],
+        answer: 1,
+        explain: "高警訊藥物一旦給錯，傷害可能很大。多數機構要求獨立雙人核對（各自計算與核對，而不是一人念、一人點頭）。病人熟悉度不能取代核對流程。",
+        points: ["高警訊藥物要獨立雙重核對。", "先核對再給藥，不可事後補簽。", "以部門藥品清單為準。"]
+      },
+      {
+        category: "藥物安全",
+        q: "準備給藥時發現藥錠外觀、劑量標示或包裝與平時不同，應如何處理？",
+        options: [
+          "先給一半劑量試試看",
+          "依照自己記得的習慣劑量給藥",
+          "暫停給藥，向藥劑人員或主管查證後再執行",
+          "請病人自行決定要不要吃"
+        ],
+        answer: 2,
+        explain: "外觀或標示異常可能是看錯藥、劑型變更或調劑問題。應暫停，查證醫囑與藥品後再給。自行減量、憑記憶給藥或把決定交給病人，都可能造成傷害。",
+        points: ["有疑就停，查證後再給。", "不要憑記憶或習慣給藥。", "查證過程應記錄。"]
+      },
+      {
+        category: "病人識別與安全",
+        q: "執行治療、檢查或給藥前，正確的病人識別是？",
+        options: [
+          "只叫床號",
+          "使用至少兩項獨立識別資料（如姓名及出生日期），並與腕帶或紀錄核對",
+          "只認面孔，因為已經照顧好幾天",
+          "只看病房門口名牌"
+        ],
+        answer: 1,
+        explain: "床號、房間號與面孔都可能出錯（換床、相似外貌、訪客坐在床上）。應主動核對至少兩項獨立識別資料，並與腕帶、檢查單或藥單比對，請病人說出資料而不是只回答「對」。",
+        points: ["至少兩項識別資料。", "核對腕帶，不只叫床號。", "請病人說出姓名，避免誘導式問句。"]
+      },
+      {
+        category: "病人識別與安全",
+        q: "病人表示對青黴素過敏，但醫囑開立相關抗生素，此時應？",
+        options: [
+          "先給藥再觀察有沒有反應",
+          "暫停給藥，立即通知醫師，並完整記錄過敏史",
+          "把劑量減半後再給",
+          "改由家屬決定要不要注射"
+        ],
+        answer: 1,
+        explain: "已知或疑似藥物過敏時，不可逕行給藥或自行調整劑量。應暫停、通知開立醫師並依藥劑／過敏流程處理，同時把過敏原、反應型態記入紀錄與識別標示。",
+        points: ["疑似過敏：先停藥再通報。", "不可自行減量試試。", "更新過敏紀錄與標示。"]
+      },
+      {
+        category: "病人識別與安全",
+        q: "預防住院病人跌倒，下列何者最適切？",
+        options: [
+          "把所有病人都約束起來",
+          "評估跌倒風險，保持呼叫鈴可及、地面乾燥，並協助如廁",
+          "關掉夜燈以免干擾睡眠，讓走道全暗",
+          "禁止所有家屬陪伴"
+        ],
+        answer: 1,
+        explain: "跌倒預防以評估與環境安全為主，而不是一律約束。應維持呼叫鈴可及、鞋履合適、照明足夠、地面乾燥，並對高風險病人加強如廁陪伴。約束有適應症與時限，不能當成常規防跌方法。",
+        points: ["先評估再介入。", "環境：照明、乾燥、呼叫鈴。", "約束不是第一線防跌手段。"]
+      },
+      {
+        category: "病人識別與安全",
+        q: "執行輸血前，最關鍵的安全步驟是？",
+        options: [
+          "愈快開始愈好，可在走廊先把血接上",
+          "在床邊以兩項識別資料核對病人與血品，確認醫囑與相容性後再輸",
+          "只看血袋顏色是否像血液",
+          "先輸一半，等有空再核對"
+        ],
+        answer: 1,
+        explain: "輸血錯誤可能致命。必須在床邊核對病人身分與血品資料、醫囑及相容性，確認無誤才可開始，並依指引觀察輸血反應。不可憑外觀或事後補核對。",
+        points: ["輸血核對在床邊完成。", "病人與血品都要雙重識別。", "開始後持續觀察反應。"]
+      },
+      {
+        category: "生命徵象",
+        q: "要測量血壓時，病人剛走回病房且正在說話，較適切的做法是？",
+        options: [
+          "立刻測量，結果一定準確",
+          "讓病人坐下休息、保持安靜後，再依標準流程測量",
+          "隔著厚外套測量以節省時間",
+          "只量一次後，之後都沿用這個數字"
+        ],
+        answer: 1,
+        explain: "活動、說話、衣物過厚與姿勢不正確都會影響血壓讀數。應讓病人休息、採正確姿勢、選擇合適壓脈帶後再量。異常值應再確認，並依病情趨勢觀察，而不是永遠沿用單一次結果。",
+        points: ["休息後再量，避免邊走邊量。", "壓脈帶尺寸與姿勢要正確。", "異常值應複測並通報。"]
+      },
+      {
+        category: "生命徵象",
+        q: "成人休息時心跳每分鐘約 42 下，並表示頭暈，你應如何處理？",
+        options: [
+          "當成運動員正常現象，不需處理",
+          "立即再確認生命徵象，評估意識與循環，並依指引通報",
+          "請病人自行慢跑把心跳跑高",
+          "等交班時再順便提一下"
+        ],
+        answer: 1,
+        explain: "心跳過慢合併頭暈可能是心輸出量不足。即使有人平時心跳較慢，出現症狀就應立即再測、評估意識、膚色、血壓，並依早期預警或部門流程通報，不可拖延到交班。",
+        points: ["看數值也要看症狀。", "異常生命徵象要再確認並通報。", "不要把處理留到交班。"]
+      },
+      {
+        category: "生命徵象",
+        q: "血氧飽和度突然下降，病人呼吸費力、說話不成句，優先做法是？",
+        options: [
+          "先去完成其他病人的點滴再回來",
+          "留在病人旁，評估呼吸道與呼吸，依醫囑或指引給氧並呼叫協助",
+          "把血氧機拿掉以免一直響",
+          "只把數字寫進紀錄，不需通知任何人"
+        ],
+        answer: 1,
+        explain: "呼吸窘迫是緊急情況。應先確保現場安全與呼吸道通暢，給氧與呼叫協助，同時持續監測。關掉警報或離開病人去完成其他工作，都可能延誤救援。",
+        points: ["先處理氣道與呼吸。", "留在病人旁並呼叫協助。", "不要關掉警報來「解決」問題。"]
+      },
+      {
+        category: "文件記錄",
+        q: "剛完成一項重要處置後，護理紀錄應如何處理？",
+        options: [
+          "等下班一次補寫全部內容",
+          "盡快、客觀、完整記錄時間、內容、病人反應與執行者",
+          "請同事用你的帳號代為簽署",
+          "只寫在自己的便條紙，不進入正式紀錄"
+        ],
+        answer: 1,
+        explain: "紀錄應及時、真實、可追溯。延後補記容易漏掉關鍵變化；借用帳號或只寫便條都不符合文件與法律要求。應記錄事實而非猜測，並依機構規定簽署。",
+        points: ["即時記錄，不要整批補寫。", "不可借用他人帳號。", "寫觀察到的事實與時間。"]
+      },
+      {
+        category: "文件記錄",
+        q: "書寫或輸入護理紀錄時，下列何者正確？",
+        options: [
+          "使用自己發明的縮寫，同事應該看得懂",
+          "使用機構核准用語，內容清楚；若需更正，依規定修正並可辨識原文",
+          "把尚未證實的猜測寫成確定診斷",
+          "用塗黑方式讓錯誤內容完全看不見"
+        ],
+        answer: 1,
+        explain: "不核准的縮寫容易造成用藥或處置錯誤。紀錄應清楚、客觀。紙本更正通常是劃線、簽名、註記時間，而不是塗黑；電子紀錄依系統更正軌跡處理。",
+        points: ["只用核准縮寫與用語。", "更正要可追溯，不可塗黑。", "區分事實與判斷。"]
+      },
+      {
+        category: "文件記錄",
+        q: "發現給錯藥，或差一點給錯藥時，應如何做？",
+        options: [
+          "隱瞞以免被責備",
+          "先確保病人安全，再依機構流程立即呈報與記錄",
+          "只私下告訴朋友，不要寫進系統",
+          "等一週後看病人有沒有事再決定"
+        ],
+        answer: 1,
+        explain: "病人安全事件與差錯（包括未造成傷害的近誤）都應呈報，目的是改善系統，不是懲罰個人。第一優先是評估與穩定病人，再依異常事件流程通報主管與相關單位。",
+        points: ["先顧病人，再呈報。", "近誤也值得報告。", "呈報是學習，不是績效扣分遊戲。"]
+      },
+      {
+        category: "職業安全",
+        q: "被使用過的針頭刺到後，第一步較正確的處理是？",
+        options: [
+          "繼續把剩下的工作做完再處理",
+          "用力擠壓傷口並用嘴巴把血吸出",
+          "立即用清水或生理食鹽水沖洗傷口，依職業暴露流程呈報並接受評估",
+          "自己塗藥就好，不必告訴任何人"
+        ],
+        answer: 2,
+        explain: "針刺後應立刻沖洗，不要用嘴吸或過度擠壓。接著依職業暴露流程通報、完成風險評估與必要追蹤。延後處理或隱瞞會影響預防性投藥時機與同事安全。",
+        points: ["立即沖洗，不要用嘴吸。", "依職業暴露流程呈報。", "保留針具來源資訊供評估。"]
+      },
+      {
+        category: "職業安全",
+        q: "協助移動或翻身病人時，較安全的做法是？",
+        options: [
+          "彎腰用背部力量硬拉",
+          "先評估病人能力，調整床高，用腿力，並使用輔具或尋求協助",
+          "一次抱起超過自己能力的重量以節省人力",
+          "站在剛拖地、仍濕滑的地面快速轉身"
+        ],
+        answer: 1,
+        explain: "肌肉骨骼傷害是護理常見職業傷害。應評估病人配合度與體重、調整工作高度、保持脊柱中立、用下肢發力，並善用滑布、移位機或同事協助。濕滑地面與扭轉最危險。",
+        points: ["先評估再搬。", "調床高、用腿力、少扭轉。", "不要硬扛，請人幫忙或用輔具。"]
+      },
+      {
+        category: "職業安全",
+        q: "血液或體液濺入眼睛時，應如何處理？",
+        options: [
+          "用手揉眼睛把異物揉掉",
+          "立即用清水或洗眼設備沖洗，並依暴露流程呈報",
+          "等下班再回家處理",
+          "戴上眼鏡遮住即可，不必沖洗"
+        ],
+        answer: 1,
+        explain: "黏膜暴露應立刻到洗眼設備或用大量清水沖洗，避免揉眼造成更多損傷。之後依血液體液暴露流程呈報、記錄與追蹤。延後處理會增加感染風險。",
+        points: ["立刻沖洗，不要揉眼。", "知道洗眼設備位置。", "依暴露流程呈報與追蹤。"]
+      }
+    ];
+
+    var COLS = 18;
+    var ROWS = 12;
+    var STEP_MS = 135;
+    var LETTERS = ["A", "B", "C", "D"];
+    var FOOD_COLORS = ["#e0b03a", "#5aa9e6", "#d46eb5", "#7bc96f"];
+
+    var canvas = document.getElementById("gameCanvas");
+    var ctx = canvas.getContext("2d");
+    var moveHint = document.getElementById("moveHint");
+    var overlays = {
+      result: document.getElementById("overlayResult"),
+      pause: document.getElementById("overlayPause")
+    };
+
+    var audioCtx = null;
+    var muted = false;
+    var paused = false;
+    var running = false;
+    var awaitingMove = true;
+    var dir = { x: 1, y: 0 };
+    var pendingDir = null;
+    var snake = [];
+    var foods = [];
+    var lastStep = 0;
+    var cell = 20;
+    var originX = 0;
+    var originY = 0;
+    var animId = 0;
+
+    var order = [];
+    var qIndex = 0;
+    var current = null;
+    var answers = [];
+
+    function shuffle(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+      }
+      return a;
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    }
+
+    function tone(freq, dur, type, gain) {
+      if (muted || !audioCtx) return;
+      var t = audioCtx.currentTime;
+      var osc = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(gain || 0.06, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(g);
+      g.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + dur);
+    }
+
+    function sfx(kind) {
+      if (kind === "move") tone(220, 0.04, "square", 0.02);
+      if (kind === "eat") {
+        tone(520, 0.09, "triangle", 0.07);
+        tone(780, 0.12, "sine", 0.05);
+      }
+      if (kind === "ok") {
+        tone(523, 0.12, "sine", 0.07);
+        setTimeout(function () { tone(659, 0.12, "sine", 0.07); }, 90);
+        setTimeout(function () { tone(784, 0.18, "sine", 0.07); }, 180);
+      }
+      if (kind === "bad") {
+        tone(196, 0.2, "sawtooth", 0.05);
+        setTimeout(function () { tone(147, 0.25, "sawtooth", 0.05); }, 120);
+      }
+      if (kind === "click") tone(440, 0.05, "square", 0.03);
+    }
+
+    function showScreen(id) {
+      ["screenHome", "screenPlay", "screenResults", "screenReview"].forEach(function (s) {
+        document.getElementById(s).classList.toggle("active", s === id);
+      });
+    }
+
+    function setPauseEnabled(on) {
+      document.getElementById("btnPause").disabled = !on;
+    }
+
+    function resizeCanvas() {
+      var wrap = canvas.parentElement;
+      var w = wrap.clientWidth;
+      var h = wrap.clientHeight;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.floor(w * dpr));
+      canvas.height = Math.max(1, Math.floor(h * dpr));
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cell = Math.max(8, Math.floor(Math.min(w / COLS, h / ROWS)));
+      originX = Math.floor((w - cell * COLS) / 2);
+      originY = Math.floor((h - cell * ROWS) / 2);
+    }
+
+    function resetSnake() {
+      var cx = Math.floor(COLS / 2);
+      var cy = Math.floor(ROWS / 2);
+      snake = [
+        { x: cx, y: cy },
+        { x: cx - 1, y: cy },
+        { x: cx - 2, y: cy }
+      ];
+      dir = { x: 1, y: 0 };
+      pendingDir = null;
+      awaitingMove = true;
+      moveHint.classList.remove("hidden");
+    }
+
+    function placeFoods() {
+      foods = [
+        { x: 1, y: 5, w: 3, h: 3, letter: LETTERS[0], optionIndex: 0 },
+        { x: 14, y: 5, w: 3, h: 3, letter: LETTERS[1], optionIndex: 1 },
+        { x: 8, y: 1, w: 3, h: 3, letter: LETTERS[2], optionIndex: 2 },
+        { x: 8, y: 8, w: 3, h: 3, letter: LETTERS[3], optionIndex: 3 }
+      ];
+    }
+
+    function prepareQuestion() {
+      var raw = QUESTIONS[order[qIndex]];
+      var map = [0, 1, 2, 3];
+      map = shuffle(map);
+      current = {
+        sourceIndex: order[qIndex],
+        category: raw.category,
+        q: raw.q,
+        options: map.map(function (i) { return raw.options[i]; }),
+        answer: map.indexOf(raw.answer),
+        explain: raw.explain,
+        points: raw.points
+      };
+      document.getElementById("progressText").textContent = "第 " + (qIndex + 1) + " / " + QUESTIONS.length + " 題";
+      document.getElementById("catText").textContent = current.category;
+      var correctCount = answers.filter(function (a) { return a.correct; }).length;
+      document.getElementById("scoreText").textContent = "答對 " + correctCount;
+      document.getElementById("questionText").textContent = current.q;
+      document.getElementById("optionsBox").innerHTML = current.options.map(function (text, i) {
+        return '<div class="opt"><span class="tag">' + LETTERS[i] + "</span>" + text + "</div>";
+      }).join("");
+      document.getElementById("statusLine").textContent = "分數只是學習回饋，不是績效考核";
+      resetSnake();
+      placeFoods();
+    }
+
+    function setDir(nx, ny) {
+      if (!running || paused) return;
+      if (awaitingMove) {
+        awaitingMove = false;
+        moveHint.classList.add("hidden");
+        dir = { x: nx, y: ny };
+        pendingDir = null;
+        lastStep = 0;
+        sfx("click");
+        return;
+      }
+      if (nx === -dir.x && ny === -dir.y) return;
+      pendingDir = { x: nx, y: ny };
+    }
+
+    function wrap(v, max) {
+      if (v < 0) return max - 1;
+      if (v >= max) return 0;
+      return v;
+    }
+
+    function stepSnake() {
+      if (!running || paused || awaitingMove) return;
+      if (pendingDir) {
+        if (!(pendingDir.x === -dir.x && pendingDir.y === -dir.y)) dir = pendingDir;
+        pendingDir = null;
+      }
+      var head = snake[0];
+      var nx = wrap(head.x + dir.x, COLS);
+      var ny = wrap(head.y + dir.y, ROWS);
+      var eaten = null;
+      for (var i = 0; i < foods.length; i++) {
+        var f = foods[i];
+        var fw = f.w || 1;
+        var fh = f.h || 1;
+        if (nx >= f.x && nx < f.x + fw && ny >= f.y && ny < f.y + fh) {
+          eaten = f;
+          break;
+        }
+      }
+      snake.unshift({ x: nx, y: ny });
+      if (!eaten) {
+        snake.pop();
+      } else {
+        if (snake.length > 7) snake.pop();
+        running = false;
+        sfx("eat");
+        finishRound(eaten.optionIndex);
+      }
+    }
+
+    function finishRound(choice) {
+      var correct = choice === current.answer;
+      answers.push({
+        sourceIndex: current.sourceIndex,
+        category: current.category,
+        q: current.q,
+        options: current.options.slice(),
+        choice: choice,
+        answer: current.answer,
+        correct: correct,
+        explain: current.explain,
+        points: current.points
+      });
+      sfx(correct ? "ok" : "bad");
+      var modal = document.getElementById("resultModal");
+      var badge = correct ? '<span class="badge ok">正確</span>' : '<span class="badge bad">再想想</span>';
+      var chosen = LETTERS[choice] + ". " + current.options[choice];
+      var right = LETTERS[current.answer] + ". " + current.options[current.answer];
+      var more = qIndex < QUESTIONS.length - 1;
+      modal.innerHTML =
+        badge +
+        "<h2 style='margin:6px 0 10px;font-size:22px;'>" + (correct ? "答對了" : "這題還可以再看一次") + "</h2>" +
+        '<p style="font-size:15px;"><strong>你的選擇：</strong>' + chosen + "</p>" +
+        (correct ? "" : '<p style="font-size:15px;"><strong>較適切的答案：</strong>' + right + "</p>") +
+        '<p class="explain"><strong>解釋：</strong>' + current.explain + "</p>" +
+        "<p><strong>學習重點</strong></p><ul class='learn'>" +
+        current.points.map(function (p) { return "<li>" + p + "</li>"; }).join("") +
+        "</ul>" +
+        '<p class="score-note">分數只是學習回饋，不是績效考核。本遊戲只供訓練用途，實際工作請依照部門指引。</p>' +
+        '<button class="primary" id="btnNext" type="button">' + (more ? "下一題" : "查看結果") + "</button>";
+      overlays.result.classList.add("show");
+      document.getElementById("btnNext").focus();
+      document.getElementById("btnNext").addEventListener("click", function () {
+        sfx("click");
+        overlays.result.classList.remove("show");
+        qIndex += 1;
+        if (qIndex >= QUESTIONS.length) {
+          setPauseEnabled(false);
+          showResults();
+        } else {
+          running = true;
+          prepareQuestion();
+        }
+      });
+    }
+
+    function showResults() {
+      showScreen("screenResults");
+      var cats = [];
+      var map = {};
+      answers.forEach(function (a) {
+        if (!map[a.category]) {
+          map[a.category] = { name: a.category, ok: 0, total: 0 };
+          cats.push(map[a.category]);
+        }
+        map[a.category].total += 1;
+        if (a.correct) map[a.category].ok += 1;
+      });
+      var ok = answers.filter(function (a) { return a.correct; }).length;
+      var wrong = answers.filter(function (a) { return !a.correct; });
+      var rows = cats.map(function (c) {
+        var pct = Math.round((c.ok / c.total) * 100);
+        return '<div class="cat-row"><span>' + c.name + "　" + c.ok + " / " + c.total +
+          '</span><div class="bar"><span style="width:' + pct + '%"></span></div></div>';
+      }).join("");
+      document.getElementById("resultsPanel").innerHTML =
+        "<h2>本次練習結果</h2>" +
+        '<p style="font-size:18px;">答對 <strong>' + ok + "</strong> / " + answers.length + " 題</p>" +
+        '<p class="score-note">以上結果只是學習回饋，不是績效考核、人事評核或能力鑑定。本遊戲只供訓練用途，實際工作請依照部門指引。</p>' +
+        "<h3>各學習類別</h3><div class='cat-grid'>" + rows + "</div>" +
+        (wrong.length
+          ? '<button class="secondary" id="btnReview" type="button">複習未答對的題目（' + wrong.length + "）</button>"
+          : "<p>這回合每題都選到較適切的答案。仍請在實際工作中依部門指引執行。</p>") +
+        '<button class="primary" id="btnRestart" type="button">再練習一次</button>' +
+        '<button class="ghost" id="btnHome" type="button">返回主畫面</button>';
+      document.getElementById("btnRestart").onclick = function () { sfx("click"); startGame(); };
+      document.getElementById("btnHome").onclick = function () { sfx("click"); goHome(); };
+      var rev = document.getElementById("btnReview");
+      if (rev) rev.onclick = function () { sfx("click"); showReview(wrong); };
+    }
+
+    function showReview(wrong) {
+      showScreen("screenReview");
+      var html = "<h2>複習未答對的題目</h2><p>本遊戲只供訓練用途，實際工作請依照部門指引。</p>";
+      html += wrong.map(function (a, i) {
+        return '<div class="review-item"><p><strong>' + (i + 1) + ". [" + a.category + "]</strong> " + a.q + "</p>" +
+          '<p>你的選擇：' + LETTERS[a.choice] + ". " + a.options[a.choice] + "</p>" +
+          "<p>較適切的答案：" + LETTERS[a.answer] + ". " + a.options[a.answer] + "</p>" +
+          "<p>" + a.explain + "</p><ul class='learn'>" +
+          a.points.map(function (p) { return "<li>" + p + "</li>"; }).join("") +
+          "</ul></div>";
+      }).join("");
+      html += '<button class="primary" id="btnReviewDone" type="button">返回結果</button>';
+      document.getElementById("reviewPanel").innerHTML = html;
+      document.getElementById("btnReviewDone").onclick = function () {
+        sfx("click");
+        showScreen("screenResults");
+      };
+    }
+
+    function drawGrid() {
+      var w = COLS * cell;
+      var h = ROWS * cell;
+      ctx.fillStyle = "#0a242b";
+      ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+      ctx.fillStyle = "#12343c";
+      ctx.fillRect(originX, originY, w, h);
+      ctx.strokeStyle = "rgba(255,255,255,0.05)";
+      ctx.lineWidth = 1;
+      var x, y;
+      for (x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(originX + x * cell + 0.5, originY);
+        ctx.lineTo(originX + x * cell + 0.5, originY + h);
+        ctx.stroke();
+      }
+      for (y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(originX, originY + y * cell + 0.5);
+        ctx.lineTo(originX + w, originY + y * cell + 0.5);
+        ctx.stroke();
+      }
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawSnake() {
+      snake.forEach(function (p, i) {
+        var x = originX + p.x * cell;
+        var y = originY + p.y * cell;
+        var pad = Math.max(1, cell * 0.08);
+        ctx.fillStyle = i === 0 ? "#35d6a6" : "#1f9b7e";
+        roundRect(x + pad, y + pad, cell - pad * 2, cell - pad * 2, cell * 0.28);
+        ctx.fill();
+        if (i === 0) {
+          ctx.fillStyle = "#0c3038";
+          var ex = dir.x !== 0 ? dir.x : 0;
+          var ey = dir.y !== 0 ? dir.y : 0;
+          var cx = x + cell / 2 + ex * cell * 0.12;
+          var cy = y + cell / 2 + ey * cell * 0.12;
+          ctx.beginPath();
+          ctx.arc(cx - cell * 0.12, cy - cell * 0.1, Math.max(2, cell * 0.08), 0, Math.PI * 2);
+          ctx.arc(cx + cell * 0.12, cy - cell * 0.1, Math.max(2, cell * 0.08), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    function drawFoods() {
+      foods.forEach(function (f, i) {
+        var fw = f.w || 1;
+        var fh = f.h || 1;
+        var x = originX + (f.x + fw / 2) * cell;
+        var y = originY + (f.y + fh / 2) * cell;
+        var r = cell * 1.05;
+        ctx.fillStyle = FOOD_COLORS[i];
+        ctx.strokeStyle = "#fff8ee";
+        ctx.lineWidth = Math.max(2, cell * 0.08);
+        ctx.beginPath();
+        if (i === 0) {
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+        } else if (i === 1) {
+          roundRect(x - r, y - r, r * 2, r * 2, r * 0.25);
+        } else if (i === 2) {
+          ctx.moveTo(x, y - r);
+          ctx.lineTo(x + r, y);
+          ctx.lineTo(x, y + r);
+          ctx.lineTo(x - r, y);
+          ctx.closePath();
+        } else {
+          ctx.moveTo(x - r, y - r * 0.5);
+          ctx.lineTo(x + r, y - r * 0.5);
+          ctx.lineTo(x + r * 0.5, y + r);
+          ctx.lineTo(x - r * 0.5, y + r);
+          ctx.closePath();
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#142226";
+        ctx.font = "bold " + Math.floor(cell * 0.85) + "px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(f.letter, x, y + 1);
+      });
+    }
+
+    function loop(ts) {
+      animId = requestAnimationFrame(loop);
+      if (!lastStep) lastStep = ts;
+      if (running && !paused && !awaitingMove && ts - lastStep >= STEP_MS) {
+        lastStep = ts;
+        stepSnake();
+      }
+      drawGrid();
+      drawFoods();
+      drawSnake();
+      if (snake[0]) {
+        canvas.dataset.x = String(snake[0].x);
+        canvas.dataset.y = String(snake[0].y);
+        canvas.dataset.awaiting = awaitingMove ? "1" : "0";
+        canvas.dataset.running = running ? "1" : "0";
+        canvas.dataset.paused = paused ? "1" : "0";
+      }
+    }
+
+    function startGame() {
+      ensureAudio();
+      sfx("click");
+      overlays.result.classList.remove("show");
+      overlays.pause.classList.remove("show");
+      paused = false;
+      document.getElementById("btnPause").setAttribute("aria-pressed", "false");
+      order = shuffle(QUESTIONS.map(function (_, i) { return i; }));
+      qIndex = 0;
+      answers = [];
+      showScreen("screenPlay");
+      setPauseEnabled(true);
+      prepareQuestion();
+      running = true;
+      lastStep = 0;
+      resizeCanvas();
+      requestAnimationFrame(function () { resizeCanvas(); });
+    }
+
+    function goHome() {
+      running = false;
+      paused = false;
+      overlays.pause.classList.remove("show");
+      overlays.result.classList.remove("show");
+      setPauseEnabled(false);
+      document.getElementById("btnPause").setAttribute("aria-pressed", "false");
+      document.getElementById("statusLine").textContent = "分數只是學習回饋，不是績效考核";
+      showScreen("screenHome");
+    }
+
+    function togglePause() {
+      if (!document.getElementById("screenPlay").classList.contains("active")) return;
+      if (overlays.result.classList.contains("show")) return;
+      paused = !paused;
+      document.getElementById("btnPause").setAttribute("aria-pressed", paused ? "true" : "false");
+      overlays.pause.classList.toggle("show", paused);
+      if (!paused) lastStep = 0;
+    }
+
+    function toggleMute() {
+      muted = !muted;
+      document.getElementById("btnMute").setAttribute("aria-pressed", muted ? "true" : "false");
+      document.getElementById("btnMute").textContent = muted ? "🔇" : "🔊";
+      document.getElementById("btnMute").setAttribute("aria-label", muted ? "取消靜音" : "靜音");
+      if (!muted) {
+        ensureAudio();
+        sfx("click");
+      }
+    }
+
+    document.getElementById("btnStart").addEventListener("click", startGame);
+    document.getElementById("btnMute").addEventListener("click", toggleMute);
+    document.getElementById("btnPause").addEventListener("click", togglePause);
+    document.getElementById("btnResume").addEventListener("click", function () {
+      if (paused) togglePause();
+    });
+    document.getElementById("btnQuit").addEventListener("click", goHome);
+
+    document.querySelectorAll(".pad").forEach(function (btn) {
+      function press(ev) {
+        if (ev.cancelable) ev.preventDefault();
+        var parts = btn.getAttribute("data-dir").split(",");
+        setDir(parseInt(parts[0], 10), parseInt(parts[1], 10));
+      }
+      btn.addEventListener("pointerdown", press);
+      btn.addEventListener("click", press);
+    });
+
+    window.addEventListener("keydown", function (e) {
+      var map = {
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0]
+      };
+      if (map[e.key]) {
+        e.preventDefault();
+        setDir(map[e.key][0], map[e.key][1]);
+      }
+      if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        togglePause();
+      }
+      if (e.key === "m" || e.key === "M") toggleMute();
+    }, { passive: false });
+
+    window.addEventListener("resize", function () {
+      resizeCanvas();
+    });
+
+    window.addEventListener("orientationchange", function () {
+      setTimeout(resizeCanvas, 200);
+    });
+
+    resizeCanvas();
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
