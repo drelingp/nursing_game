@@ -19,7 +19,10 @@
       --teal-d: #14725d;
       --red: #c44738;
       --muted: #5c6e72;
-      --safe: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-l: env(safe-area-inset-left, 0px);
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -28,14 +31,19 @@
       width: 100%;
       height: 100%;
       height: 100dvh;
+      max-height: 100dvh;
       background: var(--bg);
       color: var(--paper);
       font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Heiti TC", "Source Han Sans TC", sans-serif;
       touch-action: manipulation;
       -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
       -webkit-touch-callout: none;
       overscroll-behavior: none;
       overflow: hidden;
+    }
+    @supports (height: 100svh) {
+      html, body { height: 100svh; max-height: 100svh; }
     }
     body {
       min-height: 100dvh;
@@ -47,7 +55,7 @@
     body.is-playing .app {
       max-width: none;
       width: 100%;
-      padding: calc(4px + env(safe-area-inset-top, 0px)) 6px calc(4px + var(--safe));
+      padding: calc(4px + var(--safe-t)) calc(6px + var(--safe-r)) calc(4px + var(--safe-b)) calc(6px + var(--safe-l));
     }
     body.is-playing .disclaimer-bar {
       font-size: 11px;
@@ -56,10 +64,15 @@
     }
     body.is-playing .topbar {
       margin-bottom: 3px;
-      min-height: 40px;
+      min-height: 44px;
       gap: 6px;
     }
-    body.is-playing .brand h1 { font-size: 15px; }
+    body.is-playing .brand h1 {
+      font-size: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     body.is-playing .brand p { display: none; }
     body.is-playing .icon-btn {
       width: 44px;
@@ -79,13 +92,18 @@
       touch-action: manipulation;
     }
     .app {
-      height: 100dvh;
       height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
       display: flex;
       flex-direction: column;
       max-width: 1100px;
       margin: 0 auto;
-      padding: calc(8px + env(safe-area-inset-top, 0px)) 12px calc(8px + var(--safe));
+      padding: calc(8px + var(--safe-t)) calc(12px + var(--safe-r)) calc(8px + var(--safe-b)) calc(12px + var(--safe-l));
+      min-height: 0;
+    }
+    @supports (height: 100svh) {
+      .app { height: 100svh; max-height: 100svh; }
     }
     .disclaimer-bar {
       flex: 0 0 auto;
@@ -169,24 +187,29 @@
       border-radius: 16px;
       padding: 16px;
       overflow: auto;
+      -webkit-overflow-scrolling: touch;
       flex: 1;
+      min-height: 0;
     }
     .home-panel {
       display: flex;
       flex-direction: column;
       min-height: 0;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .pick-title {
       margin: 0 0 12px;
       text-align: center;
-      font-size: 22px;
+      font-size: clamp(18px, 4.2vw, 26px);
       font-weight: 800;
       color: var(--ink);
+      flex: 0 0 auto;
     }
     .mode-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 14px;
+      gap: 12px;
       flex: 1 1 auto;
       min-height: 0;
     }
@@ -195,12 +218,12 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      min-height: 160px;
+      gap: 6px;
+      min-height: 0;
       width: 100%;
       border: 0;
       border-radius: 20px;
-      padding: 20px 18px;
+      padding: 16px 14px;
       text-align: center;
       font-family: inherit;
       touch-action: manipulation;
@@ -208,39 +231,37 @@
     .mode-card.primary { background: var(--teal); color: white; }
     .mode-card.secondary { background: var(--gold); color: #2a2208; }
     .mode-emoji {
-      width: 72px;
-      height: 72px;
+      width: clamp(48px, 12vw, 88px);
+      height: clamp(48px, 12vw, 88px);
       border-radius: 20px;
       display: grid;
       place-items: center;
-      font-size: 36px;
+      font-size: clamp(24px, 6vw, 44px);
       font-weight: 800;
       background: rgba(255,255,255,.18);
     }
     .mode-card strong {
-      font-size: 28px;
+      font-size: clamp(20px, 5vw, 32px);
       font-weight: 800;
     }
     .mode-card span {
-      font-size: 16px;
+      font-size: clamp(13px, 3.4vw, 16px);
       line-height: 1.45;
       font-weight: 600;
       opacity: 0.95;
       max-width: 28em;
     }
     .home-foot {
-      margin: 12px 0 0;
-      font-size: 14px;
-      line-height: 1.5;
+      margin: 10px 0 0;
+      font-size: 13px;
+      line-height: 1.45;
       color: var(--muted);
       text-align: center;
+      flex: 0 0 auto;
     }
     @media (min-width: 720px) {
       .mode-grid { grid-template-columns: 1fr 1fr; align-items: stretch; }
-      .mode-card { min-height: 240px; padding: 28px 22px; }
-      .mode-card strong { font-size: 32px; }
-      .mode-emoji { width: 88px; height: 88px; font-size: 44px; }
-      .pick-title { font-size: 26px; }
+      .mode-card { padding: 24px 20px; }
     }
     .primary, .secondary, .ghost {
       display: inline-flex;
@@ -270,61 +291,63 @@
       padding: 10px 12px;
       margin-bottom: 8px;
       flex: 0 1 auto;
-      max-height: 20%;
+      max-height: 32%;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
+      min-height: 0;
     }
     #screenPlay:not(.mode-bird) {
-      flex-direction: row;
+      flex-direction: column;
       align-items: stretch;
-      gap: 8px;
+      gap: 6px;
     }
     #screenPlay:not(.mode-bird) .play-head {
-      flex: 0 0 clamp(260px, 34%, 420px);
-      max-width: 42%;
-      max-height: none;
-      min-height: 0;
+      flex: 0 1 auto;
+      max-width: none;
+      width: 100%;
+      max-height: 32%;
       margin-bottom: 0;
-      padding: 12px 14px;
+      padding: 10px 12px;
     }
     #screenPlay:not(.mode-bird) .play-stage {
       flex: 1 1 0;
       min-width: 0;
-      flex-direction: row;
+      min-height: 0;
+      flex-direction: column;
       align-items: stretch;
-      gap: 8px;
+      gap: 6px;
     }
     #screenPlay:not(.mode-bird) .controls-snake {
-      flex: 0 0 148px;
-      width: 148px;
-      margin: auto 0;
-      gap: 6px;
-      grid-template-columns: 1fr 52px 1fr;
-      grid-template-rows: 52px 52px 52px;
+      flex: 0 0 auto;
+      width: min(320px, 100%);
+      margin: 0 auto;
+      gap: 8px;
+      grid-template-columns: 1fr 68px 1fr;
+      grid-template-rows: 60px 60px 60px;
     }
     #screenPlay:not(.mode-bird) .options {
       grid-template-columns: 1fr;
       gap: 8px;
-      margin-top: 10px;
+      margin-top: 8px;
     }
     #screenPlay:not(.mode-bird) .opt {
-      min-height: 52px;
-      font-size: 15px;
-      line-height: 1.45;
-      padding: 10px 12px 10px 42px;
-      overflow-wrap: anywhere;
+      min-height: 48px;
+      font-size: 14px;
+      line-height: 1.4;
+      padding: 8px 10px 8px 40px;
+      overflow-wrap: break-word;
     }
     #screenPlay:not(.mode-bird) .opt .tag {
       width: 24px;
       height: 24px;
       font-size: 13px;
       left: 10px;
-      top: 12px;
+      top: 10px;
     }
     #screenPlay:not(.mode-bird) .q-text {
-      font-size: 16px;
-      line-height: 1.5;
+      font-size: 15px;
+      line-height: 1.45;
     }
     #screenPlay.mode-bird {
       flex-direction: column;
@@ -332,11 +355,15 @@
     #screenPlay.mode-bird .play-head {
       flex: 0 1 auto;
       max-width: none;
-      max-height: 18%;
+      max-height: 28%;
       margin-bottom: 4px;
     }
     #screenPlay.mode-bird .play-stage {
       flex-direction: column;
+    }
+    #screenPlay.mode-bird .opt {
+      min-height: 40px;
+      font-size: 13px;
     }
     .meta-row {
       display: flex;
@@ -390,7 +417,7 @@
     }
     .stage-wrap {
       flex: 1 1 0;
-      min-height: 220px;
+      min-height: 0;
       position: relative;
       background: #081c22;
       border-radius: 14px;
@@ -423,11 +450,11 @@
     .hint.hidden { display: none; }
     .controls-snake {
       display: grid;
-      grid-template-columns: 1fr 88px 1fr;
-      grid-template-rows: 64px 64px 64px;
-      gap: 10px;
+      grid-template-columns: 1fr 68px 1fr;
+      grid-template-rows: 60px 60px 60px;
+      gap: 8px;
       width: min(320px, 100%);
-      margin: 10px auto 0;
+      margin: 8px auto 0;
       flex: 0 0 auto;
       touch-action: none;
     }
@@ -483,7 +510,7 @@
       inset: 0;
       background: rgba(6, 20, 24, .72);
       z-index: 20;
-      padding: 16px;
+      padding: max(12px, var(--safe-t)) max(12px, var(--safe-r)) max(12px, var(--safe-b)) max(12px, var(--safe-l));
       align-items: center;
       justify-content: center;
       pointer-events: none;
@@ -493,11 +520,18 @@
       background: var(--paper);
       color: var(--ink);
       width: min(560px, 100%);
-      max-height: min(86dvh, 720px);
+      max-height: min(86dvh, 100%);
       overflow: auto;
+      -webkit-overflow-scrolling: touch;
       border-radius: 18px;
-      padding: 18px;
+      padding: 16px;
       pointer-events: auto;
+    }
+    .modal h2 { margin: 0 0 8px; font-size: clamp(18px, 4.4vw, 24px); }
+    .modal p { font-size: 15px; line-height: 1.5; }
+    .modal .primary, .modal .secondary, .modal .ghost { min-height: 48px; }
+    @supports (height: 100svh) {
+      .modal { max-height: min(86svh, 100%); }
     }
     .badge {
       display: inline-block;
@@ -555,6 +589,38 @@
       padding: 10px;
       margin: 10px 0;
     }
+    @media (min-width: 700px), (orientation: landscape) and (min-width: 600px) {
+      #screenPlay:not(.mode-bird) {
+        flex-direction: row;
+        gap: 8px;
+      }
+      #screenPlay:not(.mode-bird) .play-head {
+        flex: 0 0 clamp(220px, 32%, 400px);
+        max-width: 40%;
+        width: auto;
+        max-height: none;
+        min-height: 0;
+        padding: 12px 14px;
+      }
+      #screenPlay:not(.mode-bird) .play-stage {
+        flex-direction: row;
+        gap: 8px;
+      }
+      #screenPlay:not(.mode-bird) .controls-snake {
+        flex: 0 0 152px;
+        width: 152px;
+        margin: auto 0;
+        grid-template-columns: 44px 44px 44px;
+        grid-template-rows: 44px 44px 44px;
+        justify-content: center;
+        gap: 8px;
+      }
+      #screenPlay:not(.mode-bird) .opt {
+        min-height: 52px;
+        font-size: 15px;
+      }
+      #screenPlay:not(.mode-bird) .q-text { font-size: 16px; }
+    }
     @media (min-width: 768px) {
       .controls-snake {
         width: min(300px, 100%);
@@ -563,45 +629,66 @@
         gap: 8px;
       }
       #screenPlay:not(.mode-bird) .controls-snake {
-        width: 148px;
-        grid-template-columns: 1fr 52px 1fr;
+        width: 168px;
+        flex-basis: 168px;
+        grid-template-columns: 52px 52px 52px;
         grid-template-rows: 52px 52px 52px;
+        justify-content: center;
+        gap: 6px;
       }
       .pad { font-size: 28px; border-radius: 16px; }
-      .flap-btn { min-height: 80px; font-size: 28px; }
-      .icon-btn, .home-switch-btn { min-height: 52px; }
-      #screenPlay.mode-bird .play-head { max-height: 18%; }
-      .stage-wrap { min-height: 320px; }
+      .flap-btn { min-height: 72px; font-size: 26px; }
+      .icon-btn, .home-switch-btn { min-height: 44px; }
+      #screenPlay.mode-bird .play-head { max-height: 22%; }
       #screenPlay:not(.mode-bird) .q-text { font-size: 17px; }
-      #screenPlay:not(.mode-bird) .opt { font-size: 16px; min-height: 56px; }
+      #screenPlay:not(.mode-bird) .opt { font-size: 16px; min-height: 54px; }
     }
-    @media (max-width: 640px) and (orientation: portrait) {
-      #screenPlay:not(.mode-bird) {
-        flex-direction: column;
-      }
-      #screenPlay:not(.mode-bird) .play-head {
-        flex: 0 1 auto;
-        max-width: none;
-        width: 100%;
-        max-height: 34%;
-        margin-bottom: 6px;
-      }
-      #screenPlay:not(.mode-bird) .play-stage {
-        flex-direction: column;
-      }
-      #screenPlay:not(.mode-bird) .controls-snake {
-        width: min(280px, 100%);
-        flex-basis: auto;
-        margin: 6px auto 0;
-        grid-template-columns: 1fr 72px 1fr;
-        grid-template-rows: 56px 56px 56px;
-      }
-      .q-text { font-size: 15px; }
-      .brand h1 { font-size: 16px; }
-      .home-switch-btn { font-size: 13px; padding: 4px 8px; }
+    @media (max-width: 430px) {
+      .brand h1 { font-size: 15px; }
+      .disclaimer-bar { font-size: 12px; padding: 5px 8px; }
+      .home-switch-btn { max-width: 48%; font-size: 13px; padding: 4px 8px; }
       .home-switch-btn small { font-size: 10px; }
-      #screenPlay.mode-bird .play-head { max-height: 28%; }
-      .stage-wrap { min-height: 180px; }
+      .icon-btn { width: 44px; height: 44px; flex-basis: 44px; }
+      .hint { font-size: 13px; padding: 8px 10px; }
+    }
+    @media (orientation: landscape) and (max-height: 500px) {
+      body.is-playing .disclaimer-bar {
+        font-size: 10px;
+        padding: 2px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      body.is-playing .topbar { min-height: 40px; }
+      #screenPlay:not(.mode-bird) .play-head {
+        flex-basis: min(240px, 34%);
+        max-width: 36%;
+        padding: 8px 10px;
+      }
+      #screenPlay:not(.mode-bird) .opt {
+        min-height: 40px;
+        font-size: 13px;
+        padding: 6px 8px 6px 34px;
+      }
+      #screenPlay:not(.mode-bird) .q-text { font-size: 14px; }
+      #screenPlay:not(.mode-bird) .controls-snake {
+        flex-basis: 152px;
+        width: 152px;
+        grid-template-columns: 44px 44px 44px;
+        grid-template-rows: 44px 44px 44px;
+        justify-content: center;
+        gap: 8px;
+      }
+      #screenPlay.mode-bird .play-head { max-height: 40%; }
+      #screenPlay.mode-bird .opt { min-height: 32px; font-size: 12px; padding: 5px 6px 5px 28px; }
+      #screenPlay.mode-bird .q-text { font-size: 14px; }
+      .flap-btn { min-height: 48px; font-size: 20px; }
+      .flap-note { display: none; }
+      .modal { padding: 12px; }
+    }
+    @media (max-height: 700px) {
+      .mode-card { padding: 12px 12px; }
+      .home-foot { font-size: 12px; margin-top: 8px; }
     }
   </style>
 </head>
@@ -1710,11 +1797,23 @@
       return shuffle(units);
     }
 
+    function birdMetrics(h, w) {
+      h = h || playHeight();
+      w = w || playWidth();
+      var hole = Math.max(12, Math.min(36, h * 0.08, h / 10));
+      var margin = Math.max(hole + 4, Math.min(h * 0.1, 28));
+      if (h < 180) margin = Math.max(hole + 2, h * 0.08);
+      var badgeH = Math.max(22, Math.min(44, h * 0.14));
+      var badgeW = Math.max(36, Math.min(64, w * 0.12, badgeH * 1.4));
+      return { hole: hole, margin: margin, badgeH: badgeH, badgeW: badgeW };
+    }
+
     function placeBirdTargets() {
       var prev = (bird.targets || []).map(function (t) { return t.letter + ":" + t.t.toFixed(3); }).join("|");
       var round, ts, next, sig;
+      var minGap = playHeight() < 220 ? 0.18 : 0.16;
       for (round = 0; round < 10; round++) {
-        ts = spacedUnits(4, 0.16);
+        ts = spacedUnits(4, minGap);
         next = [0, 1, 2, 3].map(function (i) {
           return { t: ts[i], letter: LETTERS[i], optionIndex: i };
         });
@@ -1728,8 +1827,8 @@
     }
 
     function targetY(t, h) {
-      var margin = Math.max(34, (bird.r || 16) * 2.2);
-      if (h <= margin * 2 + 10) margin = Math.max(18, h * 0.1);
+      var margin = birdMetrics(h).margin;
+      if (h <= margin * 2 + 8) margin = Math.max(10, h * 0.08);
       return margin + t * (h - margin * 2);
     }
 
@@ -1754,8 +1853,8 @@
       var h = playHeight();
       bird.y = h * 0.5;
       bird.vy = 0;
-      bird.r = Math.max(16, Math.min(26, h * 0.055));
-      bird.gateW = Math.max(72, Math.min(110, w * 0.18));
+      bird.r = Math.max(12, Math.min(26, h * 0.06));
+      bird.gateW = Math.max(48, Math.min(110, w * 0.16));
       bird.gateX = w + Math.max(120, w * 0.45);
       bird.scored = false;
       bird.wing = 0;
@@ -2125,65 +2224,68 @@
     function drawBirdWorld() {
       var w = playWidth();
       var h = playHeight();
-      var i, t, cy, cx, rr;
+      var i, t, cy, cx, rr, badgeTop;
       var targets = bird.targets || [];
+      var m = birdMetrics(h, w);
       ctx.fillStyle = "#7ec8e3";
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = "#5bb1d6";
       ctx.fillRect(0, h * 0.72, w, h * 0.28);
       var gx = bird.gateX;
       var gw = bird.gateW;
-      var badgeW = Math.max(52, w * 0.1);
+      var badgeW = m.badgeW;
+      var badgeH = m.badgeH;
+      rr = m.hole;
       for (i = 0; i < targets.length; i++) {
         t = targets[i];
-        cy = targetY(t.t, h);
+        cy = Math.max(rr + 2, Math.min(h - rr - 2, targetY(t.t, h)));
+        badgeTop = Math.max(2, Math.min(h - badgeH - 2, cy - badgeH / 2));
         ctx.save();
         ctx.strokeStyle = FOOD_COLORS[i];
         ctx.globalAlpha = 0.4;
-        ctx.lineWidth = 3;
-        if (ctx.setLineDash) ctx.setLineDash([10, 8]);
+        ctx.lineWidth = 2;
+        if (ctx.setLineDash) ctx.setLineDash([8, 6]);
         ctx.beginPath();
-        ctx.moveTo(10 + badgeW, cy);
-        ctx.lineTo(Math.max(10 + badgeW, gx), cy);
+        ctx.moveTo(8 + badgeW, cy);
+        ctx.lineTo(Math.max(8 + badgeW, gx), cy);
         ctx.stroke();
         if (ctx.setLineDash) ctx.setLineDash([]);
         ctx.restore();
         ctx.fillStyle = FOOD_COLORS[i];
-        roundRect(8, cy - 24, badgeW, 48, 12);
+        roundRect(6, badgeTop, badgeW, badgeH, Math.min(10, badgeH * 0.25));
         ctx.fill();
         ctx.strokeStyle = "#fff8ee";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(Math.min(28, 48 * 0.55)) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.min(badgeH * 0.62, 26)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(t.letter, 8 + badgeW / 2, cy + 1);
+        ctx.fillText(t.letter, 6 + badgeW / 2, badgeTop + badgeH / 2 + 1);
       }
       ctx.fillStyle = "#2f8f46";
       ctx.strokeStyle = "#1f5e2e";
       ctx.lineWidth = 3;
-      roundRect(gx, 4, gw, h - 8, 10);
+      roundRect(gx, 2, gw, Math.max(8, h - 4), 8);
       ctx.fill();
       ctx.stroke();
-      rr = Math.min(38, Math.max(26, h * 0.085));
       for (i = 0; i < targets.length; i++) {
         t = targets[i];
-        cy = targetY(t.t, h);
+        cy = Math.max(rr + 2, Math.min(h - rr - 2, targetY(t.t, h)));
         cx = gx + gw / 2;
         ctx.fillStyle = "#fff8ee";
         ctx.beginPath();
         ctx.arc(cx, cy, rr, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#142226";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = FOOD_COLORS[i];
         ctx.beginPath();
         ctx.arc(cx, cy, rr * 0.78, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#142226";
-        ctx.font = "bold " + Math.floor(Math.min(42, rr * 1.15)) + "px sans-serif";
+        ctx.font = "bold " + Math.floor(Math.min(32, rr * 1.15)) + "px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(t.letter, cx, cy + 1);
@@ -2287,6 +2389,7 @@
           resetSnake();
           placeFoods();
         }
+        requestAnimationFrame(resizeCanvas);
       });
     }
 
@@ -2425,7 +2528,7 @@
       }
     }, { passive: false, capture: true });
 
-    window.addEventListener("resize", function () {
+    function onViewportResize() {
       var prevC = COLS;
       var prevR = ROWS;
       resizeCanvas();
@@ -2437,10 +2540,15 @@
         var h = playHeight();
         bird.y = Math.max(bird.r + 3, Math.min(h - bird.r - 3, bird.y || h * 0.5));
       }
-    });
+    }
+
+    window.addEventListener("resize", onViewportResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", onViewportResize);
+    }
 
     window.addEventListener("orientationchange", function () {
-      setTimeout(resizeCanvas, 200);
+      setTimeout(onViewportResize, 200);
     });
 
     window.__TRAINING_GAME = {
