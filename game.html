@@ -690,6 +690,203 @@
       .mode-card { padding: 12px 12px; }
       .home-foot { font-size: 12px; margin-top: 8px; }
     }
+    .mode-card.explore { background: #c44738; color: #fff8ee; }
+    @media (min-width: 720px) {
+      .mode-card.explore { grid-column: 1 / -1; }
+    }
+    @media (min-width: 1100px) {
+      .mode-grid { grid-template-columns: 1fr 1fr 1fr; }
+      .mode-card.explore { grid-column: auto; }
+    }
+    #screenWard.screen.active { display: flex; }
+    .ward-root {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ward-view {
+      position: relative;
+      flex: 1 1 0;
+      min-height: 0;
+      background: #16323c;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 3px solid #1e5c67;
+      touch-action: none;
+    }
+    #wardCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .ward-hud {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      right: 108px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .ward-room, .ward-quest {
+      align-self: flex-start;
+      max-width: 100%;
+      background: rgba(8, 28, 34, 0.88);
+      color: #fff8ee;
+      border: 3px solid #f0d48a;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 14px;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+    .ward-quest { font-weight: 650; font-size: 13px; }
+    .ward-minimap {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      width: 132px;
+      height: 100px;
+      border: 3px solid #f0d48a;
+      border-radius: 8px;
+      background: #10242c;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .ward-dialog, .ward-menu, .ward-battle {
+      position: absolute;
+      z-index: 3;
+      left: 8px;
+      right: 8px;
+    }
+    .ward-dialog, .ward-menu {
+      bottom: 8px;
+      max-width: calc(100% - 148px);
+      background: #fff8ee;
+      color: #142226;
+      border: 4px solid #1b3c6e;
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-height: 72px;
+      font-size: 15px;
+      line-height: 1.45;
+      font-weight: 700;
+      white-space: pre-wrap;
+    }
+    .ward-battle {
+      top: 8px;
+      bottom: 8px;
+      max-width: none;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(#7ec8e3, #d7f3c8);
+      border: 4px solid #1b3c6e;
+      border-radius: 12px;
+      padding: 8px;
+      overflow: auto;
+    }
+    .ward-battle.hidden, .ward-dialog.hidden, .ward-menu.hidden { display: none; }
+    .battle-name {
+      align-self: flex-start;
+      background: #fff8ee;
+      border: 3px solid #1b3c6e;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-weight: 800;
+    }
+    .battle-text {
+      margin-top: auto;
+      background: #fff8ee;
+      color: #142226;
+      border: 3px solid #1b3c6e;
+      border-radius: 10px;
+      padding: 8px;
+      font-weight: 700;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+    .battle-options { display: grid; gap: 6px; margin-top: 6px; }
+    .battle-opt {
+      text-align: left;
+      min-height: 44px;
+      border: 3px solid #1b3c6e;
+      border-radius: 10px;
+      background: #f3ead8;
+      font-weight: 700;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+    .battle-opt.on { background: #f6e27a; }
+    .ward-controls {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 4px 0;
+      touch-action: none;
+    }
+    .ward-dpad {
+      display: grid;
+      grid-template-columns: 52px 52px 52px;
+      grid-template-rows: 52px 52px 52px;
+      gap: 6px;
+    }
+    .ward-pad, .ab-btn, .ward-menu button {
+      border: 0;
+      border-radius: 14px;
+      background: #1a4c56;
+      color: white;
+      font-weight: 800;
+      font-size: 22px;
+      touch-action: none;
+    }
+    .ward-pad { width: 52px; height: 52px; }
+    .ward-pad.up { grid-column: 2; grid-row: 1; }
+    .ward-pad.left { grid-column: 1; grid-row: 2; }
+    .ward-pad.right { grid-column: 3; grid-row: 2; }
+    .ward-pad.down { grid-column: 2; grid-row: 3; }
+    .ward-ab { display: flex; gap: 10px; align-items: center; }
+    .ab-btn {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      font-size: 26px;
+    }
+    .ab-btn.a { background: #d6453d; }
+    .ab-btn.b { background: #2f6f9a; }
+    .ward-menu button {
+      min-height: 44px;
+      margin-top: 8px;
+      padding: 0 12px;
+      background: #1f9b7e;
+    }
+    @media (max-width: 520px) {
+      .ward-minimap { width: 84px; height: 64px; top: 8px; bottom: auto; }
+      .ward-hud { right: 8px; top: 78px; }
+      .ward-dialog, .ward-menu { max-width: none; }
+      .ward-dpad {
+        grid-template-columns: 48px 48px 48px;
+        grid-template-rows: 48px 48px 48px;
+      }
+      .ward-pad { width: 48px; height: 48px; }
+      .ab-btn { width: 60px; height: 60px; }
+    }
+    @media (orientation: landscape) and (max-height: 520px) {
+      .ward-root { flex-direction: row; }
+      .ward-controls {
+        flex-direction: column;
+        width: 168px;
+        justify-content: center;
+      }
+      .ward-minimap { width: 84px; height: 64px; }
+      .ward-dpad {
+        grid-template-columns: 44px 44px 44px;
+        grid-template-rows: 44px 44px 44px;
+      }
+      .ward-pad { width: 44px; height: 44px; }
+      .ab-btn { width: 52px; height: 52px; font-size: 20px; }
+    }
   </style>
 </head>
 <body class="is-home">
@@ -721,6 +918,11 @@
             <span class="mode-emoji" aria-hidden="true">鳥</span>
             <strong>飛翔小鳥問答</strong>
             <span>手指或滑鼠點畫面就拍翅，飛入標示 A／B／C／D 的閘門。答錯唔會結束遊戲。</span>
+          </button>
+          <button class="mode-card explore" id="btnWard" type="button">
+            <span class="mode-emoji" aria-hidden="true">病</span>
+            <strong>病房探索</strong>
+            <span>舊式精靈寶可夢畫面，行 C 座病房。上下左右移動，A 互動，B 睇任務。突發急救、收症、躁動約束。</span>
           </button>
         </div>
         <p class="home-foot">本遊戲只供訓練用途，實際工作請依照部門指引。分數只是學習回饋，不是績效考核。內容為虛構訓練案例。</p>
@@ -755,6 +957,41 @@
       </div>
     </section>
 
+    <section class="screen" id="screenWard">
+      <div class="ward-root">
+        <div class="ward-view" id="wardView">
+          <canvas id="wardCanvas"></canvas>
+          <div class="ward-hud">
+            <div class="ward-room" id="wardRoomLabel">C座走廊</div>
+            <div class="ward-quest" id="wardQuestLabel">喺病房走走。突發事件唔會每兩步就出現。</div>
+          </div>
+          <canvas class="ward-minimap" id="wardMinimap" width="180" height="136"></canvas>
+          <div class="ward-dialog hidden" id="wardDialog"><p id="wardDialogText"></p></div>
+          <div class="ward-menu hidden" id="wardMenu">
+            <p id="wardMenuText"></p>
+            <button type="button" id="wardMenuClose">關閉</button>
+          </div>
+          <div class="ward-battle hidden" id="wardBattle">
+            <div class="battle-name" id="battleFoeName">急救認識</div>
+            <div class="battle-text" id="battleText"></div>
+            <div class="battle-options" id="battleOptions"></div>
+          </div>
+        </div>
+        <div class="ward-controls" aria-label="病房操作">
+          <div class="ward-dpad">
+            <button class="ward-pad up" type="button" data-k="up" aria-label="上">▲</button>
+            <button class="ward-pad left" type="button" data-k="left" aria-label="左">◀</button>
+            <button class="ward-pad right" type="button" data-k="right" aria-label="右">▶</button>
+            <button class="ward-pad down" type="button" data-k="down" aria-label="下">▼</button>
+          </div>
+          <div class="ward-ab">
+            <button class="ab-btn b" id="wardBtnB" type="button" aria-label="取消">B</button>
+            <button class="ab-btn a" id="wardBtnA" type="button" aria-label="確認">A</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="screen" id="screenResults">
       <div class="panel" id="resultsPanel"></div>
     </section>
@@ -777,6 +1014,8 @@
     </div>
   </div>
 
+  <script src="vendor/three.min.js"></script>
+  <script src="ward.js"></script>
   <script>
   (function () {
     "use strict";
@@ -1557,7 +1796,7 @@
     }
 
     function showScreen(id) {
-      ["screenHome", "screenPlay", "screenResults", "screenReview"].forEach(function (s) {
+      ["screenHome", "screenPlay", "screenResults", "screenReview", "screenWard"].forEach(function (s) {
         document.getElementById(s).classList.toggle("active", s === id);
       });
     }
@@ -2396,6 +2635,7 @@
     function goHome() {
       running = false;
       paused = false;
+      if (window.WardMode) WardMode.stop();
       bird.scored = false;
       awaitingMove = true;
       snake = [];
@@ -2410,11 +2650,13 @@
     }
 
     function togglePause() {
-      if (!document.getElementById("screenPlay").classList.contains("active")) return;
+      var wardOn = document.getElementById("screenWard").classList.contains("active");
+      if (!document.getElementById("screenPlay").classList.contains("active") && !wardOn) return;
       if (overlays.result.classList.contains("show")) return;
       paused = !paused;
       document.getElementById("btnPause").setAttribute("aria-pressed", paused ? "true" : "false");
       overlays.pause.classList.toggle("show", paused);
+      if (wardOn && window.WardMode) WardMode.setPaused(paused);
       if (!paused) {
         lastStep = 0;
         lastTs = 0;
@@ -2434,6 +2676,19 @@
 
     document.getElementById("btnSnake").addEventListener("click", function () { startGame("snake"); });
     document.getElementById("btnBird").addEventListener("click", function () { startGame("bird"); });
+    document.getElementById("btnWard").addEventListener("click", function () {
+      sfx("click");
+      running = false;
+      paused = false;
+      overlays.result.classList.remove("show");
+      overlays.pause.classList.remove("show");
+      gameMode = "ward";
+      showScreen("screenWard");
+      document.body.classList.remove("is-home");
+      document.body.classList.add("is-playing");
+      setPauseEnabled(true);
+      if (window.WardMode) WardMode.start();
+    });
     document.getElementById("btnMute").addEventListener("click", toggleMute);
     document.getElementById("btnPause").addEventListener("click", togglePause);
     document.getElementById("btnResume").addEventListener("click", function () {
