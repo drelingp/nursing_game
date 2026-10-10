@@ -38,7 +38,16 @@
 
   var DIRS = [{ x: 1, z: 0 }, { x: 0, z: 1 }, { x: -1, z: 0 }, { x: 0, z: -1 }];
   var player = { x: MARK.start.x, z: MARK.start.z };
-  var facing = 0;
+  var px = MARK.start.x + 0.5;
+  var pz = MARK.start.z + 0.5;
+  var yaw = Math.PI / 2;
+  var pitch = 0.62;
+  var lookDrag = null;
+  var moving = false;
+  var lastTs = 0;
+  var glFailed = false;
+  var WALL_H = 2;
+  var facing = 1;
   var trolley = { x: MARK.trolley.x, z: MARK.trolley.z };
   var pushing = false;
   var quest = "";
@@ -90,7 +99,7 @@
   }
 
   function setQuestLabel() {
-    var text = "喺C座走走。突發事件唔會每兩步就出現。撳 B 睇任務目標。";
+    var text = "WASD 或方向鍵行，拖畫面轉向。A 互動，B 任務。唔使密碼。";
     if (quest === "code") {
       if (step === "intro" || step === "goTrolley") text = "任務：去治療室，撳 A 攞急救車。";
       else if (step === "push") text = "任務：推急救車返事發位置（走廊紅點）。";
@@ -114,6 +123,10 @@
     if (canvas) {
       canvas.dataset.wx = String(player.x);
       canvas.dataset.wz = String(player.z);
+      canvas.dataset.px = px.toFixed(2);
+      canvas.dataset.pz = pz.toFixed(2);
+      canvas.dataset.yaw = yaw.toFixed(3);
+      canvas.dataset.gl = glFailed ? "0" : "1";
       canvas.dataset.quest = quest || "none";
       canvas.dataset.step = step;
       canvas.dataset.pushing = pushing ? "1" : "0";
@@ -375,7 +388,99 @@
     else openMenu();
   }
 
+  function showGlError(msg) {
+    glFailed = true;
+    var note = el("wardFallback");
+    if (note) {
+      note.classList.add("show");
+      note.textContent = msg;
+    }
+    var canvas = el("wardCanvas");
+    if (canvas) canvas.style.visibility = "hidden";
+  }
   function mat(color) { return new THREE.MeshLambertMaterial({ color: color }); }
+  function syncFacing() {
+    var dirs = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+    var best = 0;
+    var bd = 99;
+    var i, d;
+    for (i = 0; i < 4; i++) {
+      d = Math.atan2(Math.sin(yaw - dirs[i]), Math.cos(yaw - dirs[i]));
+      if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
+    }
+    facing = best;
+  }
+  function openYaw() {
+    var opts = [
+      { yaw: Math.PI / 2, face: 1, x: 0, z: 1 },
+      { yaw: 0, face: 0, x: 1, z: 0 },
+      { yaw: -Math.PI / 2, face: 3, x: 0, z: -1 },
+      { yaw: Math.PI, face: 2, x: -1, z: 0 }
+    ];
+    var i;
+    for (i = 0; i < opts.length; i++) {
+      if (walkable(MARK.start.x + opts[i].x, MARK.start.z + opts[i].z)) return opts[i];
+    }
+    return opts[0];
+  }
+  function bodyFree(x, z) {
+    var r = 0.22;
+    var xs = [x - r, x + r];
+    var zs = [z - r, z + r];
+    var i, j;
+    for (i = 0; i < 2; i++) {
+      for (j = 0; j < 2; j++) {
+        if (!walkable(Math.floor(xs[i]), Math.floor(zs[j]))) return false;
+      }
+    }
+    return true;
+  }
+  function slide(x, z, nx, nz) {
+    if (bodyFree(nx, z)) x = nx;
+    if (bodyFree(x, nz)) z = nz;
+    return { x: x, z: z };
+  }
+  function tickMove(dt) {
+    moving = false;
+    if (!active || paused || dialog || battle || menuOpen || mapOpen) return;
+    var f = (keys.forward ? 1 : 0) - (keys.back ? 1 : 0);
+    var s = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    if (!f && !s) return;
+    var len = Math.hypot(f, s) || 1;
+    f /= len;
+    s /= len;
+    var speed = pushing ? 2.6 : 4.4;
+    var fx = Math.cos(yaw);
+    var fz = Math.sin(yaw);
+    var rx = -Math.sin(yaw);
+    var rz = Math.cos(yaw);
+    var mx = (fx * f + rx * s) * speed * dt;
+    var mz = (fz * f + rz * s) * speed * dt;
+    var next = slide(px, pz, px + mx, pz + mz);
+    if (pushing && (Math.abs(next.x - px) + Math.abs(next.z - pz) > 0.0001)) {
+      var ax = next.x - px;
+      var az = next.z - pz;
+      var sxn = Math.abs(ax) > Math.abs(az) ? Math.sign(ax) : 0;
+      var szn = Math.abs(az) >= Math.abs(ax) ? Math.sign(az) : 0;
+      var frontX = Math.floor(next.x) + sxn;
+      var frontZ = Math.floor(next.z) + szn;
+      if (!walkable(frontX, frontZ)) next = { x: px, z: pz };
+      else { trolley.x = frontX; trolley.z = frontZ; }
+    }
+    if (Math.abs(next.x - px) + Math.abs(next.z - pz) < 0.0001) return;
+    moving = true;
+    px = next.x;
+    pz = next.z;
+    var tx = Math.floor(px);
+    var tz = Math.floor(pz);
+    if (tx !== player.x || tz !== player.z) {
+      player.x = tx;
+      player.z = tz;
+      stepFrame ^= 1;
+      onStepLanded();
+    }
+    setQuestLabel();
+  }
   function addBox(parent, w, h, d, color, x, y, z) {
     var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
     mesh.position.set(x, y, z);
@@ -403,90 +508,101 @@
     sprite.scale.set(3.2, 0.8, 1);
     return sprite;
   }
-  function paintFloorTexture() {
-    var px = 8;
-    var c = document.createElement("canvas");
-    c.width = MAP_W * px;
-    c.height = MAP_H * px;
-    var g = c.getContext("2d");
-    var z, x, ch, room, col, sx, sy;
-    for (z = 0; z < MAP_H; z++) {
-      for (x = 0; x < MAP_W; x++) {
-        ch = grid[z][x];
-        sx = x * px;
-        sy = z * px;
-        if (ch === "#" || ch === ".") {
-          g.fillStyle = ch === "#" ? "#241812" : "#8ec6ea";
-          g.fillRect(sx, sy, px, px);
-          if (ch === "#") {
-            g.fillStyle = "#5a4336";
-            g.fillRect(sx + 1, sy + 1, px - 2, px - 3);
-            g.fillStyle = "#120c0a";
-            g.fillRect(sx, sy, px, 1);
-            g.fillRect(sx, sy, 1, px);
-          }
-        } else {
-          room = byCh[ch];
-          col = room ? "#" + room.floor : "#d7c4a3";
-          g.fillStyle = col;
-          g.fillRect(sx, sy, px, px);
-          g.fillStyle = "rgba(0,0,0,0.18)";
-          g.fillRect(sx, sy, px, 1);
-          g.fillRect(sx, sy, 1, px);
-          g.fillStyle = "rgba(255,255,255,0.25)";
-          g.fillRect(sx + 2, sy + 2, 2, 2);
-        }
+  function touchesFloor(x, z) {
+    var dz, dx;
+    for (dz = -1; dz <= 1; dz++) {
+      for (dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue;
+        if (walkable(x + dx, z + dz)) return true;
       }
     }
-    var tex = new THREE.CanvasTexture(c);
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
+    return false;
   }
   function buildScene() {
     var canvas = el("wardCanvas");
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, alpha: false });
-    renderer.setClearColor(0x87b8d8, 1);
+    if (!renderer.getContext()) throw new Error("WebGL");
+    canvas.addEventListener("webglcontextlost", function (ev) {
+      ev.preventDefault();
+      showGlError("立體畫面中斷。請用 Chrome 再開一次。唔使密碼。");
+    });
+    renderer.setClearColor(0x8ec8ea, 1);
     renderer.setPixelRatio(1);
     scene = new THREE.Scene();
-    camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80);
-    scene.add(new THREE.AmbientLight(0xfff6e8, 0.85));
-    var sun = new THREE.DirectionalLight(0xffffff, 0.65);
-    sun.position.set(6, 14, 8);
+    scene.fog = new THREE.Fog(0x8ec8ea, 22, 52);
+    camera = new THREE.PerspectiveCamera(68, 1, 0.08, 220);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.74));
+    var sun = new THREE.DirectionalLight(0xfff6e4, 0.9);
+    sun.position.set(30, 70, 18);
     scene.add(sun);
+    var fill = new THREE.DirectionalLight(0xc5ddff, 0.35);
+    fill.position.set(-20, 24, -10);
+    scene.add(fill);
 
-    var floor = new THREE.Mesh(new THREE.PlaneGeometry(MAP_W, MAP_H), new THREE.MeshBasicMaterial({ map: paintFloorTexture() }));
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(MAP_W / 2, 0, MAP_H / 2);
-    scene.add(floor);
+    var ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(240, 280),
+      new THREE.MeshLambertMaterial({ color: 0x63b56a })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(MAP_W / 2, -0.55, MAP_H / 2);
+    scene.add(ground);
 
-    var wallCells = [];
-    var z, x;
+    var floors = [];
+    var walls = [];
+    var z, x, ch, dz, dx;
     for (z = 0; z < MAP_H; z++) {
       for (x = 0; x < MAP_W; x++) {
-        if (grid[z][x] !== "#") continue;
-        if (walkable(x + 1, z) || walkable(x - 1, z) || walkable(x, z + 1) || walkable(x, z - 1)) wallCells.push([x, z]);
+        ch = grid[z][x];
+        if (ch !== "#" && ch !== ".") floors.push([x, z, ch]);
+        else if (ch === "#" && touchesFloor(x, z)) walls.push([x, z]);
       }
     }
-    var wallGeo = new THREE.BoxGeometry(1, 0.85, 1);
-    var walls = new THREE.InstancedMesh(wallGeo, mat(0x3b2a22), wallCells.length || 1);
-    var edge = new THREE.InstancedMesh(new THREE.BoxGeometry(1.06, 0.9, 1.06), mat(0x120c0a), wallCells.length || 1);
     var dummy = new THREE.Object3D();
-    wallCells.forEach(function (p, i) {
-      dummy.position.set(p[0] + 0.5, 0.42, p[1] + 0.5);
+    var color = new THREE.Color();
+    var floorMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 0.5, 1),
+      new THREE.MeshLambertMaterial({ color: 0xffffff }),
+      Math.max(1, floors.length)
+    );
+    floors.forEach(function (p, i) {
+      dummy.position.set(p[0] + 0.5, -0.25, p[1] + 0.5);
+      dummy.rotation.set(0, 0, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      edge.setMatrixAt(i, dummy.matrix);
-      dummy.position.y = 0.48;
-      dummy.scale.set(0.86, 0.7, 0.86);
-      dummy.updateMatrix();
-      walls.setMatrixAt(i, dummy.matrix);
+      floorMesh.setMatrixAt(i, dummy.matrix);
+      var room = byCh[p[2]];
+      color.setHex(parseInt(room ? room.floor : "d7c4a3", 16));
+      if ((p[0] + p[1]) & 1) color.multiplyScalar(0.86);
+      floorMesh.setColorAt(i, color);
     });
-    walls.instanceMatrix.needsUpdate = true;
-    edge.instanceMatrix.needsUpdate = true;
-    scene.add(edge);
-    scene.add(walls);
+    floorMesh.instanceMatrix.needsUpdate = true;
+    if (floorMesh.instanceColor) floorMesh.instanceColor.needsUpdate = true;
+    scene.add(floorMesh);
+
+    var wallMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, WALL_H, 1),
+      new THREE.MeshLambertMaterial({ color: 0x8d8478 }),
+      Math.max(1, walls.length)
+    );
+    var capMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1.02, 0.18, 1.02),
+      new THREE.MeshLambertMaterial({ color: 0xd7c4a2 }),
+      Math.max(1, walls.length)
+    );
+    walls.forEach(function (p, i) {
+      dummy.position.set(p[0] + 0.5, WALL_H / 2, p[1] + 0.5);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      wallMesh.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(p[0] + 0.5, WALL_H + 0.02, p[1] + 0.5);
+      dummy.updateMatrix();
+      capMesh.setMatrixAt(i, dummy.matrix);
+    });
+    wallMesh.instanceMatrix.needsUpdate = true;
+    capMesh.instanceMatrix.needsUpdate = true;
+    scene.add(wallMesh);
+    scene.add(capMesh);
 
     PACK.rooms.forEach(function (room) {
       var cells = [];
@@ -497,42 +613,49 @@
       var cx = 0, cz = 0;
       cells.forEach(function (p) { cx += p[0]; cz += p[1]; });
       var sprite = labelSprite(room.name);
-      sprite.position.set(cx / cells.length + 0.5, 1.7, cz / cells.length + 0.5);
+      sprite.position.set(cx / cells.length + 0.5, 2.85, cz / cells.length + 0.5);
       scene.add(sprite);
     });
 
     Object.keys(PACK.beds).forEach(function (id) {
       PACK.beds[id].forEach(function (p) {
-        addBox(scene, 0.72, 0.22, 0.95, 0xf7f1e4, p[0] + 0.5, 0.16, p[1] + 0.5);
-        addBox(scene, 0.62, 0.1, 0.7, 0x6cb5d6, p[0] + 0.5, 0.3, p[1] + 0.5);
-        addBox(scene, 0.28, 0.1, 0.22, 0xfff8ee, p[0] + 0.5, 0.38, p[1] + 0.28);
+        addBox(scene, 0.72, 0.18, 0.78, 0x8a5a32, p[0] + 0.5, 0.16, p[1] + 0.5);
+        addBox(scene, 0.62, 0.12, 0.68, 0xf7f7f7, p[0] + 0.5, 0.3, p[1] + 0.5);
+        addBox(scene, 0.62, 0.08, 0.32, 0x3d8fd0, p[0] + 0.5, 0.4, p[1] + 0.66);
+        addBox(scene, 0.28, 0.1, 0.16, 0xfff8ee, p[0] + 0.5, 0.42, p[1] + 0.28);
       });
     });
 
-    addBox(scene, 0.55, 0.42, 0.4, 0x223044, MARK.computer.x + 0.5, 0.35, MARK.computer.z + 0.5);
-    addBox(scene, 0.42, 0.28, 0.06, 0x8fd0ff, MARK.computer.x + 0.5, 0.62, MARK.computer.z + 0.32);
-    addBox(scene, 0.5, 0.28, 0.36, 0x4d5966, MARK.fax.x + 0.5, 0.28, MARK.fax.z + 0.5);
-    addBox(scene, 0.28, 0.05, 0.2, 0xf4f7fb, MARK.fax.x + 0.5, 0.46, MARK.fax.z + 0.32);
+    addBox(scene, 0.5, 0.32, 0.4, 0x2c3440, MARK.computer.x + 0.5, 0.28, MARK.computer.z + 0.5);
+    addBox(scene, 0.46, 0.36, 0.08, 0x8fd0ff, MARK.computer.x + 0.5, 0.64, MARK.computer.z + 0.28);
+    addBox(scene, 0.48, 0.28, 0.4, 0x5c6770, MARK.fax.x + 0.5, 0.24, MARK.fax.z + 0.5);
+    addBox(scene, 0.3, 0.06, 0.2, 0xf4f7fb, MARK.fax.x + 0.5, 0.42, MARK.fax.z + 0.28);
 
     trolleyMesh = new THREE.Group();
-    addBox(trolleyMesh, 0.72, 0.28, 0.48, 0xd6453d, 0, 0.36, 0);
-    addBox(trolleyMesh, 0.78, 0.08, 0.54, 0x1a1a1a, 0, 0.2, 0);
-    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0xf6e27a, 0, 0.52, 0);
+    addBox(trolleyMesh, 0.7, 0.32, 0.46, 0xd6453d, 0, 0.55, 0);
+    addBox(trolleyMesh, 0.76, 0.12, 0.52, 0x1a1a1a, 0, 0.32, 0);
+    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, -0.24, 0.12, 0.16);
+    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, 0.24, 0.12, 0.16);
+    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, -0.24, 0.12, -0.16);
+    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, 0.24, 0.12, -0.16);
+    addBox(trolleyMesh, 0.18, 0.18, 0.18, 0xf6e27a, 0, 0.8, 0);
     scene.add(trolleyMesh);
 
-    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.06, 0.8), mat(0xe23b32));
-    incidentMesh.position.set(MARK.incident.x + 0.5, 0.05, MARK.incident.z + 0.5);
+    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.08, 0.92), mat(0xe23b32));
+    incidentMesh.position.set(MARK.incident.x + 0.5, 0.06, MARK.incident.z + 0.5);
     incidentMesh.visible = false;
     scene.add(incidentMesh);
 
     playerMesh = new THREE.Group();
-    addBox(playerMesh, 0.62, 0.72, 0.46, 0x111111, 0, 0.62, 0);
-    addBox(playerMesh, 0.48, 0.56, 0.34, 0x3c6ec4, 0, 0.66, 0);
-    addBox(playerMesh, 0.36, 0.28, 0.28, 0xf2c7a0, 0, 1.02, 0.08);
-    addBox(playerMesh, 0.4, 0.12, 0.32, 0x1a1a1a, 0, 1.18, 0.04);
-    legL = addBox(playerMesh, 0.16, 0.28, 0.16, 0x1d3557, -0.14, 0.2, 0);
-    legR = addBox(playerMesh, 0.16, 0.28, 0.16, 0x1d3557, 0.14, 0.2, 0);
-    playerMesh.scale.set(1.45, 1.45, 1.45);
+    legL = addBox(playerMesh, 0.18, 0.62, 0.18, 0x1d3557, -0.12, 0.31, 0);
+    legR = addBox(playerMesh, 0.18, 0.62, 0.18, 0x1d3557, 0.12, 0.31, 0);
+    addBox(playerMesh, 0.5, 0.62, 0.28, 0x2f6fd0, 0, 0.9, 0);
+    addBox(playerMesh, 0.16, 0.58, 0.16, 0xf2c7a0, -0.34, 0.9, 0);
+    addBox(playerMesh, 0.16, 0.58, 0.16, 0xf2c7a0, 0.34, 0.9, 0);
+    addBox(playerMesh, 0.4, 0.4, 0.4, 0xf2c7a0, 0, 1.42, 0);
+    addBox(playerMesh, 0.42, 0.12, 0.42, 0x1a1a1a, 0, 1.66, 0);
+    addBox(playerMesh, 0.08, 0.08, 0.06, 0x222222, -0.1, 1.46, 0.2);
+    addBox(playerMesh, 0.08, 0.08, 0.06, 0x222222, 0.1, 1.46, 0.2);
     scene.add(playerMesh);
     built = true;
   }
@@ -552,12 +675,12 @@
     ctx.fillRect(0, 0, w, h);
     var span = 22;
     var scale = (w - 8) / span;
-    var ox = w / 2 - (player.x + 0.5) * scale;
-    var oy = h / 2 - (player.z + 0.5) * scale;
-    var x0 = Math.max(0, player.x - 12);
-    var x1 = Math.min(MAP_W - 1, player.x + 12);
-    var z0 = Math.max(0, player.z - 12);
-    var z1 = Math.min(MAP_H - 1, player.z + 12);
+    var ox = w / 2 - px * scale;
+    var oy = h / 2 - pz * scale;
+    var x0 = Math.max(0, Math.floor(px) - 12);
+    var x1 = Math.min(MAP_W - 1, Math.floor(px) + 12);
+    var z0 = Math.max(0, Math.floor(pz) - 12);
+    var z1 = Math.min(MAP_H - 1, Math.floor(pz) + 12);
     var z, x, ch, room;
     for (z = z0; z <= z1; z++) {
       for (x = x0; x <= x1; x++) {
@@ -579,7 +702,7 @@
     ctx.stroke();
     ctx.save();
     ctx.translate(w / 2, h / 2);
-    ctx.rotate(facing * Math.PI / 2);
+    ctx.rotate(yaw);
     ctx.fillStyle = "#ffe14a";
     ctx.beginPath();
     ctx.moveTo(9, 0);
@@ -629,72 +752,95 @@
     });
     ctx.fillStyle = "#e23b32";
     ctx.beginPath();
-    ctx.arc(ox + (player.x + 0.5) * scale, oy + (player.z + 0.5) * scale, 4, 0, Math.PI * 2);
+    ctx.arc(ox + px * scale, oy + pz * scale, 4, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  function placeCamera() {
+    var lookY = 0.85;
+    var dist = 6.4;
+    var cp = Math.cos(pitch);
+    var sp = Math.sin(pitch);
+    var back = Math.max(0.35, cp);
+    var desX = px - Math.cos(yaw) * dist * back;
+    var desZ = pz - Math.sin(yaw) * dist * back;
+    var desY = lookY + dist * sp;
+    var camX = desX;
+    var camZ = desZ;
+    if (desY < WALL_H + 0.35) {
+      var dx = desX - px;
+      var dz = desZ - pz;
+      var dist2 = Math.hypot(dx, dz) || 1;
+      var steps = Math.max(1, Math.ceil(dist2 / 0.2));
+      var i, t, x, z;
+      camX = px;
+      camZ = pz;
+      for (i = 1; i <= steps; i++) {
+        t = i / steps;
+        x = px + dx * t;
+        z = pz + dz * t;
+        if (!walkable(Math.floor(x), Math.floor(z))) break;
+        camX = x;
+        camZ = z;
+      }
+    }
+    camera.position.set(camX, Math.max(0.45, desY), camZ);
+    camera.lookAt(px, 0.7, pz);
   }
 
   function frame(ts) {
     raf = requestAnimationFrame(frame);
-    if (!active) return;
-    clock = ts || 0;
-    if (!paused && (keys.up || keys.down || keys.left || keys.right)) {
-      if (battle && battle.phase === "ask") {
-        if (keys.up || keys.left) battle.cursor = (battle.cursor + 3) % 4;
-        else battle.cursor = (battle.cursor + 1) % 4;
-        keys.up = keys.down = keys.left = keys.right = false;
-        renderBattle();
-      } else {
-        keyTimer += 16;
-        if (keyTimer >= MOVE_MS) {
-          keyTimer = 0;
-          if (keys.up) tryMove(0, -1);
-          else if (keys.down) tryMove(0, 1);
-          else if (keys.left) tryMove(-1, 0);
-          else if (keys.right) tryMove(1, 0);
-        }
-      }
+    if (!active || glFailed) return;
+    var now = ts || 0;
+    var dt = lastTs ? Math.min(0.05, (now - lastTs) / 1000) : 0.016;
+    lastTs = now;
+    if (!paused && battle && battle.phase === "ask" && (keys.forward || keys.back || keys.left || keys.right)) {
+      if (keys.forward || keys.left) battle.cursor = (battle.cursor + 3) % 4;
+      else battle.cursor = (battle.cursor + 1) % 4;
+      keys.forward = keys.back = keys.left = keys.right = false;
+      renderBattle();
+    } else {
+      tickMove(dt);
     }
+    syncFacing();
     if (playerMesh) {
-      var bob = stepFrame ? 0.04 : 0;
-      playerMesh.position.set(player.x + 0.5, bob, player.z + 0.5);
-      playerMesh.rotation.y = [Math.PI / 2, 0, -Math.PI / 2, Math.PI][facing];
-      if (legL && legR) {
-        var swing = stepFrame ? 0.12 : -0.12;
-        legL.position.z = swing;
-        legR.position.z = -swing;
-      }
+      playerMesh.position.set(px, 0, pz);
+      playerMesh.rotation.y = Math.PI / 2 - yaw;
+      var swing = moving ? Math.sin(now / 90) * 0.45 : 0;
+      if (legL) legL.rotation.x = swing;
+      if (legR) legR.rotation.x = -swing;
     }
     if (trolleyMesh) trolleyMesh.position.set(trolley.x + 0.5, 0, trolley.z + 0.5);
     if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
-    if (camera && renderer) {
-      var aspect = Math.max(0.4, (renderer.domElement.clientWidth || 1) / Math.max(1, renderer.domElement.clientHeight || 1));
-      var view = 8.2;
-      camera.left = -view * aspect;
-      camera.right = view * aspect;
-      camera.top = view;
-      camera.bottom = -view;
-      camera.updateProjectionMatrix();
-      camera.position.set(player.x + 0.5 + 6, 12, player.z + 0.5 + 8);
-      camera.lookAt(player.x + 0.5, 0, player.z + 0.5);
-      renderer.render(scene, camera);
-    }
     drawMinimap();
+    if (camera && renderer) {
+      try {
+        placeCamera();
+        renderer.render(scene, camera);
+      } catch (err) {
+        showGlError("立體畫面畫唔到。請用 Chrome 再開一次。唔使密碼。");
+      }
+    }
   }
 
   function onResize() {
-    var canvas = el("wardCanvas");
-    var wrap = canvas && canvas.parentElement;
-    if (!wrap || !renderer) return;
+    var wrap = el("wardView");
+    if (!wrap || !renderer || !camera) return;
     var w = wrap.clientWidth || 300;
-    var h = wrap.clientHeight || 200;
+    var h = wrap.clientHeight || 220;
     renderer.setSize(w, h, false);
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
+    camera.aspect = w / Math.max(1, h);
+    camera.updateProjectionMatrix();
   }
   function resetPlay() {
+    var aim = openYaw();
     player.x = MARK.start.x;
     player.z = MARK.start.z;
-    facing = 2;
+    px = MARK.start.x + 0.5;
+    pz = MARK.start.z + 0.5;
+    yaw = aim.yaw;
+    pitch = 0.62;
+    facing = aim.face;
     trolley.x = MARK.trolley.x;
     trolley.z = MARK.trolley.z;
     pushing = false;
@@ -708,6 +854,8 @@
     mapOpen = false;
     triggeredPush = false;
     stepFrame = 0;
+    moving = false;
+    keys.forward = keys.back = keys.left = keys.right = false;
     show("wardDialog", false);
     show("wardBattle", false);
     show("wardMenu", false);
@@ -720,7 +868,6 @@
       function press(ev) {
         if (ev.cancelable) ev.preventDefault();
         keys[btn.getAttribute("data-k")] = true;
-        keyTimer = MOVE_MS;
       }
       function release() { keys[btn.getAttribute("data-k")] = false; }
       btn.addEventListener("pointerdown", press);
@@ -741,29 +888,51 @@
     if (mini) mini.addEventListener("click", function () { toggleMap(); });
     var overlay = el("wardMapOverlay");
     if (overlay) overlay.addEventListener("click", function () { if (mapOpen) toggleMap(); });
+    var view = el("wardCanvas");
+    if (view) {
+      view.addEventListener("pointerdown", function (ev) {
+        if (mapOpen) return;
+        if (ev.cancelable) ev.preventDefault();
+        view.setPointerCapture(ev.pointerId);
+        lookDrag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+      });
+      view.addEventListener("pointermove", function (ev) {
+        if (!lookDrag || lookDrag.id !== ev.pointerId) return;
+        if (ev.cancelable) ev.preventDefault();
+        var dx = ev.clientX - lookDrag.x;
+        var dy = ev.clientY - lookDrag.y;
+        lookDrag.x = ev.clientX;
+        lookDrag.y = ev.clientY;
+        yaw += dx * 0.005;
+        pitch = Math.max(-0.2, Math.min(1.15, pitch + dy * 0.004));
+      });
+      function endLook(ev) {
+        if (lookDrag && lookDrag.id === ev.pointerId) lookDrag = null;
+      }
+      view.addEventListener("pointerup", endLook);
+      view.addEventListener("pointercancel", endLook);
+      view.addEventListener("contextmenu", function (ev) { ev.preventDefault(); });
+    }
     window.addEventListener("keydown", function (e) {
       if (!active) return;
-      var map = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
-      if (map[e.key]) {
+      var moveCode = {
+        KeyW: "forward", KeyS: "back", KeyA: "left", KeyD: "right",
+        ArrowUp: "forward", ArrowDown: "back", ArrowLeft: "left", ArrowRight: "right"
+      };
+      if (moveCode[e.code]) {
         e.preventDefault();
         if (paused || mapOpen) return;
         if (battle && battle.phase === "ask" && !e.repeat) {
-          if (e.key === "ArrowUp" || e.key === "ArrowLeft") battle.cursor = (battle.cursor + 3) % 4;
+          if (e.code === "ArrowUp" || e.code === "ArrowLeft" || e.code === "KeyW" || e.code === "KeyA") battle.cursor = (battle.cursor + 3) % 4;
           else battle.cursor = (battle.cursor + 1) % 4;
           renderBattle();
           return;
         }
-        keys[map[e.key]] = true;
-        if (e.repeat) return;
-        keyTimer = 0;
-        if (e.key === "ArrowUp") tryMove(0, -1);
-        if (e.key === "ArrowDown") tryMove(0, 1);
-        if (e.key === "ArrowLeft") tryMove(-1, 0);
-        if (e.key === "ArrowRight") tryMove(1, 0);
+        keys[moveCode[e.code]] = true;
         return;
       }
-      var confirm = e.key === "z" || e.key === "Z" || e.key === "a" || e.key === "A" || e.key === "Enter";
-      var cancel = e.key === "x" || e.key === "X" || e.key === "b" || e.key === "B" || e.key === "Escape";
+      var confirm = e.code === "KeyZ" || e.code === "Enter" || e.code === "NumpadEnter";
+      var cancel = e.code === "KeyX" || e.code === "KeyB" || e.code === "Escape";
       if (confirm) {
         e.preventDefault();
         if (!e.repeat) tryInteract();
@@ -773,28 +942,38 @@
       }
     }, true);
     window.addEventListener("keyup", function (e) {
-      var map = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
-      if (map[e.key]) keys[map[e.key]] = false;
+      var moveCode = {
+        KeyW: "forward", KeyS: "back", KeyA: "left", KeyD: "right",
+        ArrowUp: "forward", ArrowDown: "back", ArrowLeft: "left", ArrowRight: "right"
+      };
+      if (moveCode[e.code]) keys[moveCode[e.code]] = false;
     }, true);
     window.addEventListener("resize", onResize);
   }
   function start() {
     active = true;
     paused = false;
-    if (!window.THREE) {
-      el("wardQuestLabel").textContent = "Three.js 未載入。請同 game.html 一齊開啟 vendor/three.min.js。";
-      return;
-    }
     if (!built) {
-      buildScene();
       bind();
+      built = true;
+      if (!window.THREE) {
+        showGlError("立體畫面開唔到：Three.js 未載入。請用 Chrome 雙擊 game.html，同 vendor/three.min.js、ward.js、ward-map.js 放埋一齊。唔使密碼。");
+      } else {
+        try {
+          buildScene();
+          onResize();
+        } catch (err) {
+          showGlError("立體畫面開唔到（" + (err && err.message ? err.message : "WebGL") + "）。請用 Chrome。唔使密碼。");
+        }
+      }
     }
     resetPlay();
-    if (!raf) raf = requestAnimationFrame(frame);
-    requestAnimationFrame(function () {
+    if (!glFailed) {
       onResize();
+      drawMinimap();
+      if (!raf) raf = requestAnimationFrame(frame);
       requestAnimationFrame(onResize);
-    });
+    }
   }
   function stop() { active = false; keys = {}; }
 
@@ -806,7 +985,7 @@
     active: function () { return active; },
     state: function () {
       return {
-        x: player.x, z: player.z, facing: facing, pushing: pushing,
+        x: player.x, z: player.z, yaw: yaw, facing: facing, pushing: pushing,
         tx: trolley.x, tz: trolley.z, quest: quest, step: step,
         room: roomNameAt(player.x, player.z), dialog: !!dialog,
         battle: battle ? battle.phase : "", battleCursor: battle ? battle.cursor : -1,

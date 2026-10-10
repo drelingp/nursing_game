@@ -708,15 +708,55 @@
     }
     .ward-view {
       position: relative;
-      flex: 1 1 0;
-      min-height: 0;
+      flex: 1 1 auto;
+      min-height: 220px;
       background: #16323c;
       border-radius: 12px;
       overflow: hidden;
       border: 3px solid #1e5c67;
       touch-action: none;
     }
-    #wardCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    #wardCanvas {
+      display: block;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+    }
+    #wardFlat { display: none !important; }
+    .ward-fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      text-align: center;
+      color: #142226;
+      font-weight: 800;
+      line-height: 1.45;
+      background: #f6e27a;
+    }
+    .ward-fallback.show { display: flex; }
+    .ward-lookhint {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      z-index: 2;
+      margin: 0;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: rgba(8, 28, 34, 0.72);
+      color: #fff8ee;
+      font-size: 12px;
+      font-weight: 800;
+      pointer-events: none;
+      white-space: nowrap;
+    }
     .ward-hud {
       position: absolute;
       left: 8px;
@@ -962,7 +1002,7 @@
           <button class="mode-card explore" id="btnWard" type="button">
             <span class="mode-emoji" aria-hidden="true">病</span>
             <strong>病房探索</strong>
-            <span>舊式精靈寶可夢畫面，行 C 座病房。上下左右移動，A 互動，B 睇任務。突發急救、收症、躁動約束。</span>
+            <span>Minecraft 式立體 C 座。WASD 行，拖畫面轉向。A 互動，B 任務。唔使密碼。</span>
           </button>
         </div>
         <p class="home-foot">本遊戲只供訓練用途，實際工作請依照部門指引。分數只是學習回饋，不是績效考核。內容為虛構訓練案例。</p>
@@ -1001,9 +1041,12 @@
       <div class="ward-root">
         <div class="ward-view" id="wardView">
           <canvas id="wardCanvas"></canvas>
+          <p class="ward-fallback" id="wardFallback">立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。</p>
+          <canvas id="wardFlat" aria-hidden="true"></canvas>
+          <p class="ward-lookhint">拖畫面轉向</p>
           <div class="ward-hud">
             <div class="ward-room" id="wardRoomLabel">C座走廊</div>
-            <div class="ward-quest" id="wardQuestLabel">喺病房走走。突發事件唔會每兩步就出現。</div>
+            <div class="ward-quest" id="wardQuestLabel">WASD 或方向鍵行，拖畫面轉向。A 互動，B 任務。</div>
           </div>
           <canvas class="ward-minimap" id="wardMinimap" width="180" height="180" aria-label="小地圖，撳一下放大"></canvas>
           <div class="ward-flash hidden" id="wardFlash"></div>
@@ -1024,10 +1067,10 @@
         </div>
         <div class="ward-controls" aria-label="病房操作">
           <div class="ward-dpad">
-            <button class="ward-pad up" type="button" data-k="up" aria-label="上">▲</button>
-            <button class="ward-pad left" type="button" data-k="left" aria-label="左">◀</button>
-            <button class="ward-pad right" type="button" data-k="right" aria-label="右">▶</button>
-            <button class="ward-pad down" type="button" data-k="down" aria-label="下">▼</button>
+            <button class="ward-pad up" type="button" data-k="forward" aria-label="向前">▲</button>
+            <button class="ward-pad left" type="button" data-k="left" aria-label="向左">◀</button>
+            <button class="ward-pad right" type="button" data-k="right" aria-label="向右">▶</button>
+            <button class="ward-pad down" type="button" data-k="back" aria-label="向後">▼</button>
           </div>
           <div class="ward-ab">
             <button class="ab-btn b" id="wardBtnB" type="button" aria-label="取消">B</button>
