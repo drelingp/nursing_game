@@ -1,53 +1,187 @@
-/* 病房探索 — traced Ward C. Room names live in ward-map.js WARD_PACK.rooms. */
+/* 病房探索 — Pokemon-style ward sim. Room names live in WARD_ROOMS. */
 (function () {
   "use strict";
 
-  var PACK = window.WARD_PACK;
-  if (!PACK) return;
-
   var TILE = 1;
-  var MAP_W = PACK.w;
-  var MAP_H = PACK.h;
+  var MAP_W = 36;
+  var MAP_H = 28;
   var MOVE_MS = 130;
-  var MARK = PACK.markers;
 
-  var byCh = {};
-  var byId = {};
-  PACK.rooms.forEach(function (r) {
-    byCh[r.ch] = r;
-    byId[r.id] = r;
-  });
+  /* Compact Ward C. Same rooms and neighbours as the labeled plan, short doors. Edit names here. */
+  var WARD_ROOMS = [
+    { id: "livA", name: "活動區A", x: 8, z: 3, w: 8, h: 6, floor: 0xc6d48b, kind: "living" },
+    { id: "stairTop", name: "樓梯", x: 2, z: 1, w: 6, h: 3, floor: 0xc8cdd4, kind: "stair" },
+    { id: "b4", name: "病房四", x: 2, z: 4, w: 6, h: 4, floor: 0xf6dcc0, kind: "bed", beds: 6 },
+    { id: "b5", name: "病房五", x: 2, z: 8, w: 6, h: 4, floor: 0xe7d0b8, kind: "bed", beds: 6 },
+    { id: "b6", name: "病房六", x: 2, z: 12, w: 6, h: 4, floor: 0xf0d8c4, kind: "bed", beds: 6 },
+    { id: "wc1", name: "廁所", x: 2, z: 16, w: 4, h: 3, floor: 0xb7d4e8, kind: "toilet" },
+    { id: "b3", name: "病房三", x: 16, z: 1, w: 6, h: 4, floor: 0xedd0b4, kind: "bed", beds: 6 },
+    { id: "b2", name: "病房二", x: 16, z: 5, w: 6, h: 4, floor: 0xf3d7b0, kind: "bed", beds: 6 },
+    { id: "b1", name: "病房一", x: 16, z: 9, w: 6, h: 4, floor: 0xf0d2a8, kind: "bed", beds: 6 },
+    { id: "bath", name: "浴室", x: 22, z: 1, w: 4, h: 3, floor: 0x8ec6ea, kind: "bath" },
+    { id: "consult", name: "診症室", x: 22, z: 4, w: 4, h: 3, floor: 0xf7e7a1, kind: "consult" },
+    { id: "visit", name: "探訪室", x: 26, z: 1, w: 4, h: 4, floor: 0xf2c6d0, kind: "visit" },
+    { id: "wc4", name: "廁所", x: 22, z: 7, w: 4, h: 3, floor: 0xc5e0f0, kind: "toilet" },
+    { id: "livB", name: "活動區B", x: 8, z: 9, w: 8, h: 5, floor: 0xd5e09a, kind: "living" },
+    { id: "nurse", name: "護士站", x: 16, z: 13, w: 6, h: 4, floor: 0x9fd0c8, kind: "nurse" },
+    { id: "treat", name: "治療室", x: 22, z: 13, w: 5, h: 4, floor: 0xf7c9c4, kind: "treat" },
+    { id: "elev1", name: "升降機一", x: 27, z: 11, w: 4, h: 3, floor: 0xd5dde6, kind: "elev" },
+    { id: "elev2", name: "升降機二", x: 27, z: 14, w: 4, h: 3, floor: 0xc9d3de, kind: "elev" },
+    { id: "blue", name: "藍區", x: 31, z: 11, w: 3, h: 6, floor: 0x6aa6e8, kind: "blue" },
+    { id: "single1", name: "單人房一", x: 8, z: 14, w: 4, h: 3, floor: 0xf7e2c4, kind: "single", beds: 1 },
+    { id: "single2", name: "單人房二", x: 12, z: 14, w: 4, h: 3, floor: 0xf3dcc0, kind: "single", beds: 1 },
+    { id: "therapy1", name: "治療活動室", x: 8, z: 17, w: 8, h: 3, floor: 0xe7d0f0, kind: "therapy" },
+    { id: "wc2", name: "廁所", x: 16, z: 17, w: 3, h: 3, floor: 0xa9cfe6, kind: "toilet" },
+    { id: "manager", name: "病房經理室", x: 19, z: 17, w: 5, h: 3, floor: 0xe4c89a, kind: "office" },
+    { id: "wc3", name: "廁所", x: 24, z: 17, w: 3, h: 3, floor: 0xb9d7ea, kind: "toilet" },
+    { id: "med", name: "藥房", x: 2, z: 20, w: 6, h: 3, floor: 0xf0e0a8, kind: "med" },
+    { id: "livC", name: "活動區C", x: 8, z: 20, w: 8, h: 4, floor: 0xc9d992, kind: "living" },
+    { id: "stairBot", name: "樓梯", x: 16, z: 20, w: 5, h: 4, floor: 0xbcc3cc, kind: "stair" },
+    { id: "garden", name: "花園", x: 1, z: 23, w: 7, h: 4, floor: 0x8fce7a, kind: "garden" },
+    { id: "therapy2", name: "治療活動室", x: 8, z: 24, w: 8, h: 3, floor: 0xdcc6ee, kind: "therapy" }
+  ];
 
-  var grid = PACK.rows.map(function (row) { return row.split(""); });
+  var MARK = {
+    trolley: { x: 24, z: 14 },
+    fax: { x: 18, z: 14 },
+    computer: { x: 20, z: 14 },
+    incident: { x: 12, z: 11 },
+    elev: { x: 28, z: 12 },
+    admitBed: { x: 18, z: 2 },
+    restBed: { x: 18, z: 6 },
+    start: { x: 11, z: 11 }
+  };
 
   var CODE_QS = [
-    { q: "模擬急救（虛構）：C座走廊有人呼叫。較適切的做法是？", options: ["自己一個做完先再叫人", "呼叫支援，去治療室推急救車返事發位置，期間唔好留病人無人看管", "先去護士站影印藥紙", "叫病人自己行去升降機"], answer: 1, explain: "急救先呼叫支援，帶 E-trolley 返事發點。唔好留低危急病人一個人。影印藥紙係情況穩定之後先做。", points: ["先呼叫支援。", "治療室攞急救車推返事發位置。", "唔好留病人無人看管。"] },
-    { q: "模擬急救（虛構）：要用邊套設備？較適切的是？", options: ["邊張床近就用邊張，唔使指定車", "用治療室急救車（E-trolley），氧氣同吸引跟部門現場指引", "只用大廳梳化", "一定要先推去另一座病房先可以做"], answer: 1, explain: "訓練情境用治療室嘅急救車。氧氣、吸引同指定急救位以部門現場為準，唔好隨便用梳化代替。", points: ["用 E-trolley。", "氧氣／吸引跟現場指引。", "實際位置以部門為準。"] },
-    { q: "模擬急救（虛構）：情況暫時穩定之後。較適切的是？", options: ["唔使寫，記得就得", "返護士站用傳真機影印藥紙，並寫低時間、做過嘅事同在場職員", "只同朋友講", "等一個星期再補"], answer: 1, explain: "穩定之後返護士站影印藥紙，並準備紀錄。分數只係學習回饋，唔係評核。實際工作跟部門指引。", points: ["護士站傳真機影印藥紙。", "寫時間、做法、在場人。", "跟部門指引交文件。"] }
-  ];
-  var ADMIT_QS = [
-    { q: "模擬收症（虛構）：護送「林先生」同家屬到升降機口。較適切的是？", options: ["唔核對身份，快啲揾張床", "先核對身份同文件，再按部門指引安排床位", "叫病人自己喺走廊搵房", "見到護送就一律拒收"], answer: 1, explain: "收症先核對身份同文件，再安排床位。呢個係虛構個案，床位同 rota 以當更為準。", points: ["先核對身份同文件。", "再安排床位。", "當更安排跟部門。"] },
-    { q: "模擬收症（虛構）：要做金屬探測。較適切的是？", options: ["一個人喺走廊公開掃就得", "屏風、解釋、雙人（一探測一見證），危險品交家人並記 note", "唔解釋，以免病人拒絕", "出院先做一次"], answer: 1, explain: "金屬探測要有私隱、解釋同雙人見證。危險品交家人並記低。", points: ["屏風同解釋。", "雙人：一探測一見證。", "危險品交家人並記 note。"] },
-    { q: "模擬收症（虛構）：未 confirm 本 team 1:1，對方催住 book 車。較適切的是？", options: ["先 book 車，1:1 之後再算", "1:1 安排確認先，車後", "1:1 同車都唔使理", "叫家屬自己叫的士代替"], answer: 1, explain: "未確認 1:1 唔好因為催而先 book 車。確認人手安排先，交通其後。", points: ["1:1 先，車後。", "唔好被催打亂次序。", "實際調動跟當更 IC。"] }
-  ];
-  var REST_QS = [
-    { q: "模擬躁動（虛構）：同事話「綁起佢嚟懲罰」。較適切的是？", options: ["躁動就可以當懲罰綁", "約束係最後手段，要有醫囑同部門指引，先試其他方法，並向病人解釋", "唔使評估，越快越好", "交俾家屬全權決定點綁"], answer: 1, explain: "約束唔係懲罰。係最後手段，要有醫囑同部門指引，先試其他方法，並解釋。", points: ["最後手段，唔係懲罰。", "要有醫囑／部門指引。", "先試其他方法並解釋。"] },
-    { q: "模擬約束（虛構）：已經按指引用約束。較適切的觀察是？", options: ["綁完就可以唔再睇", "定時檢查血液循環、皮膚同松緊，並記錄", "綁得越緊越安全", "收起呼叫鐘以免嘈"], answer: 1, explain: "用約束之後要定時睇循環、皮膚同松緊，並且寫低。呼叫鐘唔好收起。", points: ["定時檢查循環同皮膚。", "檢查松緊。", "要記錄。"] },
-    { q: "模擬餵食（虛構）：約束中的病人躺住，家屬想瞓餵。較適切的是？", options: ["瞓餵快啲，可以", "必須坐起餵，禁止瞓餵；餵唔餵係護士臨床決定", "一律連水都唔畀", "交俾家屬決定"], answer: 1, explain: "約束中餵食必須坐起，禁止瞓餵。餵唔餵係護士臨床決定。", points: ["坐起餵。", "禁止瞓餵。", "臨床決定，唔係家屬全權。"] }
+    {
+      q: "模擬急救（虛構）：C座走廊有人呼叫。較適切的做法是？",
+      options: [
+        "自己一個做完先再叫人",
+        "呼叫支援，去治療室推急救車返事發位置，期間唔好留病人無人看管",
+        "先去護士站影印藥紙",
+        "叫病人自己行去升降機"
+      ],
+      answer: 1,
+      explain: "急救先呼叫支援，帶 E-trolley 返事發點。唔好留低危急病人一個人。影印藥紙係情況穩定之後先做。",
+      points: ["先呼叫支援。", "治療室攞急救車推返事發位置。", "唔好留病人無人看管。"]
+    },
+    {
+      q: "模擬急救（虛構）：要用邊套設備？較適切的是？",
+      options: [
+        "邊張床近就用邊張，唔使指定車",
+        "用治療室急救車（E-trolley），氧氣同吸引跟部門現場指引",
+        "只用大廳梳化",
+        "一定要先推去另一座病房先可以做"
+      ],
+      answer: 1,
+      explain: "訓練情境用治療室嘅急救車。氧氣、吸引同指定急救位以部門現場為準，唔好隨便用梳化代替。",
+      points: ["用 E-trolley。", "氧氣／吸引跟現場指引。", "實際位置以部門為準。"]
+    },
+    {
+      q: "模擬急救（虛構）：情況暫時穩定之後。較適切的是？",
+      options: [
+        "唔使寫，記得就得",
+        "返護士站用傳真機影印藥紙，並寫低時間、做過嘅事同在場職員",
+        "只同朋友講",
+        "等一個星期再補"
+      ],
+      answer: 1,
+      explain: "穩定之後返護士站影印藥紙，並準備紀錄。分數只係學習回饋，唔係評核。實際工作跟部門指引。",
+      points: ["護士站傳真機影印藥紙。", "寫時間、做法、在場人。", "跟部門指引交文件。"]
+    }
   ];
 
-  var DIRS = [{ x: 1, z: 0 }, { x: 0, z: 1 }, { x: -1, z: 0 }, { x: 0, z: -1 }];
+  var ADMIT_QS = [
+    {
+      q: "模擬收症（虛構）：護送「林先生」同家屬到升降機口。較適切的是？",
+      options: [
+        "唔核對身份，快啲揾張床",
+        "先核對身份同文件，再按部門指引安排床位",
+        "叫病人自己喺走廊搵房",
+        "見到護送就一律拒收"
+      ],
+      answer: 1,
+      explain: "收症先核對身份同文件，再安排床位。呢個係虛構個案，床位同 rota 以當更為準。",
+      points: ["先核對身份同文件。", "再安排床位。", "當更安排跟部門。"]
+    },
+    {
+      q: "模擬收症（虛構）：要做金屬探測。較適切的是？",
+      options: [
+        "一個人喺走廊公開掃就得",
+        "屏風、解釋、雙人（一探測一見證），危險品交家人並記 note",
+        "唔解釋，以免病人拒絕",
+        "出院先做一次"
+      ],
+      answer: 1,
+      explain: "金屬探測要有私隱、解釋同雙人見證。危險品交家人並記低。",
+      points: ["屏風同解釋。", "雙人：一探測一見證。", "危險品交家人並記 note。"]
+    },
+    {
+      q: "模擬收症（虛構）：未 confirm 本 team 1:1，對方催住 book 車。較適切的是？",
+      options: [
+        "先 book 車，1:1 之後再算",
+        "1:1 安排確認先，車後",
+        "1:1 同車都唔使理",
+        "叫家屬自己叫的士代替"
+      ],
+      answer: 1,
+      explain: "未確認 1:1 唔好因為催而先 book 車。確認人手安排先，交通其後。",
+      points: ["1:1 先，車後。", "唔好被催打亂次序。", "實際調動跟當更 IC。"]
+    }
+  ];
+
+  var REST_QS = [
+    {
+      q: "模擬躁動（虛構）：同事話「綁起佢嚟懲罰」。較適切的是？",
+      options: [
+        "躁動就可以當懲罰綁",
+        "約束係最後手段，要有醫囑同部門指引，先試其他方法，並向病人解釋",
+        "唔使評估，越快越好",
+        "交俾家屬全權決定點綁"
+      ],
+      answer: 1,
+      explain: "約束唔係懲罰。係最後手段，要有醫囑同部門指引，先試其他方法，並解釋。",
+      points: ["最後手段，唔係懲罰。", "要有醫囑／部門指引。", "先試其他方法並解釋。"]
+    },
+    {
+      q: "模擬約束（虛構）：已經按指引用約束。較適切的觀察是？",
+      options: [
+        "綁完就可以唔再睇",
+        "定時檢查血液循環、皮膚同松緊，並記錄",
+        "綁得越緊越安全",
+        "收起呼叫鐘以免嘈"
+      ],
+      answer: 1,
+      explain: "用約束之後要定時睇循環、皮膚同松緊，並且寫低。呼叫鐘唔好收起。",
+      points: ["定時檢查循環同皮膚。", "檢查松緊。", "要記錄。"]
+    },
+    {
+      q: "模擬餵食（虛構）：約束中的病人躺住，家屬想瞓餵。較適切的是？",
+      options: [
+        "瞓餵快啲，可以",
+        "必須坐起餵，禁止瞓餵；餵唔餵係護士臨床決定",
+        "一律連水都唔畀",
+        "交俾家屬決定"
+      ],
+      answer: 1,
+      explain: "約束中餵食必須坐起，禁止瞓餵。餵唔餵係護士臨床決定。",
+      points: ["坐起餵。", "禁止瞓餵。", "臨床決定，唔係家屬全權。"]
+    }
+  ];
+
+  var DIRS = [
+    { x: 1, z: 0 },
+    { x: 0, z: 1 },
+    { x: -1, z: 0 },
+    { x: 0, z: -1 }
+  ];
+
+  var walk = [];
+  var owner = [];
+  var roomById = {};
   var player = { x: MARK.start.x, z: MARK.start.z };
-  var px = MARK.start.x + 0.5;
-  var pz = MARK.start.z + 0.5;
-  var yaw = Math.PI / 2;
-  var pitch = 0.62;
-  var lookDrag = null;
-  var moving = false;
-  var lastTs = 0;
-  var glFailed = false;
-  var WALL_H = 2;
-  var facing = 1;
+  var mapOpen = false;
+  var facing = 0;
   var trolley = { x: MARK.trolley.x, z: MARK.trolley.z };
   var pushing = false;
   var quest = "";
@@ -62,44 +196,143 @@
   var dialog = null;
   var battle = null;
   var menuOpen = false;
-  var mapOpen = false;
   var raf = 0;
   var renderer, scene, camera, playerMesh, trolleyMesh, incidentMesh;
   var clock = 0;
   var triggeredPush = false;
-  var stepFrame = 0;
-  var legL, legR;
 
-  function inMap(x, z) { return x >= 0 && z >= 0 && x < MAP_W && z < MAP_H; }
-  function cell(x, z) { return inMap(x, z) ? grid[z][x] : "#"; }
+  WARD_ROOMS.forEach(function (r) { roomById[r.id] = r; });
+
+  function inMap(x, z) {
+    return x >= 0 && z >= 0 && x < MAP_W && z < MAP_H;
+  }
+
+  function paint(x, z, id) {
+    if (!inMap(x, z)) return;
+    walk[z][x] = 1;
+    owner[z][x] = id;
+  }
+
+  function paintRect(room) {
+    var x, z;
+    for (z = room.z; z < room.z + room.h; z++) {
+      for (x = room.x; x < room.x + room.w; x++) paint(x, z, room.id);
+    }
+    (room.door || []).forEach(function (d) { paint(d[0], d[1], room.id); });
+  }
+
+  function buildGrid() {
+    var z, x;
+    walk = [];
+    owner = [];
+    for (z = 0; z < MAP_H; z++) {
+      walk[z] = [];
+      owner[z] = [];
+      for (x = 0; x < MAP_W; x++) {
+        walk[z][x] = 0;
+        owner[z][x] = "";
+      }
+    }
+    WARD_ROOMS.forEach(paintRect);
+    sealDoors();
+  }
+
+  function sealDoors() {
+    var edges = {};
+    var ids = WARD_ROOMS.map(function (r) { return r.id; });
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    function roomCells(id) {
+      var room = roomById[id];
+      var out = [];
+      var zz, xx;
+      for (zz = room.z; zz < room.z + room.h; zz++) {
+        for (xx = room.x; xx < room.x + room.w; xx++) out.push([xx, zz]);
+      }
+      return out;
+    }
+    var ai, bi, a, b, key, cellsA, setB, i, k, x, z, dx, dz;
+    for (ai = 0; ai < ids.length; ai++) {
+      for (bi = ai + 1; bi < ids.length; bi++) {
+        a = ids[ai];
+        b = ids[bi];
+        key = a + "|" + b;
+        cellsA = roomCells(a);
+        setB = {};
+        roomCells(b).forEach(function (p) { setB[p[0] + "," + p[1]] = 1; });
+        for (i = 0; i < cellsA.length; i++) {
+          x = cellsA[i][0];
+          z = cellsA[i][1];
+          for (k = 0; k < 4; k++) {
+            dx = nbs[k][0];
+            dz = nbs[k][1];
+            if (setB[(x + dx) + "," + (z + dz)]) {
+              if (!edges[key]) edges[key] = [];
+              edges[key].push([x, z, x + dx, z + dz]);
+            }
+          }
+        }
+      }
+    }
+    var protect = {};
+    Object.keys(edges).forEach(function (ek) {
+      var lst = edges[ek];
+      lst.sort(function (p, q) {
+        return p[0] - q[0] || p[1] - q[1] || p[2] - q[2] || p[3] - q[3];
+      });
+      var mid = lst[Math.floor(lst.length / 2)];
+      var ix = mid[0] - mid[2];
+      var iz = mid[1] - mid[3];
+      [[mid[0], mid[1]], [mid[2], mid[3]], [mid[0] + ix, mid[1] + iz], [mid[2] - ix, mid[3] - iz]].forEach(function (p) {
+        protect[p[0] + "," + p[1]] = 1;
+      });
+    });
+    Object.keys(edges).forEach(function (ek) {
+      edges[ek].forEach(function (e) {
+        if (protect[e[0] + "," + e[1]]) return;
+        if (!inMap(e[0], e[1])) return;
+        walk[e[1]][e[0]] = 0;
+        owner[e[1]][e[0]] = "";
+      });
+    });
+  }
+
   function walkable(x, z) {
-    var ch = cell(x, z);
-    return ch !== "#" && ch !== ".";
+    return inMap(x, z) && walk[z][x] === 1;
   }
-  function roomAt(x, z) {
-    var r = byCh[cell(x, z)];
-    return r || null;
-  }
+
   function roomNameAt(x, z) {
-    var r = roomAt(x, z);
-    if (r) return r.name;
-    return walkable(x, z) ? "C座" : "牆";
+    if (!inMap(x, z)) return "牆";
+    var id = owner[z][x];
+    var room = roomById[id];
+    if (!room) return "C座";
+    if (room.kind === "hall") return "C座走廊";
+    return room.name;
   }
-  function near(ax, az, bx, bz) { return Math.abs(ax - bx) + Math.abs(az - bz) <= 1; }
+
+  function near(ax, az, bx, bz) {
+    return Math.abs(ax - bx) + Math.abs(az - bz) <= 1;
+  }
+
   function faceOf(dx, dz) {
     if (dx > 0) return 0;
     if (dz > 0) return 1;
     if (dx < 0) return 2;
     return 3;
   }
+
+  function frontOf(x, z, face) {
+    return { x: x + DIRS[face].x, z: z + DIRS[face].z };
+  }
+
   function el(id) { return document.getElementById(id); }
+
   function show(id, on) {
     var node = el(id);
     if (node) node.classList.toggle("hidden", !on);
   }
 
   function setQuestLabel() {
-    var text = "WASD 或方向鍵行，拖畫面轉向。A 互動，B 任務。唔使密碼。";
+    var text = "W／↑ 上，A／← 左，S／↓ 下，D／→ 右。A 互動，B 任務。唔使密碼。";
     if (quest === "code") {
       if (step === "intro" || step === "goTrolley") text = "任務：去治療室，撳 A 攞急救車。";
       else if (step === "push") text = "任務：推急救車返事發位置（走廊紅點）。";
@@ -123,10 +356,6 @@
     if (canvas) {
       canvas.dataset.wx = String(player.x);
       canvas.dataset.wz = String(player.z);
-      canvas.dataset.px = px.toFixed(2);
-      canvas.dataset.pz = pz.toFixed(2);
-      canvas.dataset.yaw = yaw.toFixed(3);
-      canvas.dataset.gl = glFailed ? "0" : "1";
       canvas.dataset.quest = quest || "none";
       canvas.dataset.step = step;
       canvas.dataset.pushing = pushing ? "1" : "0";
@@ -135,7 +364,6 @@
       canvas.dataset.dialog = dialog ? "1" : "0";
       canvas.dataset.battle = battle ? battle.phase : "";
       canvas.dataset.menu = menuOpen ? "1" : "0";
-      canvas.dataset.map = mapOpen ? "1" : "0";
     }
   }
 
@@ -147,6 +375,7 @@
     el("wardDialogText").textContent = lines[0];
     setQuestLabel();
   }
+
   function advanceDialog() {
     if (!dialog) return;
     dialog.i += 1;
@@ -160,14 +389,19 @@
     }
     el("wardDialogText").textContent = dialog.lines[dialog.i];
   }
+
   function openMenu() {
-    if (dialog || battle || mapOpen) return;
+    if (dialog || battle) return;
     menuOpen = true;
     show("wardMenu", true);
     var goal = el("wardQuestLabel") ? el("wardQuestLabel").textContent : "";
     el("wardMenuText").textContent = "任務目標\n" + goal;
   }
-  function closeMenu() { menuOpen = false; show("wardMenu", false); }
+
+  function closeMenu() {
+    menuOpen = false;
+    show("wardMenu", false);
+  }
 
   function renderBattle() {
     if (!battle) return;
@@ -178,7 +412,8 @@
     if (battle.phase === "ask") {
       el("battleText").textContent = q.q;
       box.innerHTML = q.options.map(function (text, i) {
-        return '<button type="button" class="battle-opt' + (i === battle.cursor ? " on" : "") + '" data-i="' + i + '">' + "ABCD"[i] + ". " + text + "</button>";
+        return '<button type="button" class="battle-opt' + (i === battle.cursor ? " on" : "") + '" data-i="' + i + '">' +
+          "ABCD"[i] + ". " + text + "</button>";
       }).join("");
       box.querySelectorAll(".battle-opt").forEach(function (btn) {
         btn.addEventListener("click", function () {
@@ -187,23 +422,21 @@
         });
       });
     } else {
+      var ok = battle.lastOk;
       var points = q.points.map(function (p) { return "・" + p; }).join(" ");
-      el("battleText").textContent = (battle.lastOk ? "答啱。 " : "呢個選擇未係最適切。 ") + q.explain + " 學習重點：" + points;
+      el("battleText").textContent = (ok ? "答啱。 " : "呢個選擇未係最適切。 ") + q.explain + " 學習重點：" + points;
       box.innerHTML = '<p class="battle-next">撳 A 繼續</p>';
     }
     setQuestLabel();
   }
+
   function openBattle(title, qs) {
     battle = { title: title, qs: qs, i: 0, cursor: 0, phase: "ask", lastOk: false };
     dialog = null;
     show("wardDialog", false);
-    var flash = el("wardFlash");
-    if (flash) {
-      flash.classList.remove("hidden");
-      setTimeout(function () { flash.classList.add("hidden"); }, 420);
-    }
     renderBattle();
   }
+
   function confirmChoice() {
     if (!battle) return;
     var q = battle.qs[battle.i];
@@ -224,27 +457,40 @@
     battle.phase = "explain";
     renderBattle();
   }
+
   function backChoice() {
     if (!battle) return;
-    if (battle.phase === "explain") { confirmChoice(); return; }
+    if (battle.phase === "explain") {
+      confirmChoice();
+      return;
+    }
     battle.cursor = 0;
+    el("battleText").textContent = battle.qs[battle.i].q + "（已取消選擇，撳 A 先確認。）";
     renderBattle();
     el("battleText").textContent = battle.qs[battle.i].q + "（已取消選擇，撳 A 先確認。）";
   }
+
   function onBattleDone() {
     if (quest === "code") {
       pushing = false;
       step = "goFax";
-      say(["情況暫時穩定（虛構）。而家去護士站，用傳真機影印藥紙，再準備文件。"], function () { setQuestLabel(); });
+      say(["情況暫時穩定（虛構）。而家去護士站，用傳真機影印藥紙，再準備文件。"], function () {
+        setQuestLabel();
+      });
     } else if (quest === "admit") {
       step = "goBed";
-      say(["身份同安檢問答完。去病房三，撳 A 安排呢位虛構病人上床。"], function () { setQuestLabel(); });
+      say(["身份同安檢問答完。去病房三，撳 A 安排呢位虛構病人上床。"], function () {
+        setQuestLabel();
+      });
     } else if (quest === "rest") {
       step = "goNurse";
-      say(["問答完。去護士站撳 A，記錄約束原因、時間同循環檢查。"], function () { setQuestLabel(); });
+      say(["問答完。去護士站撳 A，記錄約束原因、時間同循環檢查。"], function () {
+        setQuestLabel();
+      });
     }
     if (incidentMesh) incidentMesh.visible = false;
   }
+
   function clearQuest() {
     quest = "";
     step = "idle";
@@ -253,44 +499,63 @@
     stepsWalked = 0;
     setQuestLabel();
   }
+
   function beginCode() {
     quest = "code";
     step = "intro";
     seen.code = true;
     triggeredPush = false;
-    say(["突然：走廊有人呼叫！虛構病人「陳先生」情況危急。", "先去治療室，撳 A 攞急救車，推返事發位置（地面紅點）。", "本遊戲只供訓練用途，實際工作請依照部門指引。"], function () {
+    say([
+      "突然：走廊有人呼叫！虛構病人「陳先生」情況危急。",
+      "先去治療室，撳 A 攞急救車，推返事發位置（地面紅點）。",
+      "本遊戲只供訓練用途，實際工作請依照部門指引。"
+    ], function () {
       step = "goTrolley";
       setQuestLabel();
     });
   }
+
   function beginAdmit() {
     quest = "admit";
     step = "intro";
     seen.admit = true;
-    say(["收症：虛構病人「林先生」同護送喺升降機一等候。", "先去升降機一，撳 A 核對身份，再答收症問題，最後去病房三安排床位。"], function () {
+    say([
+      "收症：虛構病人「林先生」同護送喺升降機一等候。",
+      "先去升降機一，撳 A 核對身份，再答收症問題，最後去病房三安排床位。"
+    ], function () {
       step = "goElev";
       setQuestLabel();
     });
   }
+
   function beginRest() {
     quest = "rest";
     step = "intro";
     seen.rest = true;
-    say(["病房二：虛構病人躁動，同事想即刻綁起嚟。", "去病房二撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站記錄。"], function () {
+    say([
+      "病房二：虛構病人躁動，同事想即刻綁起嚟。",
+      "去病房二撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站記錄。"
+    ], function () {
       step = "goRoom";
       setQuestLabel();
     });
   }
+
   function onStepLanded() {
     if (quest === "code" && step === "push" && !triggeredPush && trolley.x === MARK.incident.x && trolley.z === MARK.incident.z) {
       triggeredPush = true;
       step = "battle";
-      say(["急救車趕到事發位置。進入急救認識。"], function () { openBattle("急救認識", CODE_QS); });
+      say(["急救車趕到事發位置。進入急救認識。"], function () {
+        openBattle("急救認識", CODE_QS);
+      });
       return;
     }
     if (quest) return;
     stepsWalked += 1;
-    if (!seen.code && stepsWalked >= 6) { beginCode(); return; }
+    if (!seen.code && stepsWalked >= 6) {
+      beginCode();
+      return;
+    }
     if (stepsWalked < 14) return;
     if (Math.random() < 0.18 || stepsWalked >= 22) {
       stepsWalked = 0;
@@ -300,6 +565,7 @@
       else beginRest();
     }
   }
+
   function tryMove(dx, dz) {
     if (!active || paused || dialog || battle || menuOpen || mapOpen) return;
     var face = faceOf(dx, dz);
@@ -324,24 +590,32 @@
     facing = face;
     player.x = next.x;
     player.z = next.z;
-    stepFrame ^= 1;
     setQuestLabel();
     onStepLanded();
   }
+
   function tryInteract() {
-    if (!active || paused || menuOpen || mapOpen) return;
-    if (battle) { confirmChoice(); return; }
-    if (dialog) { advanceDialog(); return; }
+    if (!active || paused || menuOpen) return;
+    if (battle) {
+      confirmChoice();
+      return;
+    }
+    if (dialog) {
+      advanceDialog();
+      return;
+    }
     if (quest === "code" && step === "goTrolley" && near(player.x, player.z, trolley.x, trolley.z) && !pushing) {
-      var fx = player.x + DIRS[facing].x;
-      var fz = player.z + DIRS[facing].z;
-      if (!walkable(fx, fz)) { say(["呢邊推唔到，轉個方向先再撳 A。"]); return; }
+      var swing = frontOf(player.x, player.z, facing);
+      if (!walkable(swing.x, swing.z)) {
+        say(["呢邊推唔到，轉個方向先再撳 A。"]);
+        return;
+      }
       pushing = true;
-      trolley.x = fx;
-      trolley.z = fz;
+      trolley.x = swing.x;
+      trolley.z = swing.z;
       step = "push";
       if (incidentMesh) incidentMesh.visible = true;
-      say(["你推住急救車。行去紅色事發點。"], function () { setQuestLabel(); });
+      say(["你推住急救車。行去走廊紅色事發點。"], function () { setQuestLabel(); });
       return;
     }
     if (quest === "code" && step === "goFax" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
@@ -350,12 +624,16 @@
       return;
     }
     if (quest === "code" && step === "docs" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
-      say(["文件備好：時間、做過嘅事、邊個在場。今次急救事件完結。分數只係學習回饋。"], function () { clearQuest(); });
+      say(["文件備好：時間、做過嘅事、邊個在場。今次急救事件完結。分數只係學習回饋。"], function () {
+        clearQuest();
+      });
       return;
     }
     if (quest === "admit" && step === "goElev" && near(player.x, player.z, MARK.elev.x, MARK.elev.z)) {
       step = "battle";
-      say(["核對「林先生」身份同護送文件（虛構）。接着答收症問題。"], function () { openBattle("收症", ADMIT_QS); });
+      say(["核對「林先生」身份同護送文件（虛構）。接着答收症問題。"], function () {
+        openBattle("收症", ADMIT_QS);
+      });
       return;
     }
     if (quest === "admit" && step === "goBed" && near(player.x, player.z, MARK.admitBed.x, MARK.admitBed.z)) {
@@ -364,483 +642,388 @@
     }
     if (quest === "rest" && step === "goRoom" && near(player.x, player.z, MARK.restBed.x, MARK.restBed.z)) {
       step = "battle";
-      say(["先確保安全，唔好當懲罰。接着答約束問題。"], function () { openBattle("約束", REST_QS); });
+      say(["先確保安全，唔好當懲罰。接着答約束問題。"], function () {
+        openBattle("約束", REST_QS);
+      });
       return;
     }
     if (quest === "rest" && step === "goNurse" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
       say(["已喺護士站記錄約束原因、時間同循環檢查（虛構）。事件完結。"], function () { clearQuest(); });
       return;
     }
-    say([roomNameAt(player.x, player.z) + "。撳 B 可以睇任務目標。"]);
+    var here = roomNameAt(player.x, player.z);
+    say([here + "。撳 B 可以睇任務目標。"]);
   }
+
   function toggleMap() {
     mapOpen = !mapOpen;
     show("wardMapOverlay", mapOpen);
     if (mapOpen) drawBigMap();
     setQuestLabel();
   }
+
   function pressB() {
     if (!active || paused) return;
-    if (mapOpen) { mapOpen = false; show("wardMapOverlay", false); setQuestLabel(); return; }
-    if (battle) { backChoice(); return; }
-    if (dialog) { advanceDialog(); return; }
+    if (mapOpen) {
+      mapOpen = false;
+      show("wardMapOverlay", false);
+      setQuestLabel();
+      return;
+    }
+    if (battle) {
+      backChoice();
+      return;
+    }
+    if (dialog) {
+      advanceDialog();
+      return;
+    }
     if (menuOpen) closeMenu();
     else openMenu();
   }
 
-  function showGlError(msg) {
-    glFailed = true;
-    var note = el("wardFallback");
-    if (note) {
-      note.classList.add("show");
-      note.textContent = msg;
-    }
-    var canvas = el("wardCanvas");
-    if (canvas) canvas.style.visibility = "hidden";
+  function mat(color) {
+    return new THREE.MeshLambertMaterial({ color: color, flatShading: true });
   }
-  function mat(color) { return new THREE.MeshLambertMaterial({ color: color }); }
-  function syncFacing() {
-    var dirs = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
-    var best = 0;
-    var bd = 99;
-    var i, d;
-    for (i = 0; i < 4; i++) {
-      d = Math.atan2(Math.sin(yaw - dirs[i]), Math.cos(yaw - dirs[i]));
-      if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
-    }
-    facing = best;
-  }
-  function openYaw() {
-    var opts = [
-      { yaw: Math.PI / 2, face: 1, x: 0, z: 1 },
-      { yaw: 0, face: 0, x: 1, z: 0 },
-      { yaw: -Math.PI / 2, face: 3, x: 0, z: -1 },
-      { yaw: Math.PI, face: 2, x: -1, z: 0 }
-    ];
-    var i;
-    for (i = 0; i < opts.length; i++) {
-      if (walkable(MARK.start.x + opts[i].x, MARK.start.z + opts[i].z)) return opts[i];
-    }
-    return opts[0];
-  }
-  function bodyFree(x, z) {
-    var r = 0.22;
-    var xs = [x - r, x + r];
-    var zs = [z - r, z + r];
-    var i, j;
-    for (i = 0; i < 2; i++) {
-      for (j = 0; j < 2; j++) {
-        if (!walkable(Math.floor(xs[i]), Math.floor(zs[j]))) return false;
-      }
-    }
-    return true;
-  }
-  function slide(x, z, nx, nz) {
-    if (bodyFree(nx, z)) x = nx;
-    if (bodyFree(x, nz)) z = nz;
-    return { x: x, z: z };
-  }
-  function tickMove(dt) {
-    moving = false;
-    if (!active || paused || dialog || battle || menuOpen || mapOpen) return;
-    var f = (keys.forward ? 1 : 0) - (keys.back ? 1 : 0);
-    var s = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    if (!f && !s) return;
-    var len = Math.hypot(f, s) || 1;
-    f /= len;
-    s /= len;
-    var speed = pushing ? 2.6 : 4.4;
-    var fx = Math.cos(yaw);
-    var fz = Math.sin(yaw);
-    var rx = -Math.sin(yaw);
-    var rz = Math.cos(yaw);
-    var mx = (fx * f + rx * s) * speed * dt;
-    var mz = (fz * f + rz * s) * speed * dt;
-    var next = slide(px, pz, px + mx, pz + mz);
-    if (pushing && (Math.abs(next.x - px) + Math.abs(next.z - pz) > 0.0001)) {
-      var ax = next.x - px;
-      var az = next.z - pz;
-      var sxn = Math.abs(ax) > Math.abs(az) ? Math.sign(ax) : 0;
-      var szn = Math.abs(az) >= Math.abs(ax) ? Math.sign(az) : 0;
-      var frontX = Math.floor(next.x) + sxn;
-      var frontZ = Math.floor(next.z) + szn;
-      if (!walkable(frontX, frontZ)) next = { x: px, z: pz };
-      else { trolley.x = frontX; trolley.z = frontZ; }
-    }
-    if (Math.abs(next.x - px) + Math.abs(next.z - pz) < 0.0001) return;
-    moving = true;
-    px = next.x;
-    pz = next.z;
-    var tx = Math.floor(px);
-    var tz = Math.floor(pz);
-    if (tx !== player.x || tz !== player.z) {
-      player.x = tx;
-      player.z = tz;
-      stepFrame ^= 1;
-      onStepLanded();
-    }
-    setQuestLabel();
-  }
+
   function addBox(parent, w, h, d, color, x, y, z) {
     var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
     mesh.position.set(x, y, z);
     parent.add(mesh);
     return mesh;
   }
-  function labelSprite(text) {
+
+  function labelSprite(text, color) {
     var c = document.createElement("canvas");
-    c.width = 256;
-    c.height = 64;
+    c.width = 512;
+    c.height = 96;
     var g = c.getContext("2d");
-    g.fillStyle = "rgba(12, 24, 32, 0.82)";
-    g.fillRect(4, 8, 248, 48);
-    g.strokeStyle = "#f6e27a";
-    g.lineWidth = 4;
-    g.strokeRect(4, 8, 248, 48);
+    g.fillStyle = "rgba(12, 40, 48, 0.78)";
+    g.fillRect(8, 8, 496, 80);
+    g.strokeStyle = color || "#f6e27a";
+    g.lineWidth = 6;
+    g.strokeRect(8, 8, 496, 80);
     g.fillStyle = "#fff8ee";
-    g.font = "bold 28px sans-serif";
+    g.font = "bold 42px sans-serif";
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillText(text, 128, 34);
+    g.fillText(text, 256, 50);
     var tex = new THREE.CanvasTexture(c);
     tex.magFilter = THREE.NearestFilter;
     var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(3.2, 0.8, 1);
+    sprite.scale.set(3.4, 0.64, 1);
     return sprite;
   }
-  function touchesFloor(x, z) {
-    var dz, dx;
-    for (dz = -1; dz <= 1; dz++) {
-      for (dx = -1; dx <= 1; dx++) {
-        if (!dx && !dz) continue;
-        if (walkable(x + dx, z + dz)) return true;
-      }
-    }
-    return false;
-  }
+
   function buildScene() {
     var canvas = el("wardCanvas");
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, alpha: false });
     if (!renderer.getContext()) throw new Error("WebGL");
-    canvas.addEventListener("webglcontextlost", function (ev) {
-      ev.preventDefault();
-      showGlError("立體畫面中斷。請用 Chrome 再開一次。唔使密碼。");
-    });
-    renderer.setClearColor(0x8ec8ea, 1);
+    renderer.setClearColor(0x8ec6ea, 1);
     renderer.setPixelRatio(1);
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x8ec8ea, 22, 52);
-    camera = new THREE.PerspectiveCamera(68, 1, 0.08, 220);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.74));
-    var sun = new THREE.DirectionalLight(0xfff6e4, 0.9);
-    sun.position.set(30, 70, 18);
+    camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80);
+    scene.add(new THREE.AmbientLight(0xfff4dd, 0.72));
+    var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+    sun.position.set(8, 16, 6);
     scene.add(sun);
-    var fill = new THREE.DirectionalLight(0xc5ddff, 0.35);
-    fill.position.set(-20, 24, -10);
-    scene.add(fill);
 
-    var ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(240, 280),
-      new THREE.MeshLambertMaterial({ color: 0x63b56a })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.set(MAP_W / 2, -0.55, MAP_H / 2);
-    scene.add(ground);
+    var floors = new THREE.Group();
+    scene.add(floors);
+    WARD_ROOMS.forEach(function (room) {
+      var mesh = new THREE.Mesh(new THREE.BoxGeometry(room.w * TILE, 0.18, room.h * TILE), mat(room.floor));
+      mesh.position.set(room.x + room.w / 2, -0.09, room.z + room.h / 2);
+      floors.add(mesh);
+      (room.door || []).forEach(function (d) {
+        var plate = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.18, 0.96), mat(room.floor));
+        plate.position.set(d[0] + 0.5, -0.09, d[1] + 0.5);
+        floors.add(plate);
+      });
+      var tag = labelSprite(room.name, room.kind === "blue" ? "#9fd0ff" : "#f6e27a");
+      tag.position.set(room.x + room.w / 2, 1.55, room.z + room.h / 2);
+      tag.scale.set(Math.min(2.8, room.w * 0.7), 0.5, 1);
+      scene.add(tag);
+      if (room.kind === "bed") addBeds(room, room.beds || 6);
+      if (room.kind === "single") addBeds(room, 1);
+      if (room.kind === "nurse") addNurse(room);
+      if (room.kind === "treat") addTreat(room);
+      if (room.kind === "elev") addElev(room);
+      if (room.kind === "blue") addBlue(room);
+      if (room.kind === "stair") addStair(room);
+      if (room.kind === "living") addLiving(room);
+      if (room.kind === "toilet") addToilet(room);
+      if (room.kind === "bath") addBath(room);
+      if (room.kind === "consult" || room.kind === "office") addDesk(room);
+      if (room.kind === "visit") addVisit(room);
+      if (room.kind === "therapy") addTherapy(room);
+      if (room.kind === "med") addMed(room);
+      if (room.kind === "garden") addGarden(room);
+    });
 
-    var floors = [];
-    var walls = [];
-    var z, x, ch, dz, dx;
+    var spots = [];
+    var z, x, i, nx, nz, nearWall;
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (z = 0; z < MAP_H; z++) {
       for (x = 0; x < MAP_W; x++) {
-        ch = grid[z][x];
-        if (ch !== "#" && ch !== ".") floors.push([x, z, ch]);
-        else if (ch === "#" && touchesFloor(x, z)) walls.push([x, z]);
+        if (walk[z][x]) continue;
+        nearWall = false;
+        for (i = 0; i < 4; i++) {
+          nx = x + nbs[i][0];
+          nz = z + nbs[i][1];
+          if (walkable(nx, nz)) nearWall = true;
+        }
+        if (nearWall) spots.push([x, z]);
       }
     }
+    var wallGeo = new THREE.BoxGeometry(0.98, 1.15, 0.98);
+    var walls = new THREE.InstancedMesh(wallGeo, mat(0xf4efe2), spots.length);
     var dummy = new THREE.Object3D();
-    var color = new THREE.Color();
-    var floorMesh = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(1, 0.5, 1),
-      new THREE.MeshLambertMaterial({ color: 0xffffff }),
-      Math.max(1, floors.length)
-    );
-    floors.forEach(function (p, i) {
-      dummy.position.set(p[0] + 0.5, -0.25, p[1] + 0.5);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.set(1, 1, 1);
+    spots.forEach(function (s, idx) {
+      dummy.position.set(s[0] + 0.5, 0.57, s[1] + 0.5);
       dummy.updateMatrix();
-      floorMesh.setMatrixAt(i, dummy.matrix);
-      var room = byCh[p[2]];
-      color.setHex(parseInt(room ? room.floor : "d7c4a3", 16));
-      if ((p[0] + p[1]) & 1) color.multiplyScalar(0.86);
-      floorMesh.setColorAt(i, color);
+      walls.setMatrixAt(idx, dummy.matrix);
     });
-    floorMesh.instanceMatrix.needsUpdate = true;
-    if (floorMesh.instanceColor) floorMesh.instanceColor.needsUpdate = true;
-    scene.add(floorMesh);
-
-    var wallMesh = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(1, WALL_H, 1),
-      new THREE.MeshLambertMaterial({ color: 0x8d8478 }),
-      Math.max(1, walls.length)
-    );
-    var capMesh = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(1.02, 0.18, 1.02),
-      new THREE.MeshLambertMaterial({ color: 0xd7c4a2 }),
-      Math.max(1, walls.length)
-    );
-    walls.forEach(function (p, i) {
-      dummy.position.set(p[0] + 0.5, WALL_H / 2, p[1] + 0.5);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      wallMesh.setMatrixAt(i, dummy.matrix);
-      dummy.position.set(p[0] + 0.5, WALL_H + 0.02, p[1] + 0.5);
-      dummy.updateMatrix();
-      capMesh.setMatrixAt(i, dummy.matrix);
-    });
-    wallMesh.instanceMatrix.needsUpdate = true;
-    capMesh.instanceMatrix.needsUpdate = true;
-    scene.add(wallMesh);
-    scene.add(capMesh);
-
-    PACK.rooms.forEach(function (room) {
-      var cells = [];
-      for (z = 0; z < MAP_H; z++) {
-        for (x = 0; x < MAP_W; x++) if (grid[z][x] === room.ch) cells.push([x, z]);
-      }
-      if (!cells.length || room.kind === "hall") return;
-      var cx = 0, cz = 0;
-      cells.forEach(function (p) { cx += p[0]; cz += p[1]; });
-      var sprite = labelSprite(room.name);
-      sprite.position.set(cx / cells.length + 0.5, 2.85, cz / cells.length + 0.5);
-      scene.add(sprite);
-    });
-
-    Object.keys(PACK.beds).forEach(function (id) {
-      PACK.beds[id].forEach(function (p) {
-        addBox(scene, 0.72, 0.18, 0.78, 0x8a5a32, p[0] + 0.5, 0.16, p[1] + 0.5);
-        addBox(scene, 0.62, 0.12, 0.68, 0xf7f7f7, p[0] + 0.5, 0.3, p[1] + 0.5);
-        addBox(scene, 0.62, 0.08, 0.32, 0x3d8fd0, p[0] + 0.5, 0.4, p[1] + 0.66);
-        addBox(scene, 0.28, 0.1, 0.16, 0xfff8ee, p[0] + 0.5, 0.42, p[1] + 0.28);
-      });
-    });
-
-    addBox(scene, 0.5, 0.32, 0.4, 0x2c3440, MARK.computer.x + 0.5, 0.28, MARK.computer.z + 0.5);
-    addBox(scene, 0.46, 0.36, 0.08, 0x8fd0ff, MARK.computer.x + 0.5, 0.64, MARK.computer.z + 0.28);
-    addBox(scene, 0.48, 0.28, 0.4, 0x5c6770, MARK.fax.x + 0.5, 0.24, MARK.fax.z + 0.5);
-    addBox(scene, 0.3, 0.06, 0.2, 0xf4f7fb, MARK.fax.x + 0.5, 0.42, MARK.fax.z + 0.28);
-
-    trolleyMesh = new THREE.Group();
-    addBox(trolleyMesh, 0.7, 0.32, 0.46, 0xd6453d, 0, 0.55, 0);
-    addBox(trolleyMesh, 0.76, 0.12, 0.52, 0x1a1a1a, 0, 0.32, 0);
-    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, -0.24, 0.12, 0.16);
-    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, 0.24, 0.12, 0.16);
-    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, -0.24, 0.12, -0.16);
-    addBox(trolleyMesh, 0.16, 0.16, 0.16, 0x111111, 0.24, 0.12, -0.16);
-    addBox(trolleyMesh, 0.18, 0.18, 0.18, 0xf6e27a, 0, 0.8, 0);
-    scene.add(trolleyMesh);
-
-    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.08, 0.92), mat(0xe23b32));
-    incidentMesh.position.set(MARK.incident.x + 0.5, 0.06, MARK.incident.z + 0.5);
-    incidentMesh.visible = false;
-    scene.add(incidentMesh);
+    walls.instanceMatrix.needsUpdate = true;
+    scene.add(walls);
 
     playerMesh = new THREE.Group();
-    legL = addBox(playerMesh, 0.18, 0.62, 0.18, 0x1d3557, -0.12, 0.31, 0);
-    legR = addBox(playerMesh, 0.18, 0.62, 0.18, 0x1d3557, 0.12, 0.31, 0);
-    addBox(playerMesh, 0.5, 0.62, 0.28, 0x2f6fd0, 0, 0.9, 0);
-    addBox(playerMesh, 0.16, 0.58, 0.16, 0xf2c7a0, -0.34, 0.9, 0);
-    addBox(playerMesh, 0.16, 0.58, 0.16, 0xf2c7a0, 0.34, 0.9, 0);
-    addBox(playerMesh, 0.4, 0.4, 0.4, 0xf2c7a0, 0, 1.42, 0);
-    addBox(playerMesh, 0.42, 0.12, 0.42, 0x1a1a1a, 0, 1.66, 0);
-    addBox(playerMesh, 0.08, 0.08, 0.06, 0x222222, -0.1, 1.46, 0.2);
-    addBox(playerMesh, 0.08, 0.08, 0.06, 0x222222, 0.1, 1.46, 0.2);
+    addBox(playerMesh, 0.46, 0.48, 0.34, 0x2f6f9a, 0, 0.46, 0);
+    addBox(playerMesh, 0.32, 0.28, 0.28, 0xf3c7a1, 0, 0.82, 0);
+    addBox(playerMesh, 0.36, 0.1, 0.36, 0xfff8ee, 0, 0.98, 0);
+    addBox(playerMesh, 0.08, 0.08, 0.08, 0x1b2830, 0.08, 0.84, 0.12);
     scene.add(playerMesh);
+
+    trolleyMesh = new THREE.Group();
+    addBox(trolleyMesh, 0.7, 0.28, 0.46, 0xd6453d, 0, 0.42, 0);
+    addBox(trolleyMesh, 0.22, 0.08, 0.08, 0xfff8ee, 0, 0.58, 0);
+    addBox(trolleyMesh, 0.08, 0.22, 0.08, 0xfff8ee, 0, 0.5, 0);
+    addBox(trolleyMesh, 0.12, 0.12, 0.12, 0x222222, -0.22, 0.16, 0.14);
+    addBox(trolleyMesh, 0.12, 0.12, 0.12, 0x222222, 0.22, 0.16, 0.14);
+    scene.add(trolleyMesh);
+
+    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.8), mat(0xe23b32));
+    incidentMesh.position.set(MARK.incident.x + 0.5, 0.08, MARK.incident.z + 0.5);
+    incidentMesh.visible = false;
+    scene.add(incidentMesh);
     built = true;
+  }
+
+  function addBeds(room, count) {
+    var cols = count === 1 ? 1 : 3;
+    var i, col, row, x, z;
+    for (i = 0; i < count; i++) {
+      col = i % cols;
+      row = Math.floor(i / cols);
+      x = cols === 1 ? room.x + room.w / 2 : room.x + 1.15 + col * ((room.w - 2.3) / 2);
+      z = room.z + 1.2 + row * 1.45;
+      addBox(scene, 0.58, 0.16, 0.9, 0xf7f1e4, x, 0.2, z);
+      var blanket = addBox(scene, 0.46, 0.08, 0.68, 0x6cb5d6, x, 0.32, z);
+      blanket.userData.kind = "bed";
+      blanket.userData.room = room.id;
+      addBox(scene, 0.24, 0.07, 0.18, 0xfff8ee, x, 0.38, z - 0.28);
+    }
+  }
+  function addNurse(room) {
+    addBox(scene, room.w * 0.72, 0.55, 0.7, 0xefe6d4, room.x + room.w * 0.48, 0.35, room.z + 1.15);
+    addBox(scene, 0.42, 0.22, 0.32, 0x2c3440, MARK.computer.x + 0.5, 0.55, MARK.computer.z + 0.5);
+    addBox(scene, 0.4, 0.28, 0.08, 0x8fd0ff, MARK.computer.x + 0.5, 0.82, MARK.computer.z + 0.35);
+    addBox(scene, 0.48, 0.26, 0.36, 0x4d5966, MARK.fax.x + 0.5, 0.5, MARK.fax.z + 0.5);
+    addBox(scene, 0.26, 0.05, 0.18, 0xf4f7fb, MARK.fax.x + 0.5, 0.68, MARK.fax.z + 0.32);
+  }
+  function addTreat(room) {
+    addBox(scene, 0.7, 0.7, 0.55, 0xf4f7fb, room.x + 1.3, 0.4, room.z + 1.4);
+    addBox(scene, 0.18, 0.35, 0.08, 0xd6453d, room.x + 1.3, 0.9, room.z + 1.4);
+  }
+  function addElev(room) {
+    addBox(scene, room.w * 0.62, 0.9, 0.16, 0xb7c3cf, room.x + room.w / 2, 0.5, room.z + 0.45);
+    addBox(scene, 0.1, 0.35, 0.1, 0xf0d050, room.x + room.w / 2, 0.55, room.z + 0.7);
+  }
+  function addBlue(room) {
+    addBox(scene, 1.1, 0.28, 0.4, 0x2a4f86, room.x + room.w / 2, 0.2, room.z + 1.2);
+    addBox(scene, 1.1, 0.28, 0.4, 0x2a4f86, room.x + room.w / 2, 0.2, room.z + room.h - 1.2);
+  }
+  function addStair(room) {
+    var i, n = Math.min(4, room.h);
+    for (i = 0; i < n; i++) {
+      addBox(scene, room.w * 0.62, 0.14, 0.45, 0x9aa3ad, room.x + room.w / 2, 0.1 + i * 0.14, room.z + 0.6 + i * 0.55);
+    }
+  }
+  function addLiving(room) {
+    addBox(scene, 1.1, 0.18, 0.6, 0xc48a4a, room.x + room.w / 2, 0.16, room.z + room.h / 2);
+  }
+  function addToilet(room) {
+    addBox(scene, 0.4, 0.35, 0.45, 0xf7f7f7, room.x + room.w / 2, 0.22, room.z + room.h / 2);
+  }
+  function addBath(room) {
+    addBox(scene, 1.1, 0.28, 0.6, 0xd7eef8, room.x + room.w / 2, 0.2, room.z + 1.3);
+  }
+  function addDesk(room) {
+    addBox(scene, 0.9, 0.4, 0.5, 0x8a5a32, room.x + room.w / 2, 0.28, room.z + 1.2);
+  }
+  function addVisit(room) {
+    addBox(scene, 0.4, 0.4, 0.4, 0xc47b8a, room.x + 1.1, 0.25, room.z + 1.4);
+    addBox(scene, 0.4, 0.4, 0.4, 0xc47b8a, room.x + room.w - 1.1, 0.25, room.z + 1.4);
+  }
+  function addTherapy(room) {
+    addBox(scene, 1.2, 0.1, 0.8, 0xf2d2f6, room.x + room.w / 2, 0.12, room.z + room.h / 2);
+  }
+  function addMed(room) {
+    addBox(scene, 0.35, 0.7, 0.8, 0xf7f1e4, room.x + 1, 0.4, room.z + 1.2);
+    addBox(scene, 0.35, 0.7, 0.8, 0xe7d7b0, room.x + room.w - 1, 0.4, room.z + 1.2);
+  }
+  function addGarden(room) {
+    addBox(scene, 0.6, 0.45, 0.6, 0x3d8f4a, room.x + 1.5, 0.28, room.z + 1.4);
+    addBox(scene, 0.5, 0.35, 0.5, 0x2f7a3a, room.x + room.w - 1.6, 0.22, room.z + room.h - 1.3);
+  }
+
+  function hexColor(n) {
+    return "#" + n.toString(16).padStart(6, "0");
+  }
+
+  function paintWardMap(ctx, w, h, labels) {
+    var pad = labels ? 28 : 10;
+    var scale = Math.min((w - pad * 2) / MAP_W, (h - pad * 2) / MAP_H);
+    var ox = (w - MAP_W * scale) / 2;
+    var oy = (h - MAP_H * scale) / 2;
+    ctx.fillStyle = "#10242c";
+    ctx.fillRect(0, 0, w, h);
+    var z, x, id, room;
+    for (z = 0; z < MAP_H; z++) {
+      for (x = 0; x < MAP_W; x++) {
+        if (!walk[z] || !walk[z][x]) continue;
+        id = owner[z][x];
+        room = roomById[id];
+        ctx.fillStyle = room ? hexColor(room.floor) : "#d7c4a3";
+        ctx.fillRect(ox + x * scale, oy + z * scale, scale + 0.4, scale + 0.4);
+      }
+    }
+    if (labels) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "bold " + Math.max(9, Math.floor(scale * 1.15)) + "px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+      WARD_ROOMS.forEach(function (r) {
+        ctx.fillStyle = "#142226";
+        ctx.fillText(r.name, ox + (r.x + r.w / 2) * scale, oy + (r.z + r.h / 2) * scale);
+      });
+    }
+    ctx.fillStyle = "#e23b32";
+    ctx.beginPath();
+    ctx.arc(ox + (player.x + 0.5) * scale, oy + (player.z + 0.5) * scale, Math.max(3, scale * 0.42), 0, Math.PI * 2);
+    ctx.fill();
+    var face = DIRS[facing] || DIRS[0];
+    ctx.strokeStyle = "#fff8ee";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ox + (player.x + 0.5) * scale, oy + (player.z + 0.5) * scale);
+    ctx.lineTo(ox + (player.x + 0.5 + face.x * 0.7) * scale, oy + (player.z + 0.5 + face.z * 0.7) * scale);
+    ctx.stroke();
+    if (pushing || quest === "code") {
+      ctx.fillStyle = "#ffd15c";
+      ctx.fillRect(ox + trolley.x * scale, oy + trolley.z * scale, Math.max(2, scale * 0.7), Math.max(2, scale * 0.7));
+    }
   }
 
   function drawMinimap() {
     var map = el("wardMinimap");
-    if (!map) return;
+    if (!map || !walk.length) return;
     var ctx = map.getContext("2d");
     var w = map.width;
     var h = map.height;
-    ctx.clearRect(0, 0, w, h);
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(w / 2, h / 2, w / 2 - 1, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = "#142028";
-    ctx.fillRect(0, 0, w, h);
-    var span = 22;
-    var scale = (w - 8) / span;
-    var ox = w / 2 - px * scale;
-    var oy = h / 2 - pz * scale;
-    var x0 = Math.max(0, Math.floor(px) - 12);
-    var x1 = Math.min(MAP_W - 1, Math.floor(px) + 12);
-    var z0 = Math.max(0, Math.floor(pz) - 12);
-    var z1 = Math.min(MAP_H - 1, Math.floor(pz) + 12);
-    var z, x, ch, room;
-    for (z = z0; z <= z1; z++) {
-      for (x = x0; x <= x1; x++) {
-        ch = grid[z][x];
-        if (ch === ".") continue;
-        if (ch === "#") ctx.fillStyle = "#1a120e";
-        else {
-          room = byCh[ch];
-          ctx.fillStyle = room ? "#" + room.floor : "#d7c4a3";
-        }
-        ctx.fillRect(ox + x * scale, oy + z * scale, Math.ceil(scale), Math.ceil(scale));
-      }
-    }
-    ctx.restore();
     ctx.beginPath();
     ctx.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
-    ctx.strokeStyle = "#f0d48a";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    ctx.save();
-    ctx.translate(w / 2, h / 2);
-    ctx.rotate(yaw);
-    ctx.fillStyle = "#ffe14a";
-    ctx.beginPath();
-    ctx.moveTo(9, 0);
-    ctx.lineTo(-7, -6);
-    ctx.lineTo(-4, 0);
-    ctx.lineTo(-7, 6);
-    ctx.closePath();
-    ctx.fill();
+    ctx.clip();
+    paintWardMap(ctx, w, h, false);
     ctx.restore();
+    ctx.strokeStyle = "#f0d48a";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, w / 2 - 4, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   function drawBigMap() {
     var map = el("wardMapBig");
-    if (!map) return;
+    if (!map || !walk.length) return;
     var ctx = map.getContext("2d");
-    var w = map.width;
-    var h = map.height;
-    ctx.fillStyle = "#102028";
-    ctx.fillRect(0, 0, w, h);
-    var scale = Math.min((w - 16) / MAP_W, (h - 16) / MAP_H);
-    var ox = (w - MAP_W * scale) / 2;
-    var oy = (h - MAP_H * scale) / 2;
-    var z, x, ch, room;
-    for (z = 0; z < MAP_H; z++) {
-      for (x = 0; x < MAP_W; x++) {
-        ch = grid[z][x];
-        if (ch === ".") continue;
-        if (ch === "#") ctx.fillStyle = "#2a211c";
-        else {
-          room = byCh[ch];
-          ctx.fillStyle = room ? "#" + room.floor : "#d7c4a3";
-        }
-        ctx.fillRect(ox + x * scale, oy + z * scale, Math.ceil(scale) + 0.2, Math.ceil(scale) + 0.2);
-      }
-    }
-    ctx.fillStyle = "#142226";
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "center";
-    PACK.rooms.forEach(function (room) {
-      if (room.kind === "hall") return;
-      var n = 0, sx = 0, sz = 0;
-      for (z = 0; z < MAP_H; z++) {
-        for (x = 0; x < MAP_W; x++) if (grid[z][x] === room.ch) { n++; sx += x; sz += z; }
-      }
-      if (!n) return;
-      ctx.fillText(room.name, ox + (sx / n + 0.5) * scale, oy + (sz / n + 0.5) * scale);
-    });
-    ctx.fillStyle = "#e23b32";
-    ctx.beginPath();
-    ctx.arc(ox + px * scale, oy + pz * scale, 4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  function placeCamera() {
-    var lookY = 0.85;
-    var dist = 6.4;
-    var cp = Math.cos(pitch);
-    var sp = Math.sin(pitch);
-    var back = Math.max(0.35, cp);
-    var desX = px - Math.cos(yaw) * dist * back;
-    var desZ = pz - Math.sin(yaw) * dist * back;
-    var desY = lookY + dist * sp;
-    var camX = desX;
-    var camZ = desZ;
-    if (desY < WALL_H + 0.35) {
-      var dx = desX - px;
-      var dz = desZ - pz;
-      var dist2 = Math.hypot(dx, dz) || 1;
-      var steps = Math.max(1, Math.ceil(dist2 / 0.2));
-      var i, t, x, z;
-      camX = px;
-      camZ = pz;
-      for (i = 1; i <= steps; i++) {
-        t = i / steps;
-        x = px + dx * t;
-        z = pz + dz * t;
-        if (!walkable(Math.floor(x), Math.floor(z))) break;
-        camX = x;
-        camZ = z;
-      }
-    }
-    camera.position.set(camX, Math.max(0.45, desY), camZ);
-    camera.lookAt(px, 0.7, pz);
+    paintWardMap(ctx, map.width, map.height, true);
   }
 
   function frame(ts) {
     raf = requestAnimationFrame(frame);
-    if (!active || glFailed) return;
-    var now = ts || 0;
-    var dt = lastTs ? Math.min(0.05, (now - lastTs) / 1000) : 0.016;
-    lastTs = now;
-    if (!paused && battle && battle.phase === "ask" && (keys.forward || keys.back || keys.left || keys.right)) {
-      if (keys.forward || keys.left) battle.cursor = (battle.cursor + 3) % 4;
-      else battle.cursor = (battle.cursor + 1) % 4;
-      keys.forward = keys.back = keys.left = keys.right = false;
-      renderBattle();
-    } else {
-      tickMove(dt);
+    if (!active) return;
+    clock = ts || 0;
+    if (!paused && (keys.up || keys.down || keys.left || keys.right)) {
+      if (battle && battle.phase === "ask") {
+        if (keys.up || keys.left) battle.cursor = (battle.cursor + 3) % 4;
+        else battle.cursor = (battle.cursor + 1) % 4;
+        keys.up = keys.down = keys.left = keys.right = false;
+        renderBattle();
+      } else {
+        keyTimer += 16;
+        if (keyTimer >= MOVE_MS) {
+          keyTimer = 0;
+          if (keys.up) tryMove(0, -1);
+          else if (keys.down) tryMove(0, 1);
+          else if (keys.left) tryMove(-1, 0);
+          else if (keys.right) tryMove(1, 0);
+        }
+      }
     }
-    syncFacing();
     if (playerMesh) {
-      playerMesh.position.set(px, 0, pz);
-      playerMesh.rotation.y = Math.PI / 2 - yaw;
-      var swing = moving ? Math.sin(now / 90) * 0.45 : 0;
-      if (legL) legL.rotation.x = swing;
-      if (legR) legR.rotation.x = -swing;
+      var bob = paused ? 0 : Math.sin(clock * 0.008) * 0.03;
+      playerMesh.position.set(player.x + 0.5, bob, player.z + 0.5);
+      playerMesh.rotation.y = [Math.PI / 2, 0, -Math.PI / 2, Math.PI][facing];
     }
-    if (trolleyMesh) trolleyMesh.position.set(trolley.x + 0.5, 0, trolley.z + 0.5);
+    if (trolleyMesh) {
+      trolleyMesh.position.set(trolley.x + 0.5, 0, trolley.z + 0.5);
+      trolleyMesh.visible = true;
+    }
     if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
     drawMinimap();
-    if (camera && renderer) {
+    if (camera && renderer && !glFailed) {
       try {
-        placeCamera();
+        var aspect = Math.max(0.4, (renderer.domElement.clientWidth || 1) / Math.max(1, renderer.domElement.clientHeight || 1));
+        var view = 7.2;
+        var halfW = view * aspect;
+        var halfH = view;
+        var cap = 10.5;
+        if (halfW > cap) {
+          halfH *= cap / halfW;
+          halfW = cap;
+        }
+        camera.left = -halfW;
+        camera.right = halfW;
+        camera.top = halfH;
+        camera.bottom = -halfH;
+        camera.updateProjectionMatrix();
+        camera.position.set(player.x + 0.5 + 7.5, 11, player.z + 0.5 + 7.5);
+        camera.lookAt(player.x + 0.5, 0, player.z + 0.5);
         renderer.render(scene, camera);
       } catch (err) {
-        showGlError("立體畫面畫唔到。請用 Chrome 再開一次。唔使密碼。");
+        glFailed = true;
+        showGlError("立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。");
       }
     }
   }
 
   function onResize() {
-    var wrap = el("wardView");
-    if (!wrap || !renderer || !camera) return;
+    var canvas = el("wardCanvas");
+    var wrap = canvas && canvas.parentElement;
+    if (!wrap || !renderer) return;
     var w = wrap.clientWidth || 300;
-    var h = wrap.clientHeight || 220;
+    var h = wrap.clientHeight || 200;
     renderer.setSize(w, h, false);
-    camera.aspect = w / Math.max(1, h);
-    camera.updateProjectionMatrix();
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
   }
+
   function resetPlay() {
-    var aim = openYaw();
     player.x = MARK.start.x;
     player.z = MARK.start.z;
-    px = MARK.start.x + 0.5;
-    pz = MARK.start.z + 0.5;
-    yaw = aim.yaw;
-    pitch = 0.62;
-    facing = aim.face;
+    facing = 0;
+    mapOpen = false;
+    show("wardMapOverlay", false);
     trolley.x = MARK.trolley.x;
     trolley.z = MARK.trolley.z;
     pushing = false;
@@ -851,23 +1034,45 @@
     dialog = null;
     battle = null;
     menuOpen = false;
-    mapOpen = false;
     triggeredPush = false;
-    stepFrame = 0;
-    moving = false;
-    keys.forward = keys.back = keys.left = keys.right = false;
     show("wardDialog", false);
     show("wardBattle", false);
     show("wardMenu", false);
-    show("wardMapOverlay", false);
     if (incidentMesh) incidentMesh.visible = false;
     setQuestLabel();
   }
+
+  var glFailed = false;
+
+  function showGlError(msg) {
+    var node = el("wardFallback");
+    if (!node) return;
+    node.textContent = msg || "立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。";
+    node.classList.add("show");
+  }
+
+  function dirOfKey(e) {
+    var code = e.code || "";
+    if (code === "ArrowUp" || code === "KeyW") return "up";
+    if (code === "ArrowDown" || code === "KeyS") return "down";
+    if (code === "ArrowLeft" || code === "KeyA") return "left";
+    if (code === "ArrowRight" || code === "KeyD") return "right";
+    return "";
+  }
+
+  function stepKey(name) {
+    if (name === "up") tryMove(0, -1);
+    else if (name === "down") tryMove(0, 1);
+    else if (name === "left") tryMove(-1, 0);
+    else if (name === "right") tryMove(1, 0);
+  }
+
   function bind() {
     document.querySelectorAll(".ward-pad").forEach(function (btn) {
       function press(ev) {
         if (ev.cancelable) ev.preventDefault();
         keys[btn.getAttribute("data-k")] = true;
+        keyTimer = MOVE_MS;
       }
       function release() { keys[btn.getAttribute("data-k")] = false; }
       btn.addEventListener("pointerdown", press);
@@ -885,54 +1090,39 @@
     });
     el("wardMenuClose").addEventListener("click", closeMenu);
     var mini = el("wardMinimap");
-    if (mini) mini.addEventListener("click", function () { toggleMap(); });
+    if (mini) {
+      mini.addEventListener("pointerdown", function (ev) {
+        if (ev.cancelable) ev.preventDefault();
+        toggleMap();
+      });
+    }
     var overlay = el("wardMapOverlay");
-    if (overlay) overlay.addEventListener("click", function () { if (mapOpen) toggleMap(); });
-    var view = el("wardCanvas");
-    if (view) {
-      view.addEventListener("pointerdown", function (ev) {
-        if (mapOpen) return;
-        if (ev.cancelable) ev.preventDefault();
-        view.setPointerCapture(ev.pointerId);
-        lookDrag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+    if (overlay) {
+      overlay.addEventListener("pointerdown", function () {
+        if (mapOpen) toggleMap();
       });
-      view.addEventListener("pointermove", function (ev) {
-        if (!lookDrag || lookDrag.id !== ev.pointerId) return;
-        if (ev.cancelable) ev.preventDefault();
-        var dx = ev.clientX - lookDrag.x;
-        var dy = ev.clientY - lookDrag.y;
-        lookDrag.x = ev.clientX;
-        lookDrag.y = ev.clientY;
-        yaw += dx * 0.005;
-        pitch = Math.max(-0.2, Math.min(1.15, pitch + dy * 0.004));
-      });
-      function endLook(ev) {
-        if (lookDrag && lookDrag.id === ev.pointerId) lookDrag = null;
-      }
-      view.addEventListener("pointerup", endLook);
-      view.addEventListener("pointercancel", endLook);
-      view.addEventListener("contextmenu", function (ev) { ev.preventDefault(); });
     }
     window.addEventListener("keydown", function (e) {
       if (!active) return;
-      var moveCode = {
-        KeyW: "forward", KeyS: "back", KeyA: "left", KeyD: "right",
-        ArrowUp: "forward", ArrowDown: "back", ArrowLeft: "left", ArrowRight: "right"
-      };
-      if (moveCode[e.code]) {
+      var dir = dirOfKey(e);
+      if (dir) {
         e.preventDefault();
-        if (paused || mapOpen) return;
+        if (paused) return;
         if (battle && battle.phase === "ask" && !e.repeat) {
-          if (e.code === "ArrowUp" || e.code === "ArrowLeft" || e.code === "KeyW" || e.code === "KeyA") battle.cursor = (battle.cursor + 3) % 4;
+          if (dir === "up" || dir === "left") battle.cursor = (battle.cursor + 3) % 4;
           else battle.cursor = (battle.cursor + 1) % 4;
           renderBattle();
           return;
         }
-        keys[moveCode[e.code]] = true;
+        keys[dir] = true;
+        if (e.repeat) return;
+        keyTimer = 0;
+        stepKey(dir);
         return;
       }
-      var confirm = e.code === "KeyZ" || e.code === "Enter" || e.code === "NumpadEnter";
-      var cancel = e.code === "KeyX" || e.code === "KeyB" || e.code === "Escape";
+      var code = e.code || "";
+      var confirm = code === "KeyZ" || code === "Enter" || code === "NumpadEnter";
+      var cancel = code === "KeyX" || code === "KeyB" || code === "Escape";
       if (confirm) {
         e.preventDefault();
         if (!e.repeat) tryInteract();
@@ -942,65 +1132,126 @@
       }
     }, true);
     window.addEventListener("keyup", function (e) {
-      var moveCode = {
-        KeyW: "forward", KeyS: "back", KeyA: "left", KeyD: "right",
-        ArrowUp: "forward", ArrowDown: "back", ArrowLeft: "left", ArrowRight: "right"
-      };
-      if (moveCode[e.code]) keys[moveCode[e.code]] = false;
+      var dir = dirOfKey(e);
+      if (dir) keys[dir] = false;
     }, true);
     window.addEventListener("resize", onResize);
   }
+
+  function tileDistance(ax, az, bx, bz) {
+    if (!walkable(ax, az) || !walkable(bx, bz)) return -1;
+    var q = [[ax, az, 0]];
+    var seenT = {};
+    seenT[ax + "," + az] = 1;
+    var i, cur, nx, nz, k;
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (i = 0; i < q.length; i++) {
+      cur = q[i];
+      if (cur[0] === bx && cur[1] === bz) return cur[2];
+      for (k = 0; k < 4; k++) {
+        nx = cur[0] + nbs[k][0];
+        nz = cur[1] + nbs[k][1];
+        if (!walkable(nx, nz) || seenT[nx + "," + nz]) continue;
+        seenT[nx + "," + nz] = 1;
+        q.push([nx, nz, cur[2] + 1]);
+      }
+    }
+    return -1;
+  }
+
+  function reachableRooms() {
+    var seenR = {};
+    var q = [[MARK.start.x, MARK.start.z]];
+    var seenT = {};
+    seenT[MARK.start.x + "," + MARK.start.z] = 1;
+    var i, cur, nx, nz, k, id;
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (i = 0; i < q.length; i++) {
+      cur = q[i];
+      id = owner[cur[1]][cur[0]];
+      if (id) seenR[id] = 1;
+      for (k = 0; k < 4; k++) {
+        nx = cur[0] + nbs[k][0];
+        nz = cur[1] + nbs[k][1];
+        if (!walkable(nx, nz) || seenT[nx + "," + nz]) continue;
+        seenT[nx + "," + nz] = 1;
+        q.push([nx, nz]);
+      }
+    }
+    return Object.keys(seenR);
+  }
+
   function start() {
     active = true;
     paused = false;
+    if (!window.THREE) {
+      showGlError("Three.js 未載入。請同 game.html 一齊開啟 vendor/three.min.js。唔使密碼。");
+      return;
+    }
     if (!built) {
-      bind();
-      built = true;
-      if (!window.THREE) {
-        showGlError("立體畫面開唔到：Three.js 未載入。請用 Chrome 雙擊 game.html，同 vendor/three.min.js、ward.js、ward-map.js 放埋一齊。唔使密碼。");
-      } else {
-        try {
-          buildScene();
-          onResize();
-        } catch (err) {
-          showGlError("立體畫面開唔到（" + (err && err.message ? err.message : "WebGL") + "）。請用 Chrome。唔使密碼。");
-        }
+      try {
+        buildGrid();
+        buildScene();
+        bind();
+      } catch (err) {
+        showGlError("立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。");
+        return;
       }
     }
     resetPlay();
-    if (!glFailed) {
+    if (!raf) raf = requestAnimationFrame(frame);
+    requestAnimationFrame(function () {
       onResize();
-      drawMinimap();
-      if (!raf) raf = requestAnimationFrame(frame);
       requestAnimationFrame(onResize);
-    }
+    });
   }
-  function stop() { active = false; keys = {}; }
+
+  function stop() {
+    active = false;
+    keys = {};
+  }
 
   window.WardMode = {
-    rooms: PACK.rooms,
+    rooms: WARD_ROOMS,
     start: start,
     stop: stop,
     setPaused: function (on) { paused = !!on; },
     active: function () { return active; },
     state: function () {
       return {
-        x: player.x, z: player.z, yaw: yaw, facing: facing, pushing: pushing,
-        tx: trolley.x, tz: trolley.z, quest: quest, step: step,
-        room: roomNameAt(player.x, player.z), dialog: !!dialog,
-        battle: battle ? battle.phase : "", battleCursor: battle ? battle.cursor : -1,
-        menu: menuOpen, map: mapOpen, steps: stepsWalked
+        x: player.x,
+        z: player.z,
+        facing: facing,
+        pushing: pushing,
+        tx: trolley.x,
+        tz: trolley.z,
+        quest: quest,
+        step: step,
+        room: roomNameAt(player.x, player.z),
+        dialog: !!dialog,
+        battle: battle ? battle.phase : "",
+        battleCursor: battle ? battle.cursor : -1,
+        menu: menuOpen,
+        map: mapOpen,
+        steps: stepsWalked,
+        camera: camera && camera.isOrthographicCamera ? "ortho" : ""
       };
     },
     walkable: walkable,
-    markers: function () { return MARK; },
-    map: { w: MAP_W, h: MAP_H },
+    distance: tileDistance,
+    reachable: reachableRooms,
     audit: function () {
       var beds = {};
-      PACK.rooms.forEach(function (r) {
-        beds[r.id] = (PACK.beds[r.id] || []).length;
-      });
-      return { beds: beds, names: PACK.rooms.map(function (r) { return r.name; }) };
-    }
+      if (scene) {
+        scene.traverse(function (obj) {
+          if (obj.userData && obj.userData.kind === "bed") {
+            beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
+          }
+        });
+      }
+      return { beds: beds, rooms: WARD_ROOMS.map(function (r) { return r.id; }) };
+    },
+    markers: function () { return MARK; },
+    map: { w: MAP_W, h: MAP_H }
   };
 })();

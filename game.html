@@ -1002,7 +1002,7 @@
           <button class="mode-card explore" id="btnWard" type="button">
             <span class="mode-emoji" aria-hidden="true">病</span>
             <strong>病房探索</strong>
-            <span>Minecraft 式立體 C 座。WASD 行，拖畫面轉向。A 互動，B 任務。唔使密碼。</span>
+            <span>寶可夢式俯視 C 座。W 上、A 左、S 下、D 右。A 互動，B 任務。唔使密碼。</span>
           </button>
         </div>
         <p class="home-foot">本遊戲只供訓練用途，實際工作請依照部門指引。分數只是學習回饋，不是績效考核。內容為虛構訓練案例。</p>
@@ -1043,10 +1043,10 @@
           <canvas id="wardCanvas"></canvas>
           <p class="ward-fallback" id="wardFallback">立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。</p>
           <canvas id="wardFlat" aria-hidden="true"></canvas>
-          <p class="ward-lookhint">拖畫面轉向</p>
+          <p class="ward-lookhint">W 上　A 左　S 下　D 右</p>
           <div class="ward-hud">
-            <div class="ward-room" id="wardRoomLabel">C座走廊</div>
-            <div class="ward-quest" id="wardQuestLabel">WASD 或方向鍵行，拖畫面轉向。A 互動，B 任務。</div>
+            <div class="ward-room" id="wardRoomLabel">活動區B</div>
+            <div class="ward-quest" id="wardQuestLabel">W／↑ 上，A／← 左，S／↓ 下，D／→ 右。A 互動，B 任務。唔使密碼。</div>
           </div>
           <canvas class="ward-minimap" id="wardMinimap" width="180" height="180" aria-label="小地圖，撳一下放大"></canvas>
           <div class="ward-flash hidden" id="wardFlash"></div>
@@ -1067,10 +1067,10 @@
         </div>
         <div class="ward-controls" aria-label="病房操作">
           <div class="ward-dpad">
-            <button class="ward-pad up" type="button" data-k="forward" aria-label="向前">▲</button>
-            <button class="ward-pad left" type="button" data-k="left" aria-label="向左">◀</button>
-            <button class="ward-pad right" type="button" data-k="right" aria-label="向右">▶</button>
-            <button class="ward-pad down" type="button" data-k="back" aria-label="向後">▼</button>
+            <button class="ward-pad up" type="button" data-k="up" aria-label="上">▲</button>
+            <button class="ward-pad left" type="button" data-k="left" aria-label="左">◀</button>
+            <button class="ward-pad right" type="button" data-k="right" aria-label="右">▶</button>
+            <button class="ward-pad down" type="button" data-k="down" aria-label="下">▼</button>
           </div>
           <div class="ward-ab">
             <button class="ab-btn b" id="wardBtnB" type="button" aria-label="取消">B</button>
