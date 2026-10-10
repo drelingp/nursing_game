@@ -3,53 +3,53 @@
   "use strict";
 
   var TILE = 1;
-  var MAP_W = 36;
-  var MAP_H = 28;
+  var MAP_W = 70;
+  var MAP_H = 56;
   var MOVE_MS = 130;
 
-  /* Compact Ward C. Same rooms and neighbours as the labeled plan, short doors. Edit names here. */
+  /* Larger Ward C. Same rooms and neighbours as the labeled plan, with room to walk around beds. Edit names here. */
   var WARD_ROOMS = [
-    { id: "livA", name: "活動區A", x: 8, z: 3, w: 8, h: 6, floor: 0xc6d48b, kind: "living" },
-    { id: "stairTop", name: "樓梯", x: 2, z: 1, w: 6, h: 3, floor: 0xc8cdd4, kind: "stair" },
-    { id: "b4", name: "病房四", x: 2, z: 4, w: 6, h: 4, floor: 0xf6dcc0, kind: "bed", beds: 6 },
-    { id: "b5", name: "病房五", x: 2, z: 8, w: 6, h: 4, floor: 0xe7d0b8, kind: "bed", beds: 6 },
-    { id: "b6", name: "病房六", x: 2, z: 12, w: 6, h: 4, floor: 0xf0d8c4, kind: "bed", beds: 6 },
-    { id: "wc1", name: "廁所", x: 2, z: 16, w: 4, h: 3, floor: 0xb7d4e8, kind: "toilet" },
-    { id: "b3", name: "病房三", x: 16, z: 1, w: 6, h: 4, floor: 0xedd0b4, kind: "bed", beds: 6 },
-    { id: "b2", name: "病房二", x: 16, z: 5, w: 6, h: 4, floor: 0xf3d7b0, kind: "bed", beds: 6 },
-    { id: "b1", name: "病房一", x: 16, z: 9, w: 6, h: 4, floor: 0xf0d2a8, kind: "bed", beds: 6 },
-    { id: "bath", name: "浴室", x: 22, z: 1, w: 4, h: 3, floor: 0x8ec6ea, kind: "bath" },
-    { id: "consult", name: "診症室", x: 22, z: 4, w: 4, h: 3, floor: 0xf7e7a1, kind: "consult" },
-    { id: "visit", name: "探訪室", x: 26, z: 1, w: 4, h: 4, floor: 0xf2c6d0, kind: "visit" },
-    { id: "wc4", name: "廁所", x: 22, z: 7, w: 4, h: 3, floor: 0xc5e0f0, kind: "toilet" },
-    { id: "livB", name: "活動區B", x: 8, z: 9, w: 8, h: 5, floor: 0xd5e09a, kind: "living" },
-    { id: "nurse", name: "護士站", x: 16, z: 13, w: 6, h: 4, floor: 0x9fd0c8, kind: "nurse" },
-    { id: "treat", name: "治療室", x: 22, z: 13, w: 5, h: 4, floor: 0xf7c9c4, kind: "treat" },
-    { id: "elev1", name: "升降機一", x: 27, z: 11, w: 4, h: 3, floor: 0xd5dde6, kind: "elev" },
-    { id: "elev2", name: "升降機二", x: 27, z: 14, w: 4, h: 3, floor: 0xc9d3de, kind: "elev" },
-    { id: "blue", name: "藍區", x: 31, z: 11, w: 3, h: 6, floor: 0x6aa6e8, kind: "blue" },
-    { id: "single1", name: "單人房一", x: 8, z: 14, w: 4, h: 3, floor: 0xf7e2c4, kind: "single", beds: 1 },
-    { id: "single2", name: "單人房二", x: 12, z: 14, w: 4, h: 3, floor: 0xf3dcc0, kind: "single", beds: 1 },
-    { id: "therapy1", name: "治療活動室", x: 8, z: 17, w: 8, h: 3, floor: 0xe7d0f0, kind: "therapy" },
-    { id: "wc2", name: "廁所", x: 16, z: 17, w: 3, h: 3, floor: 0xa9cfe6, kind: "toilet" },
-    { id: "manager", name: "病房經理室", x: 19, z: 17, w: 5, h: 3, floor: 0xe4c89a, kind: "office" },
-    { id: "wc3", name: "廁所", x: 24, z: 17, w: 3, h: 3, floor: 0xb9d7ea, kind: "toilet" },
-    { id: "med", name: "藥房", x: 2, z: 20, w: 6, h: 3, floor: 0xf0e0a8, kind: "med" },
-    { id: "livC", name: "活動區C", x: 8, z: 20, w: 8, h: 4, floor: 0xc9d992, kind: "living" },
-    { id: "stairBot", name: "樓梯", x: 16, z: 20, w: 5, h: 4, floor: 0xbcc3cc, kind: "stair" },
-    { id: "garden", name: "花園", x: 1, z: 23, w: 7, h: 4, floor: 0x8fce7a, kind: "garden" },
-    { id: "therapy2", name: "治療活動室", x: 8, z: 24, w: 8, h: 3, floor: 0xdcc6ee, kind: "therapy" }
+    { id: "livA", name: "活動區A", x: 16, z: 6, w: 16, h: 12, floor: 0xc6d48b, kind: "living" },
+    { id: "stairTop", name: "樓梯", x: 4, z: 2, w: 12, h: 6, floor: 0xc8cdd4, kind: "stair" },
+    { id: "b4", name: "病房四", x: 4, z: 8, w: 12, h: 8, floor: 0xf6dcc0, kind: "bed", beds: 6 },
+    { id: "b5", name: "病房五", x: 4, z: 16, w: 12, h: 8, floor: 0xe7d0b8, kind: "bed", beds: 6 },
+    { id: "b6", name: "病房六", x: 4, z: 24, w: 12, h: 8, floor: 0xf0d8c4, kind: "bed", beds: 6 },
+    { id: "wc1", name: "廁所", x: 4, z: 32, w: 8, h: 6, floor: 0xb7d4e8, kind: "toilet" },
+    { id: "b3", name: "病房三", x: 32, z: 2, w: 12, h: 8, floor: 0xedd0b4, kind: "bed", beds: 6 },
+    { id: "b2", name: "病房二", x: 32, z: 10, w: 12, h: 8, floor: 0xf3d7b0, kind: "bed", beds: 6 },
+    { id: "b1", name: "病房一", x: 32, z: 18, w: 12, h: 8, floor: 0xf0d2a8, kind: "bed", beds: 6 },
+    { id: "bath", name: "浴室", x: 44, z: 2, w: 8, h: 6, floor: 0x8ec6ea, kind: "bath" },
+    { id: "consult", name: "診症室", x: 44, z: 8, w: 8, h: 6, floor: 0xf7e7a1, kind: "consult" },
+    { id: "visit", name: "探訪室", x: 52, z: 2, w: 8, h: 8, floor: 0xf2c6d0, kind: "visit" },
+    { id: "wc4", name: "廁所", x: 44, z: 14, w: 8, h: 6, floor: 0xc5e0f0, kind: "toilet" },
+    { id: "livB", name: "活動區B", x: 16, z: 18, w: 16, h: 10, floor: 0xd5e09a, kind: "living" },
+    { id: "nurse", name: "護士站", x: 32, z: 26, w: 12, h: 8, floor: 0x9fd0c8, kind: "nurse" },
+    { id: "treat", name: "治療室", x: 44, z: 26, w: 10, h: 8, floor: 0xf7c9c4, kind: "treat" },
+    { id: "elev1", name: "升降機一", x: 54, z: 22, w: 8, h: 6, floor: 0xd5dde6, kind: "elev" },
+    { id: "elev2", name: "升降機二", x: 54, z: 28, w: 8, h: 6, floor: 0xc9d3de, kind: "elev" },
+    { id: "blue", name: "藍區", x: 62, z: 22, w: 6, h: 12, floor: 0x6aa6e8, kind: "blue" },
+    { id: "single1", name: "單人房一", x: 16, z: 28, w: 8, h: 6, floor: 0xf7e2c4, kind: "single", beds: 1 },
+    { id: "single2", name: "單人房二", x: 24, z: 28, w: 8, h: 6, floor: 0xf3dcc0, kind: "single", beds: 1 },
+    { id: "therapy1", name: "治療活動室", x: 16, z: 34, w: 16, h: 6, floor: 0xe7d0f0, kind: "therapy" },
+    { id: "wc2", name: "廁所", x: 32, z: 34, w: 6, h: 6, floor: 0xa9cfe6, kind: "toilet" },
+    { id: "manager", name: "病房經理室", x: 38, z: 34, w: 10, h: 6, floor: 0xe4c89a, kind: "office" },
+    { id: "wc3", name: "廁所", x: 48, z: 34, w: 6, h: 6, floor: 0xb9d7ea, kind: "toilet" },
+    { id: "med", name: "藥房", x: 4, z: 40, w: 12, h: 6, floor: 0xf0e0a8, kind: "med" },
+    { id: "livC", name: "活動區C", x: 16, z: 40, w: 16, h: 8, floor: 0xc9d992, kind: "living" },
+    { id: "stairBot", name: "樓梯", x: 32, z: 40, w: 10, h: 8, floor: 0xbcc3cc, kind: "stair" },
+    { id: "garden", name: "花園", x: 2, z: 46, w: 14, h: 8, floor: 0x8fce7a, kind: "garden" },
+    { id: "therapy2", name: "治療活動室", x: 16, z: 48, w: 16, h: 6, floor: 0xdcc6ee, kind: "therapy" }
   ];
 
   var MARK = {
-    trolley: { x: 24, z: 14 },
-    fax: { x: 18, z: 14 },
-    computer: { x: 20, z: 14 },
-    incident: { x: 12, z: 11 },
-    elev: { x: 28, z: 12 },
-    admitBed: { x: 18, z: 2 },
-    restBed: { x: 18, z: 6 },
-    start: { x: 11, z: 11 }
+    trolley: { x: 52, z: 29 },
+    fax: { x: 33, z: 29 },
+    computer: { x: 36, z: 28 },
+    incident: { x: 22, z: 22 },
+    elev: { x: 57, z: 24 },
+    admitBed: { x: 36, z: 5 },
+    restBed: { x: 36, z: 13 },
+    start: { x: 22, z: 22 }
   };
 
   var CODE_QS = [
@@ -810,25 +810,28 @@
 
   function addBeds(room, count) {
     var cols = count === 1 ? 1 : 3;
+    var rows = Math.ceil(count / cols);
     var i, col, row, x, z;
+    var marginX = 1.7;
+    var marginZ = 1.8;
     for (i = 0; i < count; i++) {
       col = i % cols;
       row = Math.floor(i / cols);
-      x = cols === 1 ? room.x + room.w / 2 : room.x + 1.15 + col * ((room.w - 2.3) / 2);
-      z = room.z + 1.2 + row * 1.45;
-      addBox(scene, 0.58, 0.16, 0.9, 0xf7f1e4, x, 0.2, z);
-      var blanket = addBox(scene, 0.46, 0.08, 0.68, 0x6cb5d6, x, 0.32, z);
+      x = cols === 1 ? room.x + room.w / 2 : room.x + marginX + col * ((room.w - marginX * 2) / (cols - 1));
+      z = rows === 1 ? room.z + room.h / 2 : room.z + marginZ + row * ((room.h - marginZ * 2) / (rows - 1));
+      addBox(scene, 0.9, 0.18, 1.35, 0xf7f1e4, x, 0.2, z);
+      var blanket = addBox(scene, 0.72, 0.08, 1.0, 0x6cb5d6, x, 0.32, z);
       blanket.userData.kind = "bed";
       blanket.userData.room = room.id;
-      addBox(scene, 0.24, 0.07, 0.18, 0xfff8ee, x, 0.38, z - 0.28);
+      addBox(scene, 0.34, 0.08, 0.24, 0xfff8ee, x, 0.4, z - 0.42);
     }
   }
   function addNurse(room) {
-    addBox(scene, room.w * 0.72, 0.55, 0.7, 0xefe6d4, room.x + room.w * 0.48, 0.35, room.z + 1.15);
-    addBox(scene, 0.42, 0.22, 0.32, 0x2c3440, MARK.computer.x + 0.5, 0.55, MARK.computer.z + 0.5);
-    addBox(scene, 0.4, 0.28, 0.08, 0x8fd0ff, MARK.computer.x + 0.5, 0.82, MARK.computer.z + 0.35);
-    addBox(scene, 0.48, 0.26, 0.36, 0x4d5966, MARK.fax.x + 0.5, 0.5, MARK.fax.z + 0.5);
-    addBox(scene, 0.26, 0.05, 0.18, 0xf4f7fb, MARK.fax.x + 0.5, 0.68, MARK.fax.z + 0.32);
+    addBox(scene, Math.min(6.4, room.w * 0.55), 0.55, 1.15, 0xefe6d4, room.x + room.w * 0.42, 0.35, room.z + 1.8);
+    addBox(scene, 0.55, 0.24, 0.4, 0x2c3440, MARK.computer.x + 0.5, 0.55, MARK.computer.z + 0.5);
+    addBox(scene, 0.52, 0.36, 0.08, 0x8fd0ff, MARK.computer.x + 0.5, 0.88, MARK.computer.z + 0.32);
+    addBox(scene, 0.62, 0.32, 0.42, 0x4d5966, MARK.fax.x + 0.5, 0.52, MARK.fax.z + 0.5);
+    addBox(scene, 0.32, 0.05, 0.22, 0xf4f7fb, MARK.fax.x + 0.5, 0.74, MARK.fax.z + 0.28);
   }
   function addTreat(room) {
     addBox(scene, 0.7, 0.7, 0.55, 0xf4f7fb, room.x + 1.3, 0.4, room.z + 1.4);
@@ -849,7 +852,8 @@
     }
   }
   function addLiving(room) {
-    addBox(scene, 1.1, 0.18, 0.6, 0xc48a4a, room.x + room.w / 2, 0.16, room.z + room.h / 2);
+    addBox(scene, 1.7, 0.2, 0.95, 0xc48a4a, room.x + room.w * 0.38, 0.16, room.z + room.h * 0.42);
+    addBox(scene, 1.4, 0.2, 0.8, 0xb8743a, room.x + room.w * 0.7, 0.16, room.z + room.h * 0.68);
   }
   function addToilet(room) {
     addBox(scene, 0.4, 0.35, 0.45, 0xf7f7f7, room.x + room.w / 2, 0.22, room.z + room.h / 2);
