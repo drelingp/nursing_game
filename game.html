@@ -743,15 +743,53 @@
     .ward-quest { font-weight: 650; font-size: 13px; }
     .ward-minimap {
       position: absolute;
-      right: 8px;
+      left: 8px;
       bottom: 8px;
-      width: 132px;
-      height: 100px;
+      width: 112px;
+      height: 112px;
       border: 3px solid #f0d48a;
-      border-radius: 8px;
+      border-radius: 50%;
       background: #10242c;
       z-index: 2;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .ward-map-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      background: rgba(8, 16, 22, 0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      color: #fff8ee;
+      font-weight: 800;
+      text-align: center;
+      padding: 12px;
+    }
+    .ward-map-overlay canvas {
+      width: min(94%, 540px);
+      height: min(80%, 680px);
+      background: #102028;
+      border: 4px solid #f0d48a;
+      border-radius: 16px;
+      touch-action: manipulation;
+    }
+    .ward-map-overlay.hidden { display: none; }
+    .ward-flash {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
       pointer-events: none;
+      background: repeating-linear-gradient(#111 0 10px, transparent 10px 18px);
+      animation: wardFlash 0.42s linear;
+    }
+    .ward-flash.hidden { display: none; }
+    @keyframes wardFlash {
+      from { opacity: 1; }
+      to { opacity: 0; }
     }
     .ward-dialog, .ward-menu, .ward-battle {
       position: absolute;
@@ -761,7 +799,8 @@
     }
     .ward-dialog, .ward-menu {
       bottom: 8px;
-      max-width: calc(100% - 148px);
+      left: 128px;
+      max-width: none;
       background: #fff8ee;
       color: #142226;
       border: 4px solid #1b3c6e;
@@ -862,9 +901,9 @@
       background: #1f9b7e;
     }
     @media (max-width: 520px) {
-      .ward-minimap { width: 84px; height: 64px; top: 8px; bottom: auto; }
-      .ward-hud { right: 8px; top: 78px; }
-      .ward-dialog, .ward-menu { max-width: none; }
+      .ward-minimap { width: 84px; height: 84px; left: 8px; bottom: 8px; top: auto; }
+      .ward-hud { right: 8px; top: 8px; }
+      .ward-dialog, .ward-menu { left: 98px; max-width: none; }
       .ward-dpad {
         grid-template-columns: 48px 48px 48px;
         grid-template-rows: 48px 48px 48px;
@@ -879,7 +918,8 @@
         width: 168px;
         justify-content: center;
       }
-      .ward-minimap { width: 84px; height: 64px; }
+      .ward-minimap { width: 72px; height: 72px; }
+      .ward-dialog, .ward-menu { left: 84px; }
       .ward-dpad {
         grid-template-columns: 44px 44px 44px;
         grid-template-rows: 44px 44px 44px;
@@ -965,7 +1005,12 @@
             <div class="ward-room" id="wardRoomLabel">C座走廊</div>
             <div class="ward-quest" id="wardQuestLabel">喺病房走走。突發事件唔會每兩步就出現。</div>
           </div>
-          <canvas class="ward-minimap" id="wardMinimap" width="180" height="136"></canvas>
+          <canvas class="ward-minimap" id="wardMinimap" width="180" height="180" aria-label="小地圖，撳一下放大"></canvas>
+          <div class="ward-flash hidden" id="wardFlash"></div>
+          <div class="ward-map-overlay hidden" id="wardMapOverlay">
+            <canvas id="wardMapBig" width="480" height="680"></canvas>
+            <p>再撳地圖或 B 關閉</p>
+          </div>
           <div class="ward-dialog hidden" id="wardDialog"><p id="wardDialogText"></p></div>
           <div class="ward-menu hidden" id="wardMenu">
             <p id="wardMenuText"></p>
@@ -1015,6 +1060,7 @@
   </div>
 
   <script src="vendor/three.min.js"></script>
+  <script src="ward-map.js"></script>
   <script src="ward.js"></script>
   <script>
   (function () {
