@@ -905,11 +905,27 @@
       padding: 4px 4px 0;
       touch-action: none;
     }
-    .ward-dpad {
-      display: grid;
-      grid-template-columns: 52px 52px 52px;
-      grid-template-rows: 52px 52px 52px;
-      gap: 6px;
+    .ward-joy {
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      background: rgba(16, 48, 56, 0.92);
+      border: 3px solid #f0d48a;
+      position: relative;
+      touch-action: none;
+      flex: 0 0 auto;
+    }
+    .ward-joy-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 54px;
+      height: 54px;
+      margin: -27px 0 0 -27px;
+      border-radius: 50%;
+      background: #1f9b7e;
+      border: 3px solid #fff8ee;
+      pointer-events: none;
     }
     .ward-pad, .ab-btn, .ward-menu button {
       border: 0;
@@ -920,11 +936,6 @@
       font-size: 22px;
       touch-action: none;
     }
-    .ward-pad { width: 52px; height: 52px; }
-    .ward-pad.up { grid-column: 2; grid-row: 1; }
-    .ward-pad.left { grid-column: 1; grid-row: 2; }
-    .ward-pad.right { grid-column: 3; grid-row: 2; }
-    .ward-pad.down { grid-column: 2; grid-row: 3; }
     .ward-ab { display: flex; gap: 10px; align-items: center; }
     .ab-btn {
       width: 68px;
@@ -944,11 +955,8 @@
       .ward-minimap { width: 84px; height: 84px; left: 8px; bottom: 8px; top: auto; }
       .ward-hud { right: 8px; top: 8px; }
       .ward-dialog, .ward-menu { left: 98px; max-width: none; }
-      .ward-dpad {
-        grid-template-columns: 48px 48px 48px;
-        grid-template-rows: 48px 48px 48px;
-      }
-      .ward-pad { width: 48px; height: 48px; }
+      .ward-joy { width: 112px; height: 112px; }
+      .ward-joy-knob { width: 48px; height: 48px; margin: -24px 0 0 -24px; }
       .ab-btn { width: 60px; height: 60px; }
     }
     @media (orientation: landscape) and (max-height: 520px) {
@@ -960,11 +968,8 @@
       }
       .ward-minimap { width: 72px; height: 72px; }
       .ward-dialog, .ward-menu { left: 84px; }
-      .ward-dpad {
-        grid-template-columns: 44px 44px 44px;
-        grid-template-rows: 44px 44px 44px;
-      }
-      .ward-pad { width: 44px; height: 44px; }
+      .ward-joy { width: 96px; height: 96px; }
+      .ward-joy-knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
       .ab-btn { width: 52px; height: 52px; font-size: 20px; }
     }
   </style>
@@ -1002,7 +1007,7 @@
           <button class="mode-card explore" id="btnWard" type="button">
             <span class="mode-emoji" aria-hidden="true">病</span>
             <strong>病房探索</strong>
-            <span>寶可夢式俯視 C 座。W 上、A 左、S 下、D 右。A 互動，B 任務。唔使密碼。</span>
+            <span>寶可夢式俯視 C 座，跟官方圖則。搖桿任意方向行，W A S D 係八向。A 互動，B 任務。唔使密碼。</span>
           </button>
         </div>
         <p class="home-foot">本遊戲只供訓練用途，實際工作請依照部門指引。分數只是學習回饋，不是績效考核。內容為虛構訓練案例。</p>
@@ -1043,10 +1048,10 @@
           <canvas id="wardCanvas"></canvas>
           <p class="ward-fallback" id="wardFallback">立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。</p>
           <canvas id="wardFlat" aria-hidden="true"></canvas>
-          <p class="ward-lookhint">W 上　A 左　S 下　D 右</p>
+          <p class="ward-lookhint">搖桿任意方向　W A S D 八向</p>
           <div class="ward-hud">
-            <div class="ward-room" id="wardRoomLabel">活動區B</div>
-            <div class="ward-quest" id="wardQuestLabel">W／↑ 上，A／← 左，S／↓ 下，D／→ 右。A 互動，B 任務。唔使密碼。</div>
+            <div class="ward-room" id="wardRoomLabel">走廊</div>
+            <div class="ward-quest" id="wardQuestLabel">搖桿任意方向行。W A S D 或方向鍵係八向。A 互動，B 任務。唔使密碼。</div>
           </div>
           <canvas class="ward-minimap" id="wardMinimap" width="180" height="180" aria-label="小地圖，撳一下放大"></canvas>
           <div class="ward-flash hidden" id="wardFlash"></div>
@@ -1066,11 +1071,8 @@
           </div>
         </div>
         <div class="ward-controls" aria-label="病房操作">
-          <div class="ward-dpad">
-            <button class="ward-pad up" type="button" data-k="up" aria-label="上">▲</button>
-            <button class="ward-pad left" type="button" data-k="left" aria-label="左">◀</button>
-            <button class="ward-pad right" type="button" data-k="right" aria-label="右">▶</button>
-            <button class="ward-pad down" type="button" data-k="down" aria-label="下">▼</button>
+          <div class="ward-joy" id="wardJoy" aria-label="搖桿，拖曳行走">
+            <div class="ward-joy-knob" id="wardJoyKnob"></div>
           </div>
           <div class="ward-ab">
             <button class="ab-btn b" id="wardBtnB" type="button" aria-label="取消">B</button>
@@ -1103,6 +1105,7 @@
   </div>
 
   <script src="vendor/three.min.js"></script>
+  <script src="ward-shell.js"></script>
   <script src="ward-map.js"></script>
   <script src="ward.js"></script>
   <script>

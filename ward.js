@@ -1,56 +1,13 @@
-/* 病房探索 — Pokemon-style ward sim. Room names live in WARD_ROOMS. */
+/* 病房探索 — traced Ward C, Pokémon orthographic walk. */
 (function () {
   "use strict";
 
-  var TILE = 1;
-  var MAP_W = 70;
-  var MAP_H = 56;
-  var MOVE_MS = 130;
-
-  /* Larger Ward C. Same rooms and neighbours as the labeled plan, with room to walk around beds. Edit names here. */
-  var WARD_ROOMS = [
-    { id: "livA", name: "活動區A", x: 16, z: 6, w: 16, h: 12, floor: 0xc6d48b, kind: "living" },
-    { id: "stairTop", name: "樓梯", x: 4, z: 2, w: 12, h: 6, floor: 0xc8cdd4, kind: "stair" },
-    { id: "b4", name: "病房四", x: 4, z: 8, w: 12, h: 8, floor: 0xf6dcc0, kind: "bed", beds: 6 },
-    { id: "b5", name: "病房五", x: 4, z: 16, w: 12, h: 8, floor: 0xe7d0b8, kind: "bed", beds: 6 },
-    { id: "b6", name: "病房六", x: 4, z: 24, w: 12, h: 8, floor: 0xf0d8c4, kind: "bed", beds: 6 },
-    { id: "wc1", name: "廁所", x: 4, z: 32, w: 8, h: 6, floor: 0xb7d4e8, kind: "toilet" },
-    { id: "b3", name: "病房三", x: 32, z: 2, w: 12, h: 8, floor: 0xedd0b4, kind: "bed", beds: 6 },
-    { id: "b2", name: "病房二", x: 32, z: 10, w: 12, h: 8, floor: 0xf3d7b0, kind: "bed", beds: 6 },
-    { id: "b1", name: "病房一", x: 32, z: 18, w: 12, h: 8, floor: 0xf0d2a8, kind: "bed", beds: 6 },
-    { id: "bath", name: "浴室", x: 44, z: 2, w: 8, h: 6, floor: 0x8ec6ea, kind: "bath" },
-    { id: "consult", name: "診症室", x: 44, z: 8, w: 8, h: 6, floor: 0xf7e7a1, kind: "consult" },
-    { id: "visit", name: "探訪室", x: 52, z: 2, w: 8, h: 8, floor: 0xf2c6d0, kind: "visit" },
-    { id: "wc4", name: "廁所", x: 44, z: 14, w: 8, h: 6, floor: 0xc5e0f0, kind: "toilet" },
-    { id: "livB", name: "活動區B", x: 16, z: 18, w: 16, h: 10, floor: 0xd5e09a, kind: "living" },
-    { id: "nurse", name: "護士站", x: 32, z: 26, w: 12, h: 8, floor: 0x9fd0c8, kind: "nurse" },
-    { id: "treat", name: "治療室", x: 44, z: 26, w: 10, h: 8, floor: 0xf7c9c4, kind: "treat" },
-    { id: "elev1", name: "升降機一", x: 54, z: 22, w: 8, h: 6, floor: 0xd5dde6, kind: "elev" },
-    { id: "elev2", name: "升降機二", x: 54, z: 28, w: 8, h: 6, floor: 0xc9d3de, kind: "elev" },
-    { id: "blue", name: "藍區", x: 62, z: 22, w: 6, h: 12, floor: 0x6aa6e8, kind: "blue" },
-    { id: "single1", name: "單人房一", x: 16, z: 28, w: 8, h: 6, floor: 0xf7e2c4, kind: "single", beds: 1 },
-    { id: "single2", name: "單人房二", x: 24, z: 28, w: 8, h: 6, floor: 0xf3dcc0, kind: "single", beds: 1 },
-    { id: "therapy1", name: "治療活動室", x: 16, z: 34, w: 16, h: 6, floor: 0xe7d0f0, kind: "therapy" },
-    { id: "wc2", name: "廁所", x: 32, z: 34, w: 6, h: 6, floor: 0xa9cfe6, kind: "toilet" },
-    { id: "manager", name: "病房經理室", x: 38, z: 34, w: 10, h: 6, floor: 0xe4c89a, kind: "office" },
-    { id: "wc3", name: "廁所", x: 48, z: 34, w: 6, h: 6, floor: 0xb9d7ea, kind: "toilet" },
-    { id: "med", name: "藥房", x: 4, z: 40, w: 12, h: 6, floor: 0xf0e0a8, kind: "med" },
-    { id: "livC", name: "活動區C", x: 16, z: 40, w: 16, h: 8, floor: 0xc9d992, kind: "living" },
-    { id: "stairBot", name: "樓梯", x: 32, z: 40, w: 10, h: 8, floor: 0xbcc3cc, kind: "stair" },
-    { id: "garden", name: "花園", x: 2, z: 46, w: 14, h: 8, floor: 0x8fce7a, kind: "garden" },
-    { id: "therapy2", name: "治療活動室", x: 16, z: 48, w: 16, h: 6, floor: 0xdcc6ee, kind: "therapy" }
-  ];
-
-  var MARK = {
-    trolley: { x: 52, z: 29 },
-    fax: { x: 33, z: 29 },
-    computer: { x: 36, z: 28 },
-    incident: { x: 22, z: 22 },
-    elev: { x: 57, z: 24 },
-    admitBed: { x: 36, z: 5 },
-    restBed: { x: 36, z: 13 },
-    start: { x: 22, z: 22 }
-  };
+  var SHELL = window.WARD_SHELL;
+  var CELL = SHELL.cell;
+  var GW = SHELL.w;
+  var GH = SHELL.h;
+  var SPEED = 2.55;
+  var RADIUS = 0.28;
 
   var CODE_QS = [
     {
@@ -169,182 +126,101 @@
     }
   ];
 
-  var DIRS = [
-    { x: 1, z: 0 },
-    { x: 0, z: 1 },
-    { x: -1, z: 0 },
-    { x: 0, z: -1 }
-  ];
+  function decode(rows) {
+    var g = new Uint16Array(GW * GH);
+    var r, i, c, k, v, n, runs;
+    for (r = 0; r < GH; r++) {
+      runs = rows[r];
+      c = 0;
+      for (i = 0; i < runs.length; i += 2) {
+        v = runs[i];
+        n = runs[i + 1];
+        for (k = 0; k < n; k++) g[r * GW + c + k] = v;
+        c += n;
+      }
+    }
+    return g;
+  }
 
-  var walk = [];
-  var owner = [];
+  var walk = decode(SHELL.walk);
+  var roomOf = decode(SHELL.room);
+  var MARK = SHELL.marks;
   var roomById = {};
-  var player = { x: MARK.start.x, z: MARK.start.z };
-  var mapOpen = false;
-  var facing = 0;
+  SHELL.rooms.forEach(function (r, i) { roomById[r.id] = r; r.index = i + 2; });
+
+  var player = { x: MARK.start.x, z: MARK.start.z, rot: 0 };
   var trolley = { x: MARK.trolley.x, z: MARK.trolley.z };
   var pushing = false;
   var quest = "";
   var step = "idle";
-  var stepsWalked = 0;
+  var travel = 0;
   var seen = { code: false, admit: false, rest: false };
   var active = false;
   var paused = false;
   var built = false;
-  var keys = {};
-  var keyTimer = 0;
+  var keys = { up: false, down: false, left: false, right: false };
+  var joy = { x: 0, y: 0, on: false };
   var dialog = null;
   var battle = null;
   var menuOpen = false;
+  var mapOpen = false;
   var raf = 0;
-  var renderer, scene, camera, playerMesh, trolleyMesh, incidentMesh;
-  var clock = 0;
+  var lastTs = 0;
+  var glFailed = false;
   var triggeredPush = false;
-
-  WARD_ROOMS.forEach(function (r) { roomById[r.id] = r; });
-
-  function inMap(x, z) {
-    return x >= 0 && z >= 0 && x < MAP_W && z < MAP_H;
-  }
-
-  function paint(x, z, id) {
-    if (!inMap(x, z)) return;
-    walk[z][x] = 1;
-    owner[z][x] = id;
-  }
-
-  function paintRect(room) {
-    var x, z;
-    for (z = room.z; z < room.z + room.h; z++) {
-      for (x = room.x; x < room.x + room.w; x++) paint(x, z, room.id);
-    }
-    (room.door || []).forEach(function (d) { paint(d[0], d[1], room.id); });
-  }
-
-  function buildGrid() {
-    var z, x;
-    walk = [];
-    owner = [];
-    for (z = 0; z < MAP_H; z++) {
-      walk[z] = [];
-      owner[z] = [];
-      for (x = 0; x < MAP_W; x++) {
-        walk[z][x] = 0;
-        owner[z][x] = "";
-      }
-    }
-    WARD_ROOMS.forEach(paintRect);
-    sealDoors();
-  }
-
-  function sealDoors() {
-    var edges = {};
-    var ids = WARD_ROOMS.map(function (r) { return r.id; });
-    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    function roomCells(id) {
-      var room = roomById[id];
-      var out = [];
-      var zz, xx;
-      for (zz = room.z; zz < room.z + room.h; zz++) {
-        for (xx = room.x; xx < room.x + room.w; xx++) out.push([xx, zz]);
-      }
-      return out;
-    }
-    var ai, bi, a, b, key, cellsA, setB, i, k, x, z, dx, dz;
-    for (ai = 0; ai < ids.length; ai++) {
-      for (bi = ai + 1; bi < ids.length; bi++) {
-        a = ids[ai];
-        b = ids[bi];
-        key = a + "|" + b;
-        cellsA = roomCells(a);
-        setB = {};
-        roomCells(b).forEach(function (p) { setB[p[0] + "," + p[1]] = 1; });
-        for (i = 0; i < cellsA.length; i++) {
-          x = cellsA[i][0];
-          z = cellsA[i][1];
-          for (k = 0; k < 4; k++) {
-            dx = nbs[k][0];
-            dz = nbs[k][1];
-            if (setB[(x + dx) + "," + (z + dz)]) {
-              if (!edges[key]) edges[key] = [];
-              edges[key].push([x, z, x + dx, z + dz]);
-            }
-          }
-        }
-      }
-    }
-    var protect = {};
-    Object.keys(edges).forEach(function (ek) {
-      var lst = edges[ek];
-      lst.sort(function (p, q) {
-        return p[0] - q[0] || p[1] - q[1] || p[2] - q[2] || p[3] - q[3];
-      });
-      var mid = lst[Math.floor(lst.length / 2)];
-      var ix = mid[0] - mid[2];
-      var iz = mid[1] - mid[3];
-      [[mid[0], mid[1]], [mid[2], mid[3]], [mid[0] + ix, mid[1] + iz], [mid[2] - ix, mid[3] - iz]].forEach(function (p) {
-        protect[p[0] + "," + p[1]] = 1;
-      });
-    });
-    Object.keys(edges).forEach(function (ek) {
-      edges[ek].forEach(function (e) {
-        if (protect[e[0] + "," + e[1]]) return;
-        if (!inMap(e[0], e[1])) return;
-        walk[e[1]][e[0]] = 0;
-        owner[e[1]][e[0]] = "";
-      });
-    });
-  }
-
-  function walkable(x, z) {
-    return inMap(x, z) && walk[z][x] === 1;
-  }
-
-  function roomNameAt(x, z) {
-    if (!inMap(x, z)) return "牆";
-    var id = owner[z][x];
-    var room = roomById[id];
-    if (!room) return "C座";
-    if (room.kind === "hall") return "C座走廊";
-    return room.name;
-  }
-
-  function near(ax, az, bx, bz) {
-    return Math.abs(ax - bx) + Math.abs(az - bz) <= 1;
-  }
-
-  function faceOf(dx, dz) {
-    if (dx > 0) return 0;
-    if (dz > 0) return 1;
-    if (dx < 0) return 2;
-    return 3;
-  }
-
-  function frontOf(x, z, face) {
-    return { x: x + DIRS[face].x, z: z + DIRS[face].z };
-  }
+  var renderer, scene, camera, playerMesh, trolleyMesh, incidentMesh;
 
   function el(id) { return document.getElementById(id); }
-
   function show(id, on) {
     var node = el(id);
     if (node) node.classList.toggle("hidden", !on);
   }
+  function showGlError(msg) {
+    var node = el("wardFallback");
+    if (!node) return;
+    node.textContent = msg || "立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。";
+    node.classList.add("show");
+  }
+  function cellAt(x, z) {
+    return { c: Math.floor(x / CELL), r: Math.floor(z / CELL) };
+  }
+  function walkAt(c, r) {
+    return c >= 0 && r >= 0 && c < GW && r < GH && walk[r * GW + c] === 1;
+  }
+  function blocked(x, z) {
+    var p = cellAt(x, z);
+    return !walkAt(p.c, p.r);
+  }
+  function canStand(x, z) {
+    return !blocked(x, z) && !blocked(x + RADIUS, z) && !blocked(x - RADIUS, z) && !blocked(x, z + RADIUS) && !blocked(x, z - RADIUS);
+  }
+  function roomNameAt(x, z) {
+    var p = cellAt(x, z);
+    if (!walkAt(p.c, p.r)) return "牆";
+    var id = roomOf[p.r * GW + p.c];
+    if (id >= 2 && SHELL.rooms[id - 2]) return SHELL.rooms[id - 2].name;
+    return "走廊";
+  }
+  function dist(ax, az, bx, bz) {
+    var dx = ax - bx, dz = az - bz;
+    return Math.sqrt(dx * dx + dz * dz);
+  }
+  function near(ax, az, bx, bz) { return dist(ax, az, bx, bz) < 1.55; }
 
   function setQuestLabel() {
-    var text = "W／↑ 上，A／← 左，S／↓ 下，D／→ 右。A 互動，B 任務。唔使密碼。";
+    var text = "搖桿任意方向行。W A S D 或方向鍵係八向。A 互動，B 任務。唔使密碼。";
     if (quest === "code") {
       if (step === "intro" || step === "goTrolley") text = "任務：去治療室，撳 A 攞急救車。";
-      else if (step === "push") text = "任務：推急救車返事發位置（走廊紅點）。";
+      else if (step === "push") text = "任務：推急救車沿走廊返事發位置。";
       else if (step === "battle") text = "任務：急救認識問答。A 確認，B 取消選擇。";
       else if (step === "goFax") text = "任務：去護士站，撳 A 用傳真機影印藥紙。";
       else if (step === "docs") text = "任務：再撳 A，準備急救文件。";
     } else if (quest === "admit") {
-      if (step === "intro" || step === "goElev") text = "任務：去升降機一，撳 A 核對收症。";
+      if (step === "intro" || step === "goElev") text = "任務：去病人及職員升降機大堂，撳 A 核對收症。";
       else if (step === "battle") text = "任務：收症問答。A 確認，B 取消選擇。";
-      else if (step === "goBed") text = "任務：去病房三，撳 A 安排床位。";
+      else if (step === "goBed") text = "任務：去收症房，撳 A 完成安排。";
     } else if (quest === "rest") {
-      if (step === "intro" || step === "goRoom") text = "任務：去病房二，撳 A 處理躁動。";
+      if (step === "intro" || step === "goRoom") text = "任務：去冷靜房，撳 A 處理躁動。";
       else if (step === "battle") text = "任務：約束問答。A 確認，B 取消選擇。";
       else if (step === "goNurse") text = "任務：去護士站，撳 A 記錄約束。";
     }
@@ -352,19 +228,6 @@
     if (node) node.textContent = text;
     var room = el("wardRoomLabel");
     if (room) room.textContent = roomNameAt(player.x, player.z);
-    var canvas = el("wardCanvas");
-    if (canvas) {
-      canvas.dataset.wx = String(player.x);
-      canvas.dataset.wz = String(player.z);
-      canvas.dataset.quest = quest || "none";
-      canvas.dataset.step = step;
-      canvas.dataset.pushing = pushing ? "1" : "0";
-      canvas.dataset.tx = String(trolley.x);
-      canvas.dataset.tz = String(trolley.z);
-      canvas.dataset.dialog = dialog ? "1" : "0";
-      canvas.dataset.battle = battle ? battle.phase : "";
-      canvas.dataset.menu = menuOpen ? "1" : "0";
-    }
   }
 
   function say(lines, done) {
@@ -375,7 +238,6 @@
     el("wardDialogText").textContent = lines[0];
     setQuestLabel();
   }
-
   function advanceDialog() {
     if (!dialog) return;
     dialog.i += 1;
@@ -389,7 +251,6 @@
     }
     el("wardDialogText").textContent = dialog.lines[dialog.i];
   }
-
   function openMenu() {
     if (dialog || battle) return;
     menuOpen = true;
@@ -397,12 +258,10 @@
     var goal = el("wardQuestLabel") ? el("wardQuestLabel").textContent : "";
     el("wardMenuText").textContent = "任務目標\n" + goal;
   }
-
   function closeMenu() {
     menuOpen = false;
     show("wardMenu", false);
   }
-
   function renderBattle() {
     if (!battle) return;
     show("wardBattle", true);
@@ -429,14 +288,12 @@
     }
     setQuestLabel();
   }
-
   function openBattle(title, qs) {
     battle = { title: title, qs: qs, i: 0, cursor: 0, phase: "ask", lastOk: false };
     dialog = null;
     show("wardDialog", false);
     renderBattle();
   }
-
   function confirmChoice() {
     if (!battle) return;
     var q = battle.qs[battle.i];
@@ -457,49 +314,34 @@
     battle.phase = "explain";
     renderBattle();
   }
-
   function backChoice() {
     if (!battle) return;
-    if (battle.phase === "explain") {
-      confirmChoice();
-      return;
-    }
+    if (battle.phase === "explain") { confirmChoice(); return; }
     battle.cursor = 0;
-    el("battleText").textContent = battle.qs[battle.i].q + "（已取消選擇，撳 A 先確認。）";
     renderBattle();
-    el("battleText").textContent = battle.qs[battle.i].q + "（已取消選擇，撳 A 先確認。）";
   }
-
   function onBattleDone() {
     if (quest === "code") {
       pushing = false;
       step = "goFax";
-      say(["情況暫時穩定（虛構）。而家去護士站，用傳真機影印藥紙，再準備文件。"], function () {
-        setQuestLabel();
-      });
+      say(["情況暫時穩定（虛構）。而家去護士站，用傳真機影印藥紙，再準備文件。"], function () { setQuestLabel(); });
     } else if (quest === "admit") {
       step = "goBed";
-      say(["身份同安檢問答完。去病房三，撳 A 安排呢位虛構病人上床。"], function () {
-        setQuestLabel();
-      });
+      say(["身份同安檢問答完。去收症房，撳 A 完成呢位虛構病人嘅安排。"], function () { setQuestLabel(); });
     } else if (quest === "rest") {
       step = "goNurse";
-      say(["問答完。去護士站撳 A，記錄約束原因、時間同循環檢查。"], function () {
-        setQuestLabel();
-      });
+      say(["問答完。去護士站撳 A，記錄約束原因、時間同循環檢查。"], function () { setQuestLabel(); });
     }
     if (incidentMesh) incidentMesh.visible = false;
   }
-
   function clearQuest() {
     quest = "";
     step = "idle";
     pushing = false;
     triggeredPush = false;
-    stepsWalked = 0;
+    travel = 0;
     setQuestLabel();
   }
-
   function beginCode() {
     quest = "code";
     step = "intro";
@@ -507,177 +349,143 @@
     triggeredPush = false;
     say([
       "突然：走廊有人呼叫！虛構病人「陳先生」情況危急。",
-      "先去治療室，撳 A 攞急救車，推返事發位置（地面紅點）。",
+      "先去治療室，撳 A 攞急救車，沿走廊推返事發位置。",
       "本遊戲只供訓練用途，實際工作請依照部門指引。"
-    ], function () {
-      step = "goTrolley";
-      setQuestLabel();
-    });
+    ], function () { step = "goTrolley"; setQuestLabel(); });
   }
-
   function beginAdmit() {
     quest = "admit";
     step = "intro";
     seen.admit = true;
     say([
-      "收症：虛構病人「林先生」同護送喺升降機一等候。",
-      "先去升降機一，撳 A 核對身份，再答收症問題，最後去病房三安排床位。"
-    ], function () {
-      step = "goElev";
-      setQuestLabel();
-    });
+      "收症：虛構病人「林先生」同護送喺病人及職員升降機大堂等候。",
+      "先去升降機大堂，撳 A 核對身份，再答收症問題，最後去收症房。"
+    ], function () { step = "goElev"; setQuestLabel(); });
   }
-
   function beginRest() {
     quest = "rest";
     step = "intro";
     seen.rest = true;
     say([
-      "病房二：虛構病人躁動，同事想即刻綁起嚟。",
-      "去病房二撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站記錄。"
-    ], function () {
-      step = "goRoom";
-      setQuestLabel();
-    });
+      "冷靜房：虛構病人躁動，同事想即刻綁起嚟。",
+      "去冷靜房撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站記錄。"
+    ], function () { step = "goRoom"; setQuestLabel(); });
   }
-
-  function onStepLanded() {
-    if (quest === "code" && step === "push" && !triggeredPush && trolley.x === MARK.incident.x && trolley.z === MARK.incident.z) {
+  function onTravel(meters) {
+    if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
       triggeredPush = true;
       step = "battle";
-      say(["急救車趕到事發位置。進入急救認識。"], function () {
-        openBattle("急救認識", CODE_QS);
-      });
+      say(["急救車趕到事發位置。進入急救認識。"], function () { openBattle("急救認識", CODE_QS); });
       return;
     }
     if (quest) return;
-    stepsWalked += 1;
-    if (!seen.code && stepsWalked >= 6) {
-      beginCode();
-      return;
-    }
-    if (stepsWalked < 14) return;
-    if (Math.random() < 0.18 || stepsWalked >= 22) {
-      stepsWalked = 0;
-      if (!seen.admit) beginAdmit();
-      else if (!seen.rest) beginRest();
-      else if (Math.random() < 0.5) beginAdmit();
-      else beginRest();
-    }
+    travel += meters;
+    if (!seen.code && travel >= 7) { beginCode(); return; }
+    if (travel < 16) return;
+    travel = 0;
+    if (!seen.admit) beginAdmit();
+    else if (!seen.rest) beginRest();
+    else if (Math.random() < 0.5) beginAdmit();
+    else beginRest();
   }
 
-  function tryMove(dx, dz) {
-    if (!active || paused || dialog || battle || menuOpen || mapOpen) return;
-    var face = faceOf(dx, dz);
-    var next = { x: player.x + dx, z: player.z + dz };
-    if (!walkable(next.x, next.z)) {
-      if (!pushing) facing = face;
-      setQuestLabel();
-      return;
+  function screenAxes() {
+    var upX = -0.70710678, upZ = -0.70710678;
+    var rightX = -0.70710678, rightZ = 0.70710678;
+    return { upX: upX, upZ: upZ, rightX: rightX, rightZ: rightZ };
+  }
+  function wishVector() {
+    var ax = screenAxes();
+    var ix = 0, iy = 0, mag = 1;
+    if (joy.on) {
+      ix += joy.x;
+      iy += joy.y;
+      mag = Math.min(1, Math.sqrt(joy.x * joy.x + joy.y * joy.y));
     }
+    if (keys.right) ix += 1;
+    if (keys.left) ix -= 1;
+    if (keys.up) iy += 1;
+    if (keys.down) iy -= 1;
+    if (keys.up || keys.down || keys.left || keys.right) mag = 1;
+    var len = Math.sqrt(ix * ix + iy * iy);
+    if (len < 0.04) return { x: 0, z: 0 };
+    ix /= len;
+    iy /= len;
+    return {
+      x: (ix * ax.rightX + iy * ax.upX) * SPEED * mag,
+      z: (ix * ax.rightZ + iy * ax.upZ) * SPEED * mag
+    };
+  }
+  function slide(dx, dz) {
+    if (!canStand(player.x + dx, player.z)) dx = 0;
+    if (!canStand(player.x, player.z + dz)) dz = 0;
+    if (!dx && !dz) return 0;
     if (pushing) {
-      var ahead = { x: next.x + dx, z: next.z + dz };
-      if (!walkable(ahead.x, ahead.z)) {
-        facing = face;
-        trolley.x = next.x;
-        trolley.z = next.z;
-        setQuestLabel();
-        return;
-      }
-      trolley.x = ahead.x;
-      trolley.z = ahead.z;
+      var rot = Math.atan2(dx, dz);
+      var fx = Math.sin(rot), fz = Math.cos(rot);
+      var tx = player.x + dx + fx * 0.85;
+      var tz = player.z + dz + fz * 0.85;
+      if (!canStand(tx, tz)) return 0;
+      trolley.x = tx;
+      trolley.z = tz;
     }
-    facing = face;
-    player.x = next.x;
-    player.z = next.z;
-    setQuestLabel();
-    onStepLanded();
+    player.x += dx;
+    player.z += dz;
+    if (dx || dz) player.rot = Math.atan2(dx, dz);
+    return Math.sqrt(dx * dx + dz * dz);
   }
 
   function tryInteract() {
-    if (!active || paused || menuOpen) return;
-    if (battle) {
-      confirmChoice();
-      return;
-    }
-    if (dialog) {
-      advanceDialog();
-      return;
-    }
+    if (!active || paused || menuOpen || mapOpen) return;
+    if (battle) { confirmChoice(); return; }
+    if (dialog) { advanceDialog(); return; }
     if (quest === "code" && step === "goTrolley" && near(player.x, player.z, trolley.x, trolley.z) && !pushing) {
-      var swing = frontOf(player.x, player.z, facing);
-      if (!walkable(swing.x, swing.z)) {
-        say(["呢邊推唔到，轉個方向先再撳 A。"]);
-        return;
-      }
       pushing = true;
-      trolley.x = swing.x;
-      trolley.z = swing.z;
       step = "push";
       if (incidentMesh) incidentMesh.visible = true;
-      say(["你推住急救車。行去走廊紅色事發點。"], function () { setQuestLabel(); });
+      say(["你推住急救車。沿走廊行去事發位置。"], function () { setQuestLabel(); });
       return;
     }
-    if (quest === "code" && step === "goFax" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
-      step = "docs";
-      say(["傳真機影印藥紙（虛構）。核對病人身份同藥單。"], function () { setQuestLabel(); });
+    if (quest === "code" && (step === "goFax" || step === "docs") && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
+      if (step === "goFax") {
+        step = "docs";
+        say(["傳真機影印藥紙（虛構）。核對病人身份同藥單。"], function () { setQuestLabel(); });
+        return;
+      }
+      say(["文件備好：時間、做過嘅事、邊個在場。今次急救事件完結。分數只係學習回饋。"], function () { clearQuest(); });
       return;
     }
-    if (quest === "code" && step === "docs" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
-      say(["文件備好：時間、做過嘅事、邊個在場。今次急救事件完結。分數只係學習回饋。"], function () {
-        clearQuest();
-      });
-      return;
-    }
-    if (quest === "admit" && step === "goElev" && near(player.x, player.z, MARK.elev.x, MARK.elev.z)) {
+    if (quest === "admit" && step === "goElev" && near(player.x, player.z, MARK.lift.x, MARK.lift.z)) {
       step = "battle";
-      say(["核對「林先生」身份同護送文件（虛構）。接着答收症問題。"], function () {
-        openBattle("收症", ADMIT_QS);
-      });
+      say(["核對「林先生」身份同護送文件（虛構）。接着答收症問題。"], function () { openBattle("收症", ADMIT_QS); });
       return;
     }
-    if (quest === "admit" && step === "goBed" && near(player.x, player.z, MARK.admitBed.x, MARK.admitBed.z)) {
-      say(["已安排虛構病人去病房三。收症流程完結。實際床位跟當更。"], function () { clearQuest(); });
+    if (quest === "admit" && step === "goBed" && near(player.x, player.z, MARK.intake.x, MARK.intake.z)) {
+      say(["已喺收症房完成虛構安排。實際床位跟當更。"], function () { clearQuest(); });
       return;
     }
-    if (quest === "rest" && step === "goRoom" && near(player.x, player.z, MARK.restBed.x, MARK.restBed.z)) {
+    if (quest === "rest" && step === "goRoom" && near(player.x, player.z, MARK.secl.x, MARK.secl.z)) {
       step = "battle";
-      say(["先確保安全，唔好當懲罰。接着答約束問題。"], function () {
-        openBattle("約束", REST_QS);
-      });
+      say(["先確保安全，唔好當懲罰。接着答約束問題。"], function () { openBattle("約束", REST_QS); });
       return;
     }
     if (quest === "rest" && step === "goNurse" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
       say(["已喺護士站記錄約束原因、時間同循環檢查（虛構）。事件完結。"], function () { clearQuest(); });
       return;
     }
-    var here = roomNameAt(player.x, player.z);
-    say([here + "。撳 B 可以睇任務目標。"]);
+    say([roomNameAt(player.x, player.z) + "。撳 B 可以睇任務目標。"]);
   }
-
   function toggleMap() {
     mapOpen = !mapOpen;
     show("wardMapOverlay", mapOpen);
     if (mapOpen) drawBigMap();
     setQuestLabel();
   }
-
   function pressB() {
     if (!active || paused) return;
-    if (mapOpen) {
-      mapOpen = false;
-      show("wardMapOverlay", false);
-      setQuestLabel();
-      return;
-    }
-    if (battle) {
-      backChoice();
-      return;
-    }
-    if (dialog) {
-      advanceDialog();
-      return;
-    }
+    if (mapOpen) { mapOpen = false; show("wardMapOverlay", false); setQuestLabel(); return; }
+    if (battle) { backChoice(); return; }
+    if (dialog) { advanceDialog(); return; }
     if (menuOpen) closeMenu();
     else openMenu();
   }
@@ -685,34 +493,11 @@
   function mat(color) {
     return new THREE.MeshLambertMaterial({ color: color, flatShading: true });
   }
-
   function addBox(parent, w, h, d, color, x, y, z) {
     var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
     mesh.position.set(x, y, z);
     parent.add(mesh);
     return mesh;
-  }
-
-  function labelSprite(text, color) {
-    var c = document.createElement("canvas");
-    c.width = 512;
-    c.height = 96;
-    var g = c.getContext("2d");
-    g.fillStyle = "rgba(12, 40, 48, 0.78)";
-    g.fillRect(8, 8, 496, 80);
-    g.strokeStyle = color || "#f6e27a";
-    g.lineWidth = 6;
-    g.strokeRect(8, 8, 496, 80);
-    g.fillStyle = "#fff8ee";
-    g.font = "bold 42px sans-serif";
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.fillText(text, 256, 50);
-    var tex = new THREE.CanvasTexture(c);
-    tex.magFilter = THREE.NearestFilter;
-    var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(3.4, 0.64, 1);
-    return sprite;
   }
 
   function buildScene() {
@@ -725,72 +510,96 @@
     camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80);
     scene.add(new THREE.AmbientLight(0xfff4dd, 0.72));
     var sun = new THREE.DirectionalLight(0xffffff, 0.85);
-    sun.position.set(8, 16, 6);
+    sun.position.set(12, 18, 8);
     scene.add(sun);
 
-    var floors = new THREE.Group();
-    scene.add(floors);
-    WARD_ROOMS.forEach(function (room) {
-      var mesh = new THREE.Mesh(new THREE.BoxGeometry(room.w * TILE, 0.18, room.h * TILE), mat(room.floor));
-      mesh.position.set(room.x + room.w / 2, -0.09, room.z + room.h / 2);
-      floors.add(mesh);
-      (room.door || []).forEach(function (d) {
-        var plate = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.18, 0.96), mat(room.floor));
-        plate.position.set(d[0] + 0.5, -0.09, d[1] + 0.5);
-        floors.add(plate);
-      });
-      var tag = labelSprite(room.name, room.kind === "blue" ? "#9fd0ff" : "#f6e27a");
-      tag.position.set(room.x + room.w / 2, 1.55, room.z + room.h / 2);
-      tag.scale.set(Math.min(2.8, room.w * 0.7), 0.5, 1);
-      scene.add(tag);
-      if (room.kind === "bed") addBeds(room, room.beds || 6);
-      if (room.kind === "single") addBeds(room, 1);
-      if (room.kind === "nurse") addNurse(room);
-      if (room.kind === "treat") addTreat(room);
-      if (room.kind === "elev") addElev(room);
-      if (room.kind === "blue") addBlue(room);
-      if (room.kind === "stair") addStair(room);
-      if (room.kind === "living") addLiving(room);
-      if (room.kind === "toilet") addToilet(room);
-      if (room.kind === "bath") addBath(room);
-      if (room.kind === "consult" || room.kind === "office") addDesk(room);
-      if (room.kind === "visit") addVisit(room);
-      if (room.kind === "therapy") addTherapy(room);
-      if (room.kind === "med") addMed(room);
-      if (room.kind === "garden") addGarden(room);
-    });
-
-    var spots = [];
-    var z, x, i, nx, nz, nearWall;
-    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (z = 0; z < MAP_H; z++) {
-      for (x = 0; x < MAP_W; x++) {
-        if (walk[z][x]) continue;
-        nearWall = false;
-        for (i = 0; i < 4; i++) {
-          nx = x + nbs[i][0];
-          nz = z + nbs[i][1];
-          if (walkable(nx, nz)) nearWall = true;
-        }
-        if (nearWall) spots.push([x, z]);
-      }
+    var floorCanvas = document.createElement("canvas");
+    floorCanvas.width = GW;
+    floorCanvas.height = GH;
+    var fg = floorCanvas.getContext("2d");
+    var img = fg.createImageData(GW, GH);
+    var data = img.data;
+    var i, id, col, r, g, b, a;
+    for (i = 0; i < GW * GH; i++) {
+      if (walk[i] !== 1) continue;
+      id = roomOf[i];
+      col = id >= 2 ? SHELL.rooms[id - 2].color : 0xd7c4a3;
+      r = (col >> 16) & 255; g = (col >> 8) & 255; b = col & 255;
+      a = i * 4;
+      data[a] = r; data[a + 1] = g; data[a + 2] = b; data[a + 3] = 255;
     }
-    var wallGeo = new THREE.BoxGeometry(0.98, 1.15, 0.98);
-    var walls = new THREE.InstancedMesh(wallGeo, mat(0xf4efe2), spots.length);
-    var dummy = new THREE.Object3D();
-    spots.forEach(function (s, idx) {
-      dummy.position.set(s[0] + 0.5, 0.57, s[1] + 0.5);
-      dummy.updateMatrix();
-      walls.setMatrixAt(idx, dummy.matrix);
+    fg.putImageData(img, 0, 0);
+    paintShellFill(fg, GW, GH);
+    fg.save();
+    fg.globalCompositeOperation = "destination-over";
+    fg.fillStyle = "#8ec6ea";
+    fg.fillRect(0, 0, GW, GH);
+    fg.restore();
+    var tex = new THREE.CanvasTexture(floorCanvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.flipY = false;
+    var floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), new THREE.MeshLambertMaterial({ map: tex }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(GW * CELL / 2, -0.05, GH * CELL / 2);
+    scene.add(floor);
+
+    var segs = [];
+    var ring = SHELL.ring || [];
+    for (i = 0; i < ring.length - 1; i++) {
+      segs.push([ring[i][0], ring[i][1], ring[i + 1][0], ring[i + 1][1]]);
+    }
+    (SHELL.walls || []).forEach(function (w) { segs.push(w); });
+    segs = segs.filter(function (s) {
+      var dx = s[2] - s[0], dz = s[3] - s[1];
+      return dx * dx + dz * dz > 0.04;
     });
-    walls.instanceMatrix.needsUpdate = true;
-    scene.add(walls);
+    if (segs.length) {
+      var walls = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0xf4efe2), segs.length);
+      var dummy = new THREE.Object3D();
+      segs.forEach(function (s, idx) {
+        var dx = s[2] - s[0], dz = s[3] - s[1];
+        var len = Math.sqrt(dx * dx + dz * dz);
+        dummy.position.set((s[0] + s[2]) / 2, 0.58, (s[1] + s[3]) / 2);
+        dummy.rotation.set(0, Math.atan2(dx, dz), 0);
+        dummy.scale.set(0.22, 1.16, len);
+        dummy.updateMatrix();
+        walls.setMatrixAt(idx, dummy.matrix);
+      });
+      walls.instanceMatrix.needsUpdate = true;
+      scene.add(walls);
+    }
+
+    SHELL.rooms.forEach(function (room) {
+      if (room.kind === "wc" || room.kind === "store") return;
+      var tag = labelSprite(room.name);
+      tag.position.set((room.c + 0.5) * CELL, 1.7, (room.r + 0.5) * CELL);
+      scene.add(tag);
+    });
+    (SHELL.beds || []).forEach(function (bed) {
+      var group = new THREE.Group();
+      addBox(group, 0.95, 0.18, 1.7, 0xf7f1e4, 0, 0.2, 0);
+      var blanket = addBox(group, 0.78, 0.08, 1.25, 0x6cb5d6, 0, 0.32, 0.05);
+      blanket.userData.kind = "bed";
+      blanket.userData.room = bed.room;
+      addBox(group, 0.42, 0.08, 0.28, 0xfff8ee, 0, 0.4, -0.62);
+      group.position.set(bed.x, 0, bed.z);
+      group.rotation.y = bed.ang || 0;
+      scene.add(group);
+    });
+    addBox(scene, 4.2, 0.5, 1.05, 0xefe6d4, MARK.nurse.x - 0.4, 0.32, MARK.nurse.z - 0.2);
+    addBox(scene, 0.55, 0.22, 0.38, 0x2c3440, MARK.computer.x, 0.55, MARK.computer.z);
+    addBox(scene, 0.5, 0.32, 0.08, 0x8fd0ff, MARK.computer.x, 0.86, MARK.computer.z);
+    addBox(scene, 0.62, 0.3, 0.42, 0x4d5966, MARK.fax.x, 0.5, MARK.fax.z);
+    addBox(scene, 0.7, 0.7, 0.5, 0xf4f7fb, MARK.treat.x - 1.2, 0.4, MARK.treat.z);
+    addBox(scene, 0.18, 0.32, 0.08, 0xd6453d, MARK.treat.x - 1.2, 0.9, MARK.treat.z);
 
     playerMesh = new THREE.Group();
     addBox(playerMesh, 0.46, 0.48, 0.34, 0x2f6f9a, 0, 0.46, 0);
     addBox(playerMesh, 0.32, 0.28, 0.28, 0xf3c7a1, 0, 0.82, 0);
     addBox(playerMesh, 0.36, 0.1, 0.36, 0xfff8ee, 0, 0.98, 0);
     addBox(playerMesh, 0.08, 0.08, 0.08, 0x1b2830, 0.08, 0.84, 0.12);
+    playerMesh.scale.set(0.9, 0.9, 0.9);
     scene.add(playerMesh);
 
     trolleyMesh = new THREE.Group();
@@ -801,143 +610,145 @@
     addBox(trolleyMesh, 0.12, 0.12, 0.12, 0x222222, 0.22, 0.16, 0.14);
     scene.add(trolleyMesh);
 
-    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.8), mat(0xe23b32));
-    incidentMesh.position.set(MARK.incident.x + 0.5, 0.08, MARK.incident.z + 0.5);
+    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.9), mat(0xe23b32));
+    incidentMesh.position.set(MARK.incident.x, 0.06, MARK.incident.z);
     incidentMesh.visible = false;
     scene.add(incidentMesh);
     built = true;
   }
 
-  function addBeds(room, count) {
-    var cols = count === 1 ? 1 : 3;
-    var rows = Math.ceil(count / cols);
-    var i, col, row, x, z;
-    var marginX = 1.7;
-    var marginZ = 1.8;
-    for (i = 0; i < count; i++) {
-      col = i % cols;
-      row = Math.floor(i / cols);
-      x = cols === 1 ? room.x + room.w / 2 : room.x + marginX + col * ((room.w - marginX * 2) / (cols - 1));
-      z = rows === 1 ? room.z + room.h / 2 : room.z + marginZ + row * ((room.h - marginZ * 2) / (rows - 1));
-      addBox(scene, 0.9, 0.18, 1.35, 0xf7f1e4, x, 0.2, z);
-      var blanket = addBox(scene, 0.72, 0.08, 1.0, 0x6cb5d6, x, 0.32, z);
-      blanket.userData.kind = "bed";
-      blanket.userData.room = room.id;
-      addBox(scene, 0.34, 0.08, 0.24, 0xfff8ee, x, 0.4, z - 0.42);
-    }
-  }
-  function addNurse(room) {
-    addBox(scene, Math.min(6.4, room.w * 0.55), 0.55, 1.15, 0xefe6d4, room.x + room.w * 0.42, 0.35, room.z + 1.8);
-    addBox(scene, 0.55, 0.24, 0.4, 0x2c3440, MARK.computer.x + 0.5, 0.55, MARK.computer.z + 0.5);
-    addBox(scene, 0.52, 0.36, 0.08, 0x8fd0ff, MARK.computer.x + 0.5, 0.88, MARK.computer.z + 0.32);
-    addBox(scene, 0.62, 0.32, 0.42, 0x4d5966, MARK.fax.x + 0.5, 0.52, MARK.fax.z + 0.5);
-    addBox(scene, 0.32, 0.05, 0.22, 0xf4f7fb, MARK.fax.x + 0.5, 0.74, MARK.fax.z + 0.28);
-  }
-  function addTreat(room) {
-    addBox(scene, 0.7, 0.7, 0.55, 0xf4f7fb, room.x + 1.3, 0.4, room.z + 1.4);
-    addBox(scene, 0.18, 0.35, 0.08, 0xd6453d, room.x + 1.3, 0.9, room.z + 1.4);
-  }
-  function addElev(room) {
-    addBox(scene, room.w * 0.62, 0.9, 0.16, 0xb7c3cf, room.x + room.w / 2, 0.5, room.z + 0.45);
-    addBox(scene, 0.1, 0.35, 0.1, 0xf0d050, room.x + room.w / 2, 0.55, room.z + 0.7);
-  }
-  function addBlue(room) {
-    addBox(scene, 1.1, 0.28, 0.4, 0x2a4f86, room.x + room.w / 2, 0.2, room.z + 1.2);
-    addBox(scene, 1.1, 0.28, 0.4, 0x2a4f86, room.x + room.w / 2, 0.2, room.z + room.h - 1.2);
-  }
-  function addStair(room) {
-    var i, n = Math.min(4, room.h);
-    for (i = 0; i < n; i++) {
-      addBox(scene, room.w * 0.62, 0.14, 0.45, 0x9aa3ad, room.x + room.w / 2, 0.1 + i * 0.14, room.z + 0.6 + i * 0.55);
-    }
-  }
-  function addLiving(room) {
-    addBox(scene, 1.7, 0.2, 0.95, 0xc48a4a, room.x + room.w * 0.38, 0.16, room.z + room.h * 0.42);
-    addBox(scene, 1.4, 0.2, 0.8, 0xb8743a, room.x + room.w * 0.7, 0.16, room.z + room.h * 0.68);
-  }
-  function addToilet(room) {
-    addBox(scene, 0.4, 0.35, 0.45, 0xf7f7f7, room.x + room.w / 2, 0.22, room.z + room.h / 2);
-  }
-  function addBath(room) {
-    addBox(scene, 1.1, 0.28, 0.6, 0xd7eef8, room.x + room.w / 2, 0.2, room.z + 1.3);
-  }
-  function addDesk(room) {
-    addBox(scene, 0.9, 0.4, 0.5, 0x8a5a32, room.x + room.w / 2, 0.28, room.z + 1.2);
-  }
-  function addVisit(room) {
-    addBox(scene, 0.4, 0.4, 0.4, 0xc47b8a, room.x + 1.1, 0.25, room.z + 1.4);
-    addBox(scene, 0.4, 0.4, 0.4, 0xc47b8a, room.x + room.w - 1.1, 0.25, room.z + 1.4);
-  }
-  function addTherapy(room) {
-    addBox(scene, 1.2, 0.1, 0.8, 0xf2d2f6, room.x + room.w / 2, 0.12, room.z + room.h / 2);
-  }
-  function addMed(room) {
-    addBox(scene, 0.35, 0.7, 0.8, 0xf7f1e4, room.x + 1, 0.4, room.z + 1.2);
-    addBox(scene, 0.35, 0.7, 0.8, 0xe7d7b0, room.x + room.w - 1, 0.4, room.z + 1.2);
-  }
-  function addGarden(room) {
-    addBox(scene, 0.6, 0.45, 0.6, 0x3d8f4a, room.x + 1.5, 0.28, room.z + 1.4);
-    addBox(scene, 0.5, 0.35, 0.5, 0x2f7a3a, room.x + room.w - 1.6, 0.22, room.z + room.h - 1.3);
+  function labelSprite(text) {
+    var c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 96;
+    var g = c.getContext("2d");
+    g.fillStyle = "rgba(12, 40, 48, 0.78)";
+    g.fillRect(8, 8, 496, 80);
+    g.strokeStyle = "#f6e27a";
+    g.lineWidth = 6;
+    g.strokeRect(8, 8, 496, 80);
+    g.fillStyle = "#fff8ee";
+    g.font = "bold 40px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(text, 256, 50);
+    var tex = new THREE.CanvasTexture(c);
+    tex.magFilter = THREE.NearestFilter;
+    var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sprite.scale.set(3.2, 0.6, 1);
+    return sprite;
   }
 
-  function hexColor(n) {
-    return "#" + n.toString(16).padStart(6, "0");
+  function paintShellFill(ctx, w, h) {
+    var ring = SHELL.ring || [];
+    if (ring.length < 3) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.fillStyle = "#f4efe2";
+    ctx.beginPath();
+    ctx.moveTo(ring[0][0] / CELL * (w / GW), ring[0][1] / CELL * (h / GH));
+    var i;
+    for (i = 1; i < ring.length; i++) ctx.lineTo(ring[i][0] / CELL * (w / GW), ring[i][1] / CELL * (h / GH));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
-
-  function paintWardMap(ctx, w, h, labels) {
-    var pad = labels ? 28 : 10;
-    var scale = Math.min((w - pad * 2) / MAP_W, (h - pad * 2) / MAP_H);
-    var ox = (w - MAP_W * scale) / 2;
-    var oy = (h - MAP_H * scale) / 2;
-    ctx.fillStyle = "#10242c";
-    ctx.fillRect(0, 0, w, h);
-    var z, x, id, room;
-    for (z = 0; z < MAP_H; z++) {
-      for (x = 0; x < MAP_W; x++) {
-        if (!walk[z] || !walk[z][x]) continue;
-        id = owner[z][x];
-        room = roomById[id];
-        ctx.fillStyle = room ? hexColor(room.floor) : "#d7c4a3";
-        ctx.fillRect(ox + x * scale, oy + z * scale, scale + 0.4, scale + 0.4);
+  var mapCache = null;
+  var mapBox = null;
+  function ensureMapCache() {
+    if (mapCache) return;
+    var minC = GW, minR = GH, maxC = 0, maxR = 0, r, c, id, col, a;
+    for (r = 0; r < GH; r++) {
+      for (c = 0; c < GW; c++) {
+        if (walk[r * GW + c] !== 1) continue;
+        if (c < minC) minC = c;
+        if (c > maxC) maxC = c;
+        if (r < minR) minR = r;
+        if (r > maxR) maxR = r;
       }
     }
+    minC = Math.max(0, minC - 3);
+    minR = Math.max(0, minR - 3);
+    maxC = Math.min(GW - 1, maxC + 3);
+    maxR = Math.min(GH - 1, maxR + 3);
+    mapBox = { minC: minC, minR: minR, bw: maxC - minC + 1, bh: maxR - minR + 1 };
+    var img = new ImageData(GW, GH);
+    var data = img.data;
+    for (r = 0; r < GH; r++) {
+      for (c = 0; c < GW; c++) {
+        a = (r * GW + c) * 4;
+        if (walk[r * GW + c] !== 1) { data[a + 3] = 0; continue; }
+        id = roomOf[r * GW + c];
+        col = id >= 2 ? SHELL.rooms[id - 2].color : 0xd7c4a3;
+        data[a] = (col >> 16) & 255;
+        data[a + 1] = (col >> 8) & 255;
+        data[a + 2] = col & 255;
+        data[a + 3] = 255;
+      }
+    }
+    mapCache = document.createElement("canvas");
+    mapCache.width = GW;
+    mapCache.height = GH;
+    var g = mapCache.getContext("2d");
+    g.putImageData(img, 0, 0);
+    paintShellFill(g, GW, GH);
+  }
+  function paintMap(ctx, w, h, labels) {
+    ensureMapCache();
+    var b = mapBox;
+    ctx.fillStyle = "#10242c";
+    ctx.fillRect(0, 0, w, h);
+    var scale = Math.min((w - 16) / b.bw, (h - 16) / b.bh);
+    var ox = (w - b.bw * scale) / 2;
+    var oy = (h - b.bh * scale) / 2;
+    function mx(x) { return ox + (x / CELL - b.minC) * scale; }
+    function mz(z) { return oy + (z / CELL - b.minR) * scale; }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mapCache, b.minC, b.minR, b.bw, b.bh, ox, oy, b.bw * scale, b.bh * scale);
+    if (SHELL.ring && SHELL.ring.length > 2) {
+      ctx.beginPath();
+      ctx.strokeStyle = "#f4efe2";
+      ctx.lineWidth = Math.max(1.5, scale * 0.7);
+      SHELL.ring.forEach(function (p, i) {
+        if (i === 0) ctx.moveTo(mx(p[0]), mz(p[1]));
+        else ctx.lineTo(mx(p[0]), mz(p[1]));
+      });
+      ctx.stroke();
+    }
+    if (SHELL.walls) {
+      ctx.strokeStyle = "rgba(80, 62, 48, 0.85)";
+      ctx.lineWidth = Math.max(1, scale * 0.35);
+      SHELL.walls.forEach(function (s) {
+        ctx.beginPath();
+        ctx.moveTo(mx(s[0]), mz(s[1]));
+        ctx.lineTo(mx(s[2]), mz(s[3]));
+        ctx.stroke();
+      });
+    }
     if (labels) {
+      ctx.fillStyle = "#142226";
       ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.font = "bold " + Math.max(9, Math.floor(scale * 1.15)) + "px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
-      WARD_ROOMS.forEach(function (r) {
-        ctx.fillStyle = "#142226";
-        ctx.fillText(r.name, ox + (r.x + r.w / 2) * scale, oy + (r.z + r.h / 2) * scale);
+      ctx.font = "bold 12px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+      SHELL.rooms.forEach(function (room) {
+        if (room.kind === "wc" || room.kind === "store") return;
+        ctx.fillText(room.name, mx((room.c + 0.5) * CELL), mz((room.r + 0.5) * CELL));
       });
     }
     ctx.fillStyle = "#e23b32";
     ctx.beginPath();
-    ctx.arc(ox + (player.x + 0.5) * scale, oy + (player.z + 0.5) * scale, Math.max(3, scale * 0.42), 0, Math.PI * 2);
+    ctx.arc(mx(player.x), mz(player.z), Math.max(3.5, scale * 1.3), 0, Math.PI * 2);
     ctx.fill();
-    var face = DIRS[facing] || DIRS[0];
-    ctx.strokeStyle = "#fff8ee";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(ox + (player.x + 0.5) * scale, oy + (player.z + 0.5) * scale);
-    ctx.lineTo(ox + (player.x + 0.5 + face.x * 0.7) * scale, oy + (player.z + 0.5 + face.z * 0.7) * scale);
-    ctx.stroke();
-    if (pushing || quest === "code") {
-      ctx.fillStyle = "#ffd15c";
-      ctx.fillRect(ox + trolley.x * scale, oy + trolley.z * scale, Math.max(2, scale * 0.7), Math.max(2, scale * 0.7));
-    }
   }
-
   function drawMinimap() {
     var map = el("wardMinimap");
-    if (!map || !walk.length) return;
+    if (!map) return;
     var ctx = map.getContext("2d");
-    var w = map.width;
-    var h = map.height;
+    var w = map.width, h = map.height;
     ctx.save();
     ctx.beginPath();
     ctx.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
     ctx.clip();
-    paintWardMap(ctx, w, h, false);
+    paintMap(ctx, w, h, false);
     ctx.restore();
     ctx.strokeStyle = "#f0d48a";
     ctx.lineWidth = 6;
@@ -945,70 +756,51 @@
     ctx.arc(w / 2, h / 2, w / 2 - 4, 0, Math.PI * 2);
     ctx.stroke();
   }
-
   function drawBigMap() {
     var map = el("wardMapBig");
-    if (!map || !walk.length) return;
-    var ctx = map.getContext("2d");
-    paintWardMap(ctx, map.width, map.height, true);
+    if (!map) return;
+    paintMap(map.getContext("2d"), map.width, map.height, true);
   }
 
   function frame(ts) {
     raf = requestAnimationFrame(frame);
     if (!active) return;
-    clock = ts || 0;
-    if (!paused && (keys.up || keys.down || keys.left || keys.right)) {
-      if (battle && battle.phase === "ask") {
-        if (keys.up || keys.left) battle.cursor = (battle.cursor + 3) % 4;
-        else battle.cursor = (battle.cursor + 1) % 4;
-        keys.up = keys.down = keys.left = keys.right = false;
-        renderBattle();
-      } else {
-        keyTimer += 16;
-        if (keyTimer >= MOVE_MS) {
-          keyTimer = 0;
-          if (keys.up) tryMove(0, -1);
-          else if (keys.down) tryMove(0, 1);
-          else if (keys.left) tryMove(-1, 0);
-          else if (keys.right) tryMove(1, 0);
-        }
+    var dt = Math.min(0.05, lastTs ? (ts - lastTs) / 1000 : 0.016);
+    lastTs = ts || 0;
+    if (!paused && !dialog && !battle && !menuOpen && !mapOpen) {
+      var wish = wishVector();
+      if (wish.x || wish.z) {
+        var moved = slide(wish.x * dt, wish.z * dt);
+        if (moved) onTravel(moved);
       }
     }
     if (playerMesh) {
-      var bob = paused ? 0 : Math.sin(clock * 0.008) * 0.03;
-      playerMesh.position.set(player.x + 0.5, bob, player.z + 0.5);
-      playerMesh.rotation.y = [Math.PI / 2, 0, -Math.PI / 2, Math.PI][facing];
+      var bob = paused ? 0 : Math.sin((ts || 0) * 0.008) * 0.03;
+      playerMesh.position.set(player.x, bob, player.z);
+      playerMesh.rotation.y = player.rot;
     }
-    if (trolleyMesh) {
-      trolleyMesh.position.set(trolley.x + 0.5, 0, trolley.z + 0.5);
-      trolleyMesh.visible = true;
-    }
+    if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
     if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
     drawMinimap();
     if (camera && renderer && !glFailed) {
       try {
-        var aspect = Math.max(0.4, (renderer.domElement.clientWidth || 1) / Math.max(1, renderer.domElement.clientHeight || 1));
-        var view = 7.2;
+        var aspect = Math.max(0.45, (renderer.domElement.clientWidth || 1) / Math.max(1, renderer.domElement.clientHeight || 1));
+        var view = 6.4;
         var halfW = view * aspect;
         var halfH = view;
-        var cap = 10.5;
-        if (halfW > cap) {
-          halfH *= cap / halfW;
-          halfW = cap;
-        }
-        camera.left = -halfW;
-        camera.right = halfW;
-        camera.top = halfH;
-        camera.bottom = -halfH;
+        if (halfW > 9.5) { halfH *= 9.5 / halfW; halfW = 9.5; }
+        camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH;
         camera.updateProjectionMatrix();
-        camera.position.set(player.x + 0.5 + 7.5, 11, player.z + 0.5 + 7.5);
-        camera.lookAt(player.x + 0.5, 0, player.z + 0.5);
+        camera.position.set(player.x + 7, 11, player.z + 7);
+        camera.lookAt(player.x, 0.2, player.z);
         renderer.render(scene, camera);
       } catch (err) {
         glFailed = true;
         showGlError("立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。");
       }
     }
+    var roomNode = el("wardRoomLabel");
+    if (roomNode) roomNode.textContent = roomNameAt(player.x, player.z);
   }
 
   function onResize() {
@@ -1018,72 +810,90 @@
     var w = wrap.clientWidth || 300;
     var h = wrap.clientHeight || 200;
     renderer.setSize(w, h, false);
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
   }
 
   function resetPlay() {
     player.x = MARK.start.x;
     player.z = MARK.start.z;
-    facing = 0;
-    mapOpen = false;
-    show("wardMapOverlay", false);
+    player.rot = 0.4;
     trolley.x = MARK.trolley.x;
     trolley.z = MARK.trolley.z;
     pushing = false;
     quest = "";
     step = "idle";
-    stepsWalked = 0;
+    travel = 0;
     seen = { code: false, admit: false, rest: false };
     dialog = null;
     battle = null;
     menuOpen = false;
+    mapOpen = false;
     triggeredPush = false;
+    joy.x = joy.y = 0; joy.on = false;
+    keys.up = keys.down = keys.left = keys.right = false;
     show("wardDialog", false);
     show("wardBattle", false);
     show("wardMenu", false);
+    show("wardMapOverlay", false);
     if (incidentMesh) incidentMesh.visible = false;
     setQuestLabel();
   }
 
-  var glFailed = false;
-
-  function showGlError(msg) {
-    var node = el("wardFallback");
-    if (!node) return;
-    node.textContent = msg || "立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。";
-    node.classList.add("show");
-  }
-
   function dirOfKey(e) {
     var code = e.code || "";
-    if (code === "ArrowUp" || code === "KeyW") return "up";
-    if (code === "ArrowDown" || code === "KeyS") return "down";
-    if (code === "ArrowLeft" || code === "KeyA") return "left";
-    if (code === "ArrowRight" || code === "KeyD") return "right";
+    var key = e.key || "";
+    if (code === "ArrowUp" || code === "KeyW" || key === "ArrowUp" || key === "w" || key === "W") return "up";
+    if (code === "ArrowDown" || code === "KeyS" || key === "ArrowDown" || key === "s" || key === "S") return "down";
+    if (code === "ArrowLeft" || code === "KeyA" || key === "ArrowLeft" || key === "a" || key === "A") return "left";
+    if (code === "ArrowRight" || code === "KeyD" || key === "ArrowRight" || key === "d" || key === "D") return "right";
     return "";
   }
 
-  function stepKey(name) {
-    if (name === "up") tryMove(0, -1);
-    else if (name === "down") tryMove(0, 1);
-    else if (name === "left") tryMove(-1, 0);
-    else if (name === "right") tryMove(1, 0);
-  }
-
   function bind() {
-    document.querySelectorAll(".ward-pad").forEach(function (btn) {
-      function press(ev) {
-        if (ev.cancelable) ev.preventDefault();
-        keys[btn.getAttribute("data-k")] = true;
-        keyTimer = MOVE_MS;
+    var joyEl = el("wardJoy");
+    var knob = el("wardJoyKnob");
+    if (joyEl) {
+      var pid = null;
+      function center() {
+        var rect = joyEl.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, r: rect.width * 0.38 };
       }
-      function release() { keys[btn.getAttribute("data-k")] = false; }
-      btn.addEventListener("pointerdown", press);
-      btn.addEventListener("pointerup", release);
-      btn.addEventListener("pointerleave", release);
-      btn.addEventListener("pointercancel", release);
-    });
+      function setJoy(clientX, clientY) {
+        var c = center();
+        var dx = clientX - c.x;
+        var dy = c.y - clientY;
+        var mag = Math.sqrt(dx * dx + dy * dy) || 1;
+        var lim = c.r;
+        var cl = Math.min(lim, mag);
+        joy.x = (dx / mag) * (cl / lim);
+        joy.y = (dy / mag) * (cl / lim);
+        joy.on = true;
+        if (knob) knob.style.transform = "translate(" + (dx / mag) * cl + "px," + (-dy / mag) * cl + "px)";
+      }
+      function endJoy() {
+        pid = null;
+        joy.on = false; joy.x = 0; joy.y = 0;
+        if (knob) knob.style.transform = "translate(0,0)";
+      }
+      joyEl.addEventListener("pointerdown", function (ev) {
+        if (ev.cancelable) ev.preventDefault();
+        pid = ev.pointerId;
+        try { joyEl.setPointerCapture(ev.pointerId); } catch (err) { /* mouse fallback still tracks */ }
+        setJoy(ev.clientX, ev.clientY);
+      });
+      window.addEventListener("pointermove", function (ev) {
+        if (pid == null || ev.pointerId !== pid) return;
+        if (ev.cancelable) ev.preventDefault();
+        setJoy(ev.clientX, ev.clientY);
+      });
+      window.addEventListener("pointerup", function (ev) {
+        if (pid == null || ev.pointerId !== pid) return;
+        endJoy();
+      });
+      window.addEventListener("pointercancel", function (ev) {
+        if (pid == null || ev.pointerId !== pid) return;
+        endJoy();
+      });
+    }
     el("wardBtnA").addEventListener("pointerdown", function (ev) {
       if (ev.cancelable) ev.preventDefault();
       tryInteract();
@@ -1094,18 +904,12 @@
     });
     el("wardMenuClose").addEventListener("click", closeMenu);
     var mini = el("wardMinimap");
-    if (mini) {
-      mini.addEventListener("pointerdown", function (ev) {
-        if (ev.cancelable) ev.preventDefault();
-        toggleMap();
-      });
-    }
+    if (mini) mini.addEventListener("pointerdown", function (ev) {
+      if (ev.cancelable) ev.preventDefault();
+      toggleMap();
+    });
     var overlay = el("wardMapOverlay");
-    if (overlay) {
-      overlay.addEventListener("pointerdown", function () {
-        if (mapOpen) toggleMap();
-      });
-    }
+    if (overlay) overlay.addEventListener("pointerdown", function () { if (mapOpen) toggleMap(); });
     window.addEventListener("keydown", function (e) {
       if (!active) return;
       var dir = dirOfKey(e);
@@ -1119,21 +923,14 @@
           return;
         }
         keys[dir] = true;
-        if (e.repeat) return;
-        keyTimer = 0;
-        stepKey(dir);
         return;
       }
       var code = e.code || "";
-      var confirm = code === "KeyZ" || code === "Enter" || code === "NumpadEnter";
-      var cancel = code === "KeyX" || code === "KeyB" || code === "Escape";
-      if (confirm) {
-        e.preventDefault();
-        if (!e.repeat) tryInteract();
-      } else if (cancel) {
-        e.preventDefault();
-        if (!e.repeat) pressB();
-      }
+      var key = e.key || "";
+      var confirm = code === "KeyZ" || code === "Enter" || code === "NumpadEnter" || key === "z" || key === "Z" || key === "Enter";
+      var cancel = code === "KeyX" || code === "KeyB" || code === "Escape" || key === "x" || key === "X" || key === "b" || key === "B" || key === "Escape";
+      if (confirm) { e.preventDefault(); if (!e.repeat) tryInteract(); }
+      else if (cancel) { e.preventDefault(); if (!e.repeat) pressB(); }
     }, true);
     window.addEventListener("keyup", function (e) {
       var dir = dirOfKey(e);
@@ -1142,120 +939,74 @@
     window.addEventListener("resize", onResize);
   }
 
-  function tileDistance(ax, az, bx, bz) {
-    if (!walkable(ax, az) || !walkable(bx, bz)) return -1;
-    var q = [[ax, az, 0]];
+  function pathMeters(ax, az, bx, bz) {
+    var a = cellAt(ax, az), b = cellAt(bx, bz);
+    if (!walkAt(a.c, a.r) || !walkAt(b.c, b.r)) return -1;
+    var q = [[a.c, a.r, 0]];
     var seenT = {};
-    seenT[ax + "," + az] = 1;
-    var i, cur, nx, nz, k;
+    seenT[a.c + "," + a.r] = 1;
+    var i, cur, k, nx, ny;
     var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (i = 0; i < q.length; i++) {
       cur = q[i];
-      if (cur[0] === bx && cur[1] === bz) return cur[2];
+      if (cur[0] === b.c && cur[1] === b.r) return cur[2] * CELL;
       for (k = 0; k < 4; k++) {
         nx = cur[0] + nbs[k][0];
-        nz = cur[1] + nbs[k][1];
-        if (!walkable(nx, nz) || seenT[nx + "," + nz]) continue;
-        seenT[nx + "," + nz] = 1;
-        q.push([nx, nz, cur[2] + 1]);
+        ny = cur[1] + nbs[k][1];
+        if (!walkAt(nx, ny) || seenT[nx + "," + ny]) continue;
+        seenT[nx + "," + ny] = 1;
+        q.push([nx, ny, cur[2] + 1]);
       }
     }
     return -1;
   }
 
-  function reachableRooms() {
-    var seenR = {};
-    var q = [[MARK.start.x, MARK.start.z]];
-    var seenT = {};
-    seenT[MARK.start.x + "," + MARK.start.z] = 1;
-    var i, cur, nx, nz, k, id;
-    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (i = 0; i < q.length; i++) {
-      cur = q[i];
-      id = owner[cur[1]][cur[0]];
-      if (id) seenR[id] = 1;
-      for (k = 0; k < 4; k++) {
-        nx = cur[0] + nbs[k][0];
-        nz = cur[1] + nbs[k][1];
-        if (!walkable(nx, nz) || seenT[nx + "," + nz]) continue;
-        seenT[nx + "," + nz] = 1;
-        q.push([nx, nz]);
-      }
-    }
-    return Object.keys(seenR);
-  }
-
   function start() {
     active = true;
     paused = false;
-    if (!window.THREE) {
-      showGlError("Three.js 未載入。請同 game.html 一齊開啟 vendor/three.min.js。唔使密碼。");
+    if (!window.THREE || !SHELL) {
+      showGlError("畫面未載入。請同 game.html 一齊開啟 vendor/three.min.js 同 ward-shell.js。唔使密碼。");
       return;
     }
     if (!built) {
-      try {
-        buildGrid();
-        buildScene();
-        bind();
-      } catch (err) {
+      try { buildScene(); bind(); }
+      catch (err) {
         showGlError("立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。");
         return;
       }
     }
     resetPlay();
     if (!raf) raf = requestAnimationFrame(frame);
-    requestAnimationFrame(function () {
-      onResize();
-      requestAnimationFrame(onResize);
-    });
+    requestAnimationFrame(function () { onResize(); requestAnimationFrame(onResize); });
   }
-
-  function stop() {
-    active = false;
-    keys = {};
-  }
+  function stop() { active = false; keys = { up: false, down: false, left: false, right: false }; joy.on = false; }
 
   window.WardMode = {
-    rooms: WARD_ROOMS,
     start: start,
     stop: stop,
     setPaused: function (on) { paused = !!on; },
     active: function () { return active; },
     state: function () {
       return {
-        x: player.x,
-        z: player.z,
-        facing: facing,
-        pushing: pushing,
-        tx: trolley.x,
-        tz: trolley.z,
-        quest: quest,
-        step: step,
+        x: player.x, z: player.z, rot: player.rot, pushing: pushing,
+        tx: trolley.x, tz: trolley.z, quest: quest, step: step,
         room: roomNameAt(player.x, player.z),
-        dialog: !!dialog,
-        battle: battle ? battle.phase : "",
-        battleCursor: battle ? battle.cursor : -1,
-        menu: menuOpen,
-        map: mapOpen,
-        steps: stepsWalked,
+        dialog: !!dialog, battle: battle ? battle.phase : "",
+        menu: menuOpen, map: mapOpen, travel: travel,
         camera: camera && camera.isOrthographicCamera ? "ortho" : ""
       };
     },
-    walkable: walkable,
-    distance: tileDistance,
-    reachable: reachableRooms,
+    markers: function () { return MARK; },
+    rooms: SHELL.rooms,
+    pathMeters: pathMeters,
+    walkable: function (x, z) { return canStand(x, z); },
+    slide: function (dx, dz) { var m = slide(dx, dz); if (m) onTravel(m); return m; },
     audit: function () {
       var beds = {};
-      if (scene) {
-        scene.traverse(function (obj) {
-          if (obj.userData && obj.userData.kind === "bed") {
-            beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
-          }
-        });
-      }
-      return { beds: beds, rooms: WARD_ROOMS.map(function (r) { return r.id; }) };
-    },
-    markers: function () { return MARK; },
-    map: { w: MAP_W, h: MAP_H }
+      if (scene) scene.traverse(function (obj) {
+        if (obj.userData && obj.userData.kind === "bed") beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
+      });
+      return { beds: beds, rooms: SHELL.rooms.map(function (r) { return r.id; }) };
+    }
   };
 })();
