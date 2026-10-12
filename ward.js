@@ -390,8 +390,21 @@
   }
 
   function screenAxes() {
-    var upX = -0.70710678, upZ = -0.70710678;
-    var rightX = -0.70710678, rightZ = 0.70710678;
+    if (!camera) {
+      return { upX: -0.70710678, upZ: -0.70710678, rightX: 0.70710678, rightZ: -0.70710678 };
+    }
+    camera.position.set(player.x + 7, 11, player.z + 7);
+    camera.lookAt(player.x, 0.2, player.z);
+    camera.updateMatrixWorld(true);
+    var e = camera.matrixWorld.elements;
+    var rightX = e[0], rightZ = e[2];
+    var rl = Math.sqrt(rightX * rightX + rightZ * rightZ) || 1;
+    rightX /= rl;
+    rightZ /= rl;
+    var upX = -e[8], upZ = -e[10];
+    var ul = Math.sqrt(upX * upX + upZ * upZ) || 1;
+    upX /= ul;
+    upZ /= ul;
     return { upX: upX, upZ: upZ, rightX: rightX, rightZ: rightZ };
   }
   function wishVector() {
@@ -500,6 +513,190 @@
     return mesh;
   }
 
+  var enclosure = null;
+  function occAt(c, r) {
+    if (!walkAt(c, r)) return 0;
+    return roomOf[r * GW + c] || 1;
+  }
+  function buildEnclosure() {
+    if (enclosure) return enclosure;
+    var edges = [];
+    var row, c, r, above, below, left, right;
+    for (row = 0; row <= GH; row++) {
+      for (c = 0; c < GW; c++) {
+        above = row === 0 ? 0 : occAt(c, row - 1);
+        below = row === GH ? 0 : occAt(c, row);
+        if (above === below) continue;
+        edges.push({
+          x1: c * CELL, z1: row * CELL, x2: (c + 1) * CELL, z2: row * CELL,
+          horiz: true, a: above, b: below,
+          solid: above === 0 || below === 0, door: false
+        });
+      }
+    }
+    for (c = 0; c <= GW; c++) {
+      for (r = 0; r < GH; r++) {
+        left = c === 0 ? 0 : occAt(c - 1, r);
+        right = c === GW ? 0 : occAt(c, r);
+        if (left === right) continue;
+        edges.push({
+          x1: c * CELL, z1: r * CELL, x2: c * CELL, z2: (r + 1) * CELL,
+          horiz: false, a: left, b: right,
+          solid: left === 0 || right === 0, door: false
+        });
+      }
+    }
+    function pairKey(e) {
+      return e.a < e.b ? e.a + "," + e.b : e.b + "," + e.a;
+    }
+    function vkey(x, z) {
+      return Math.round(x / CELL) + "," + Math.round(z / CELL);
+    }
+    var byPair = {};
+    edges.forEach(function (e, i) {
+      if (e.solid) return;
+      var k = pairKey(e);
+      if (!byPair[k]) byPair[k] = [];
+      byPair[k].push(i);
+    });
+    var doorCells = Math.max(4, Math.round(1.1 / CELL));
+    Object.keys(byPair).forEach(function (k) {
+      var idxs = byPair[k];
+      var adj = {};
+      var at = {};
+      idxs.forEach(function (i) {
+        adj[i] = [];
+        var e = edges[i];
+        [vkey(e.x1, e.z1), vkey(e.x2, e.z2)].forEach(function (vk) {
+          if (!at[vk]) at[vk] = [];
+          at[vk].push(i);
+        });
+      });
+      Object.keys(at).forEach(function (vk) {
+        var list = at[vk];
+        var i, j;
+        for (i = 0; i < list.length; i++) {
+          for (j = i + 1; j < list.length; j++) {
+            adj[list[i]].push(list[j]);
+            adj[list[j]].push(list[i]);
+          }
+        }
+      });
+      var seen = {};
+      idxs.forEach(function (start) {
+        if (seen[start]) return;
+        var comp = [];
+        var q = [start];
+        seen[start] = 1;
+        while (q.length) {
+          var i = q.pop();
+          comp.push(i);
+          adj[i].forEach(function (n) {
+            if (seen[n]) return;
+            seen[n] = 1;
+            q.push(n);
+          });
+        }
+        if (comp.length * CELL < 0.7) return;
+        if (comp.length <= doorCells) {
+          comp.forEach(function (i) { edges[i].door = true; });
+          return;
+        }
+        var cx = 0, cz = 0;
+        comp.forEach(function (i) {
+          var e = edges[i];
+          cx += (e.x1 + e.x2) / 2;
+          cz += (e.z1 + e.z2) / 2;
+        });
+        cx /= comp.length;
+        cz /= comp.length;
+        function away(i) {
+          var e = edges[i];
+          var mx = (e.x1 + e.x2) / 2, mz = (e.z1 + e.z2) / 2;
+          return (mx - cx) * (mx - cx) + (mz - cz) * (mz - cz);
+        }
+        var best = comp[0], bestD = away(best);
+        comp.forEach(function (i) {
+          var d = away(i);
+          if (d < bestD) { bestD = d; best = i; }
+        });
+        var doorSet = {};
+        var qq = [best];
+        doorSet[best] = 1;
+        var count = 1;
+        while (qq.length && count < doorCells) {
+          var cur = qq.shift();
+          var nbs = adj[cur].slice().sort(function (a, b) { return away(a) - away(b); });
+          var t;
+          for (t = 0; t < nbs.length && count < doorCells; t++) {
+            if (doorSet[nbs[t]]) continue;
+            doorSet[nbs[t]] = 1;
+            qq.push(nbs[t]);
+            count++;
+          }
+        }
+        Object.keys(doorSet).forEach(function (i) { edges[i].door = true; });
+      });
+    });
+    function merge(list) {
+      var rows = {};
+      list.forEach(function (e) {
+        var key = (e.horiz ? "h" : "v") + Math.round((e.horiz ? e.z1 : e.x1) / CELL);
+        if (!rows[key]) rows[key] = [];
+        rows[key].push(e);
+      });
+      var out = [];
+      Object.keys(rows).forEach(function (key) {
+        var arr = rows[key];
+        arr.sort(function (a, b) { return (a.horiz ? a.x1 - b.x1 : a.z1 - b.z1); });
+        var cur = null;
+        arr.forEach(function (e) {
+          if (!cur) {
+            cur = { x1: e.x1, z1: e.z1, x2: e.x2, z2: e.z2 };
+            return;
+          }
+          var touch = e.horiz
+            ? Math.abs(cur.x2 - e.x1) < 1e-3 && Math.abs(cur.z1 - e.z1) < 1e-3
+            : Math.abs(cur.z2 - e.z1) < 1e-3 && Math.abs(cur.x1 - e.x1) < 1e-3;
+          if (touch) { cur.x2 = e.x2; cur.z2 = e.z2; }
+          else { out.push(cur); cur = { x1: e.x1, z1: e.z1, x2: e.x2, z2: e.z2 }; }
+        });
+        if (cur) out.push(cur);
+      });
+      return out;
+    }
+    var wallEdges = [];
+    var doorEdges = [];
+    edges.forEach(function (e) { (e.door ? doorEdges : wallEdges).push(e); });
+    var walls = merge(wallEdges);
+    var lintels = merge(doorEdges);
+    var posts = [];
+    var seenPost = {};
+    function addPost(x, z, jamb) {
+      var k = Math.round(x * 64) + "," + Math.round(z * 64);
+      if (seenPost[k]) { if (jamb) seenPost[k].jamb = true; return; }
+      var p = { x: x, z: z, jamb: !!jamb };
+      seenPost[k] = p;
+      posts.push(p);
+    }
+    walls.forEach(function (s) { addPost(s.x1, s.z1, false); addPost(s.x2, s.z2, false); });
+    lintels.forEach(function (s) { addPost(s.x1, s.z1, true); addPost(s.x2, s.z2, true); });
+    var byRoom = {};
+    function bump(id, door) {
+      if (id < 2 || !SHELL.rooms[id - 2]) return;
+      var name = SHELL.rooms[id - 2].id;
+      if (!byRoom[name]) byRoom[name] = { wall: 0, door: 0 };
+      if (door) byRoom[name].door += 1;
+      else byRoom[name].wall += 1;
+    }
+    edges.forEach(function (e) {
+      bump(e.a, e.door);
+      bump(e.b, e.door);
+    });
+    enclosure = { walls: walls, lintels: lintels, posts: posts, byRoom: byRoom };
+    return enclosure;
+  }
+
   function buildScene() {
     var canvas = el("wardCanvas");
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, alpha: false });
@@ -544,36 +741,68 @@
     floor.position.set(GW * CELL / 2, -0.05, GH * CELL / 2);
     scene.add(floor);
 
-    var segs = [];
-    var ring = SHELL.ring || [];
-    for (i = 0; i < ring.length - 1; i++) {
-      segs.push([ring[i][0], ring[i][1], ring[i + 1][0], ring[i + 1][1]]);
-    }
-    (SHELL.walls || []).forEach(function (w) { segs.push(w); });
-    segs = segs.filter(function (s) {
-      var dx = s[2] - s[0], dz = s[3] - s[1];
-      return dx * dx + dz * dz > 0.04;
-    });
-    if (segs.length) {
-      var walls = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0xf4efe2), segs.length);
+    var shellWalls = buildEnclosure();
+    var wallPieces = shellWalls.walls.length + shellWalls.posts.length;
+    if (wallPieces) {
+      var wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0xf4efe2), wallPieces);
       var dummy = new THREE.Object3D();
-      segs.forEach(function (s, idx) {
-        var dx = s[2] - s[0], dz = s[3] - s[1];
+      var widx = 0;
+      shellWalls.walls.forEach(function (s) {
+        var dx = s.x2 - s.x1, dz = s.z2 - s.z1;
         var len = Math.sqrt(dx * dx + dz * dz);
-        dummy.position.set((s[0] + s[2]) / 2, 0.58, (s[1] + s[3]) / 2);
+        if (len < 0.02) return;
+        dummy.position.set((s.x1 + s.x2) / 2, 1.1, (s.z1 + s.z2) / 2);
         dummy.rotation.set(0, Math.atan2(dx, dz), 0);
-        dummy.scale.set(0.22, 1.16, len);
+        dummy.scale.set(0.4, 2.2, len);
         dummy.updateMatrix();
-        walls.setMatrixAt(idx, dummy.matrix);
+        wallMesh.setMatrixAt(widx, dummy.matrix);
+        widx += 1;
       });
-      walls.instanceMatrix.needsUpdate = true;
-      scene.add(walls);
+      shellWalls.posts.forEach(function (p) {
+        dummy.position.set(p.x, 1.1, p.z);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(0.42, 2.2, 0.42);
+        dummy.updateMatrix();
+        wallMesh.setMatrixAt(widx, dummy.matrix);
+        widx += 1;
+      });
+      while (widx < wallPieces) {
+        dummy.position.set(0, -8, 0);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(0, 0, 0);
+        dummy.updateMatrix();
+        wallMesh.setMatrixAt(widx, dummy.matrix);
+        widx += 1;
+      }
+      wallMesh.instanceMatrix.needsUpdate = true;
+      scene.add(wallMesh);
+    }
+    if (shellWalls.lintels.length) {
+      var beam = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0xe7d3a4), shellWalls.lintels.length);
+      var beamDummy = new THREE.Object3D();
+      shellWalls.lintels.forEach(function (s, idx) {
+        var dx = s.x2 - s.x1, dz = s.z2 - s.z1;
+        var len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.02) {
+          beamDummy.position.set(0, -8, 0);
+          beamDummy.rotation.set(0, 0, 0);
+          beamDummy.scale.set(0, 0, 0);
+        } else {
+          beamDummy.position.set((s.x1 + s.x2) / 2, 1.96, (s.z1 + s.z2) / 2);
+          beamDummy.rotation.set(0, Math.atan2(dx, dz), 0);
+          beamDummy.scale.set(0.4, 0.48, len);
+        }
+        beamDummy.updateMatrix();
+        beam.setMatrixAt(idx, beamDummy.matrix);
+      });
+      beam.instanceMatrix.needsUpdate = true;
+      scene.add(beam);
     }
 
     SHELL.rooms.forEach(function (room) {
       if (room.kind === "wc" || room.kind === "store") return;
       var tag = labelSprite(room.name);
-      tag.position.set((room.c + 0.5) * CELL, 1.7, (room.r + 0.5) * CELL);
+      tag.position.set((room.c + 0.5) * CELL, 2.45, (room.r + 0.5) * CELL);
       scene.add(tag);
     });
     (SHELL.beds || []).forEach(function (bed) {
@@ -705,26 +934,24 @@
     function mz(z) { return oy + (z / CELL - b.minR) * scale; }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mapCache, b.minC, b.minR, b.bw, b.bh, ox, oy, b.bw * scale, b.bh * scale);
-    if (SHELL.ring && SHELL.ring.length > 2) {
+    var shellWalls = buildEnclosure();
+    ctx.strokeStyle = "rgba(62, 48, 36, 0.92)";
+    ctx.lineWidth = Math.max(1.25, scale * 0.55);
+    ctx.lineCap = "square";
+    shellWalls.walls.forEach(function (s) {
       ctx.beginPath();
-      ctx.strokeStyle = "#f4efe2";
-      ctx.lineWidth = Math.max(1.5, scale * 0.7);
-      SHELL.ring.forEach(function (p, i) {
-        if (i === 0) ctx.moveTo(mx(p[0]), mz(p[1]));
-        else ctx.lineTo(mx(p[0]), mz(p[1]));
-      });
+      ctx.moveTo(mx(s.x1), mz(s.z1));
+      ctx.lineTo(mx(s.x2), mz(s.z2));
       ctx.stroke();
-    }
-    if (SHELL.walls) {
-      ctx.strokeStyle = "rgba(80, 62, 48, 0.85)";
-      ctx.lineWidth = Math.max(1, scale * 0.35);
-      SHELL.walls.forEach(function (s) {
-        ctx.beginPath();
-        ctx.moveTo(mx(s[0]), mz(s[1]));
-        ctx.lineTo(mx(s[2]), mz(s[3]));
-        ctx.stroke();
-      });
-    }
+    });
+    ctx.strokeStyle = "rgba(180, 140, 70, 0.95)";
+    ctx.lineWidth = Math.max(1, scale * 0.28);
+    shellWalls.lintels.forEach(function (s) {
+      ctx.beginPath();
+      ctx.moveTo(mx(s.x1), mz(s.z1));
+      ctx.lineTo(mx(s.x2), mz(s.z2));
+      ctx.stroke();
+    });
     if (labels) {
       ctx.fillStyle = "#142226";
       ctx.textAlign = "center";
@@ -999,6 +1226,13 @@
     markers: function () { return MARK; },
     rooms: SHELL.rooms,
     pathMeters: pathMeters,
+    axes: function () { return screenAxes(); },
+    enclosure: function () {
+      var e = buildEnclosure();
+      var jambs = 0;
+      e.posts.forEach(function (p) { if (p.jamb) jambs += 1; });
+      return { walls: e.walls.length, lintels: e.lintels.length, posts: e.posts.length, jambs: jambs, byRoom: e.byRoom };
+    },
     walkable: function (x, z) { return canStand(x, z); },
     slide: function (dx, dz) { var m = slide(dx, dz); if (m) onTravel(m); return m; },
     audit: function () {
