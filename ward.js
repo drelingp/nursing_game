@@ -1,4 +1,4 @@
-/* 病房探索 — traced Ward C, Pokémon orthographic walk. */
+/* 病房探索 — Ward C resampled to Pokémon blocks, orthographic walk. */
 (function () {
   "use strict";
 
@@ -144,9 +144,246 @@
 
   var walk = decode(SHELL.walk);
   var roomOf = decode(SHELL.room);
-  var MARK = SHELL.marks;
   var roomById = {};
   SHELL.rooms.forEach(function (r, i) { roomById[r.id] = r; r.index = i + 2; });
+
+  var STEP = 6;
+  var TILE = CELL * STEP;
+  var CW = Math.ceil(GW / STEP);
+  var CH = Math.ceil(GH / STEP);
+  var tileWalk = new Uint8Array(CW * CH);
+  var tileRoom = new Uint16Array(CW * CH);
+  var wallSpots = [];
+  var roomStat = {};
+
+  function buildCoarse() {
+    var frac = 0.5;
+    var cz, cx, fr, fc, r1, c1, total, walkN, counts, best, bestN, k, id;
+    for (cz = 0; cz < CH; cz++) {
+      for (cx = 0; cx < CW; cx++) {
+        counts = {};
+        walkN = 0;
+        total = 0;
+        r1 = Math.min(GH, (cz + 1) * STEP);
+        c1 = Math.min(GW, (cx + 1) * STEP);
+        for (fr = cz * STEP; fr < r1; fr++) {
+          for (fc = cx * STEP; fc < c1; fc++) {
+            total++;
+            if (walk[fr * GW + fc] !== 1) continue;
+            walkN++;
+            id = roomOf[fr * GW + fc];
+            counts[id] = (counts[id] || 0) + 1;
+          }
+        }
+        if (!total || walkN < total * frac) continue;
+        best = 0;
+        bestN = -1;
+        for (k in counts) {
+          if (counts[k] > bestN) { bestN = counts[k]; best = +k; }
+        }
+        tileWalk[cz * CW + cx] = 1;
+        tileRoom[cz * CW + cx] = best;
+      }
+    }
+    sealRooms();
+    collectWalls();
+  }
+
+  function sealRooms() {
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    var ids = {};
+    var r, c, id, planned = [];
+    function onMap(c, r) { return c >= 0 && r >= 0 && c < CW && r < CH; }
+    for (r = 0; r < CH; r++) {
+      for (c = 0; c < CW; c++) {
+        if (!tileWalk[r * CW + c]) continue;
+        id = tileRoom[r * CW + c];
+        if (id < 2) continue;
+        if (!ids[id]) ids[id] = [];
+        ids[id].push([c, r]);
+      }
+    }
+    Object.keys(ids).forEach(function (idStr) {
+      var roomId = +idStr;
+      var cells = ids[roomId];
+      var perim = [];
+      var interior = [];
+      cells.forEach(function (cell) {
+        var edge = false;
+        var hall = false;
+        var outside = null;
+        var k, nc, nr;
+        for (k = 0; k < 4; k++) {
+          nc = cell[0] + nbs[k][0];
+          nr = cell[1] + nbs[k][1];
+          var same = onMap(nc, nr) && tileWalk[nr * CW + nc] && tileRoom[nr * CW + nc] === roomId;
+          if (same) continue;
+          edge = true;
+          if (onMap(nc, nr) && tileWalk[nr * CW + nc]) {
+            if (tileRoom[nr * CW + nc] === 1) hall = true;
+            if (!outside || tileRoom[nr * CW + nc] === 1) outside = [nc, nr];
+          }
+        }
+        if (edge) perim.push({ c: cell[0], r: cell[1], hall: hall, out: outside });
+        else interior.push(cell);
+      });
+      if (!perim.length) return;
+      var keep = {};
+      if (interior.length) {
+        interior.forEach(function (cell) { keep[cell[0] + "," + cell[1]] = 1; });
+      } else {
+        var sx = 0, sz = 0;
+        cells.forEach(function (cell) { sx += cell[0]; sz += cell[1]; });
+        sx /= cells.length;
+        sz /= cells.length;
+        var seed = cells[0], seedD = 1e9;
+        cells.forEach(function (cell) {
+          var d = (cell[0] - sx) * (cell[0] - sx) + (cell[1] - sz) * (cell[1] - sz);
+          if (d < seedD) { seedD = d; seed = cell; }
+        });
+        keep[seed[0] + "," + seed[1]] = 1;
+      }
+      var doorPool = [];
+      perim.forEach(function (q) {
+        var touches = false;
+        var k, nc, nr;
+        for (k = 0; k < 4; k++) {
+          nc = q.c + nbs[k][0];
+          nr = q.r + nbs[k][1];
+          if (keep[nc + "," + nr]) touches = true;
+        }
+        if (touches) doorPool.push(q);
+      });
+      if (!doorPool.length) doorPool = perim;
+      var hallDoors = doorPool.filter(function (q) { return q.hall; });
+      if (!hallDoors.length) hallDoors = doorPool.filter(function (q) { return q.out; });
+      if (hallDoors.length) doorPool = hallDoors;
+      var cx = 0, cz = 0;
+      doorPool.forEach(function (q) { cx += q.c; cz += q.r; });
+      cx /= doorPool.length;
+      cz /= doorPool.length;
+      var best = doorPool[0], bd = 1e9;
+      doorPool.forEach(function (q) {
+        var d = (q.c - cx) * (q.c - cx) + (q.r - cz) * (q.r - cz);
+        if (d < bd) { bd = d; best = q; }
+      });
+      keep[best.c + "," + best.r] = 1;
+      perim.forEach(function (q) {
+        if (Math.abs(q.c - best.c) + Math.abs(q.r - best.r) !== 1) return;
+        if (!(q.hall || q.out)) return;
+        var touches = false;
+        var k;
+        for (k = 0; k < 4; k++) {
+          if (keep[(q.c + nbs[k][0]) + "," + (q.r + nbs[k][1])]) touches = true;
+        }
+        if (touches) keep[q.c + "," + q.r] = 1;
+      });
+      perim.forEach(function (q) {
+        if (keep[q.c + "," + q.r]) {
+          if (q.out && (q.c === best.c && q.r === best.r)) planned.push(q.out);
+          return;
+        }
+        tileWalk[q.r * CW + q.c] = 0;
+      });
+    });
+    planned.forEach(function (o) { tileWalk[o[1] * CW + o[0]] = 1; });
+  }
+
+  function collectWalls() {
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    var r, c, k, nc, nr, id, near;
+    wallSpots = [];
+    roomStat = {};
+    SHELL.rooms.forEach(function (room) { roomStat[room.id] = { wall: 0, door: 0, n: 0 }; });
+    for (r = 0; r < CH; r++) {
+      for (c = 0; c < CW; c++) {
+        if (tileWalk[r * CW + c]) {
+          id = tileRoom[r * CW + c];
+          if (id >= 2 && SHELL.rooms[id - 2]) {
+            var name = SHELL.rooms[id - 2].id;
+            roomStat[name].n += 1;
+            for (k = 0; k < 4; k++) {
+              nc = c + nbs[k][0];
+              nr = r + nbs[k][1];
+              if (nc < 0 || nr < 0 || nc >= CW || nr >= CH) continue;
+              if (tileWalk[nr * CW + nc] && tileRoom[nr * CW + nc] !== id) roomStat[name].door += 1;
+            }
+          }
+          continue;
+        }
+        near = false;
+        var touch = {};
+        for (k = 0; k < 4; k++) {
+          nc = c + nbs[k][0];
+          nr = r + nbs[k][1];
+          if (nc < 0 || nr < 0 || nc >= CW || nr >= CH || !tileWalk[nr * CW + nc]) continue;
+          near = true;
+          id = tileRoom[nr * CW + nc];
+          if (id >= 2 && SHELL.rooms[id - 2]) touch[SHELL.rooms[id - 2].id] = 1;
+        }
+        if (!near) continue;
+        wallSpots.push([c, r]);
+        Object.keys(touch).forEach(function (nm) { roomStat[nm].wall += 1; });
+      }
+    }
+  }
+
+  function snapPoint(x, z, prefer) {
+    var best = null, bestD = 1e18, fallback = null, fallD = 1e18;
+    var r, c, cx, cz, d, id;
+    for (r = 0; r < CH; r++) {
+      for (c = 0; c < CW; c++) {
+        if (!tileWalk[r * CW + c]) continue;
+        cx = (c + 0.5) * TILE;
+        cz = (r + 0.5) * TILE;
+        d = (cx - x) * (cx - x) + (cz - z) * (cz - z);
+        if (d < fallD) { fallD = d; fallback = { x: cx, z: cz, c: c, r: r }; }
+        id = tileRoom[r * CW + c];
+        if (prefer && id !== prefer) continue;
+        if (d < bestD) { bestD = d; best = { x: cx, z: cz, c: c, r: r }; }
+      }
+    }
+    return best || fallback || { x: x, z: z, c: 0, r: 0 };
+  }
+
+  function cellsOf(id) {
+    var want = roomById[id] ? roomById[id].index : -1;
+    var list = [];
+    var r, c;
+    for (r = 0; r < CH; r++) {
+      for (c = 0; c < CW; c++) {
+        if (tileWalk[r * CW + c] && tileRoom[r * CW + c] === want) {
+          list.push({ c: c, r: r, x: (c + 0.5) * TILE, z: (r + 0.5) * TILE });
+        }
+      }
+    }
+    return list;
+  }
+
+  function roomCenter(id) {
+    var cells = cellsOf(id);
+    if (!cells.length) return null;
+    var x = 0, z = 0, i;
+    for (i = 0; i < cells.length; i++) { x += cells[i].x; z += cells[i].z; }
+    return { x: x / cells.length, z: z / cells.length };
+  }
+
+  buildCoarse();
+
+  var MARK = {};
+  Object.keys(SHELL.marks).forEach(function (key) {
+    var src = SHELL.marks[key];
+    var fc = Math.floor(src.x / CELL);
+    var fr = Math.floor(src.z / CELL);
+    var prefer = 0;
+    if (fc >= 0 && fr >= 0 && fc < GW && fr < GH) prefer = roomOf[fr * GW + fc];
+    var p = snapPoint(src.x, src.z, prefer);
+    MARK[key] = { x: p.x, z: p.z };
+  });
+  if (Math.abs(MARK.fax.x - MARK.computer.x) < 0.2 && Math.abs(MARK.fax.z - MARK.computer.z) < 0.2) {
+    var alt = snapPoint(SHELL.marks.computer.x + TILE, SHELL.marks.computer.z, roomById.nurse.index);
+    MARK.computer = { x: alt.x, z: alt.z };
+  }
 
   var player = { x: MARK.start.x, z: MARK.start.z, rot: 0 };
   var trolley = { x: MARK.trolley.x, z: MARK.trolley.z };
@@ -182,10 +419,10 @@
     node.classList.add("show");
   }
   function cellAt(x, z) {
-    return { c: Math.floor(x / CELL), r: Math.floor(z / CELL) };
+    return { c: Math.floor(x / TILE), r: Math.floor(z / TILE) };
   }
   function walkAt(c, r) {
-    return c >= 0 && r >= 0 && c < GW && r < GH && walk[r * GW + c] === 1;
+    return c >= 0 && r >= 0 && c < CW && r < CH && tileWalk[r * CW + c] === 1;
   }
   function blocked(x, z) {
     var p = cellAt(x, z);
@@ -197,7 +434,7 @@
   function roomNameAt(x, z) {
     var p = cellAt(x, z);
     if (!walkAt(p.c, p.r)) return "牆";
-    var id = roomOf[p.r * GW + p.c];
+    var id = tileRoom[p.r * CW + p.c];
     if (id >= 2 && SHELL.rooms[id - 2]) return SHELL.rooms[id - 2].name;
     return "走廊";
   }
@@ -393,8 +630,8 @@
     if (!camera) {
       return { upX: -0.70710678, upZ: -0.70710678, rightX: 0.70710678, rightZ: -0.70710678 };
     }
-    camera.position.set(player.x + 7, 11, player.z + 7);
-    camera.lookAt(player.x, 0.2, player.z);
+    camera.position.set(player.x + 7.5, 11, player.z + 7.5);
+    camera.lookAt(player.x, 0, player.z);
     camera.updateMatrixWorld(true);
     var e = camera.matrixWorld.elements;
     var rightX = e[0], rightZ = e[2];
@@ -513,190 +750,6 @@
     return mesh;
   }
 
-  var enclosure = null;
-  function occAt(c, r) {
-    if (!walkAt(c, r)) return 0;
-    return roomOf[r * GW + c] || 1;
-  }
-  function buildEnclosure() {
-    if (enclosure) return enclosure;
-    var edges = [];
-    var row, c, r, above, below, left, right;
-    for (row = 0; row <= GH; row++) {
-      for (c = 0; c < GW; c++) {
-        above = row === 0 ? 0 : occAt(c, row - 1);
-        below = row === GH ? 0 : occAt(c, row);
-        if (above === below) continue;
-        edges.push({
-          x1: c * CELL, z1: row * CELL, x2: (c + 1) * CELL, z2: row * CELL,
-          horiz: true, a: above, b: below,
-          solid: above === 0 || below === 0, door: false
-        });
-      }
-    }
-    for (c = 0; c <= GW; c++) {
-      for (r = 0; r < GH; r++) {
-        left = c === 0 ? 0 : occAt(c - 1, r);
-        right = c === GW ? 0 : occAt(c, r);
-        if (left === right) continue;
-        edges.push({
-          x1: c * CELL, z1: r * CELL, x2: c * CELL, z2: (r + 1) * CELL,
-          horiz: false, a: left, b: right,
-          solid: left === 0 || right === 0, door: false
-        });
-      }
-    }
-    function pairKey(e) {
-      return e.a < e.b ? e.a + "," + e.b : e.b + "," + e.a;
-    }
-    function vkey(x, z) {
-      return Math.round(x / CELL) + "," + Math.round(z / CELL);
-    }
-    var byPair = {};
-    edges.forEach(function (e, i) {
-      if (e.solid) return;
-      var k = pairKey(e);
-      if (!byPair[k]) byPair[k] = [];
-      byPair[k].push(i);
-    });
-    var doorCells = Math.max(4, Math.round(1.1 / CELL));
-    Object.keys(byPair).forEach(function (k) {
-      var idxs = byPair[k];
-      var adj = {};
-      var at = {};
-      idxs.forEach(function (i) {
-        adj[i] = [];
-        var e = edges[i];
-        [vkey(e.x1, e.z1), vkey(e.x2, e.z2)].forEach(function (vk) {
-          if (!at[vk]) at[vk] = [];
-          at[vk].push(i);
-        });
-      });
-      Object.keys(at).forEach(function (vk) {
-        var list = at[vk];
-        var i, j;
-        for (i = 0; i < list.length; i++) {
-          for (j = i + 1; j < list.length; j++) {
-            adj[list[i]].push(list[j]);
-            adj[list[j]].push(list[i]);
-          }
-        }
-      });
-      var seen = {};
-      idxs.forEach(function (start) {
-        if (seen[start]) return;
-        var comp = [];
-        var q = [start];
-        seen[start] = 1;
-        while (q.length) {
-          var i = q.pop();
-          comp.push(i);
-          adj[i].forEach(function (n) {
-            if (seen[n]) return;
-            seen[n] = 1;
-            q.push(n);
-          });
-        }
-        if (comp.length * CELL < 0.7) return;
-        if (comp.length <= doorCells) {
-          comp.forEach(function (i) { edges[i].door = true; });
-          return;
-        }
-        var cx = 0, cz = 0;
-        comp.forEach(function (i) {
-          var e = edges[i];
-          cx += (e.x1 + e.x2) / 2;
-          cz += (e.z1 + e.z2) / 2;
-        });
-        cx /= comp.length;
-        cz /= comp.length;
-        function away(i) {
-          var e = edges[i];
-          var mx = (e.x1 + e.x2) / 2, mz = (e.z1 + e.z2) / 2;
-          return (mx - cx) * (mx - cx) + (mz - cz) * (mz - cz);
-        }
-        var best = comp[0], bestD = away(best);
-        comp.forEach(function (i) {
-          var d = away(i);
-          if (d < bestD) { bestD = d; best = i; }
-        });
-        var doorSet = {};
-        var qq = [best];
-        doorSet[best] = 1;
-        var count = 1;
-        while (qq.length && count < doorCells) {
-          var cur = qq.shift();
-          var nbs = adj[cur].slice().sort(function (a, b) { return away(a) - away(b); });
-          var t;
-          for (t = 0; t < nbs.length && count < doorCells; t++) {
-            if (doorSet[nbs[t]]) continue;
-            doorSet[nbs[t]] = 1;
-            qq.push(nbs[t]);
-            count++;
-          }
-        }
-        Object.keys(doorSet).forEach(function (i) { edges[i].door = true; });
-      });
-    });
-    function merge(list) {
-      var rows = {};
-      list.forEach(function (e) {
-        var key = (e.horiz ? "h" : "v") + Math.round((e.horiz ? e.z1 : e.x1) / CELL);
-        if (!rows[key]) rows[key] = [];
-        rows[key].push(e);
-      });
-      var out = [];
-      Object.keys(rows).forEach(function (key) {
-        var arr = rows[key];
-        arr.sort(function (a, b) { return (a.horiz ? a.x1 - b.x1 : a.z1 - b.z1); });
-        var cur = null;
-        arr.forEach(function (e) {
-          if (!cur) {
-            cur = { x1: e.x1, z1: e.z1, x2: e.x2, z2: e.z2 };
-            return;
-          }
-          var touch = e.horiz
-            ? Math.abs(cur.x2 - e.x1) < 1e-3 && Math.abs(cur.z1 - e.z1) < 1e-3
-            : Math.abs(cur.z2 - e.z1) < 1e-3 && Math.abs(cur.x1 - e.x1) < 1e-3;
-          if (touch) { cur.x2 = e.x2; cur.z2 = e.z2; }
-          else { out.push(cur); cur = { x1: e.x1, z1: e.z1, x2: e.x2, z2: e.z2 }; }
-        });
-        if (cur) out.push(cur);
-      });
-      return out;
-    }
-    var wallEdges = [];
-    var doorEdges = [];
-    edges.forEach(function (e) { (e.door ? doorEdges : wallEdges).push(e); });
-    var walls = merge(wallEdges);
-    var lintels = merge(doorEdges);
-    var posts = [];
-    var seenPost = {};
-    function addPost(x, z, jamb) {
-      var k = Math.round(x * 64) + "," + Math.round(z * 64);
-      if (seenPost[k]) { if (jamb) seenPost[k].jamb = true; return; }
-      var p = { x: x, z: z, jamb: !!jamb };
-      seenPost[k] = p;
-      posts.push(p);
-    }
-    walls.forEach(function (s) { addPost(s.x1, s.z1, false); addPost(s.x2, s.z2, false); });
-    lintels.forEach(function (s) { addPost(s.x1, s.z1, true); addPost(s.x2, s.z2, true); });
-    var byRoom = {};
-    function bump(id, door) {
-      if (id < 2 || !SHELL.rooms[id - 2]) return;
-      var name = SHELL.rooms[id - 2].id;
-      if (!byRoom[name]) byRoom[name] = { wall: 0, door: 0 };
-      if (door) byRoom[name].door += 1;
-      else byRoom[name].wall += 1;
-    }
-    edges.forEach(function (e) {
-      bump(e.a, e.door);
-      bump(e.b, e.door);
-    });
-    enclosure = { walls: walls, lintels: lintels, posts: posts, byRoom: byRoom };
-    return enclosure;
-  }
-
   function buildScene() {
     var canvas = el("wardCanvas");
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, alpha: false });
@@ -707,128 +760,92 @@
     camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80);
     scene.add(new THREE.AmbientLight(0xfff4dd, 0.72));
     var sun = new THREE.DirectionalLight(0xffffff, 0.85);
-    sun.position.set(12, 18, 8);
+    sun.position.set(8, 16, 6);
     scene.add(sun);
 
-    var floorCanvas = document.createElement("canvas");
-    floorCanvas.width = GW;
-    floorCanvas.height = GH;
-    var fg = floorCanvas.getContext("2d");
-    var img = fg.createImageData(GW, GH);
-    var data = img.data;
-    var i, id, col, r, g, b, a;
-    for (i = 0; i < GW * GH; i++) {
-      if (walk[i] !== 1) continue;
-      id = roomOf[i];
-      col = id >= 2 ? SHELL.rooms[id - 2].color : 0xd7c4a3;
-      r = (col >> 16) & 255; g = (col >> 8) & 255; b = col & 255;
-      a = i * 4;
-      data[a] = r; data[a + 1] = g; data[a + 2] = b; data[a + 3] = 255;
-    }
-    fg.putImageData(img, 0, 0);
-    paintShellFill(fg, GW, GH);
-    fg.save();
-    fg.globalCompositeOperation = "destination-over";
-    fg.fillStyle = "#8ec6ea";
-    fg.fillRect(0, 0, GW, GH);
-    fg.restore();
-    var tex = new THREE.CanvasTexture(floorCanvas);
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.flipY = false;
-    var floor = new THREE.Mesh(new THREE.PlaneGeometry(GW * CELL, GH * CELL), new THREE.MeshLambertMaterial({ map: tex }));
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(GW * CELL / 2, -0.05, GH * CELL / 2);
-    scene.add(floor);
-
-    var shellWalls = buildEnclosure();
-    var wallPieces = shellWalls.walls.length + shellWalls.posts.length;
-    if (wallPieces) {
-      var wallMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0xf4efe2), wallPieces);
-      var dummy = new THREE.Object3D();
-      var widx = 0;
-      shellWalls.walls.forEach(function (s) {
-        var dx = s.x2 - s.x1, dz = s.z2 - s.z1;
-        var len = Math.sqrt(dx * dx + dz * dz);
-        if (len < 0.02) return;
-        dummy.position.set((s.x1 + s.x2) / 2, 1.1, (s.z1 + s.z2) / 2);
-        dummy.rotation.set(0, Math.atan2(dx, dz), 0);
-        dummy.scale.set(0.4, 2.2, len);
-        dummy.updateMatrix();
-        wallMesh.setMatrixAt(widx, dummy.matrix);
-        widx += 1;
-      });
-      shellWalls.posts.forEach(function (p) {
-        dummy.position.set(p.x, 1.1, p.z);
+    var floorN = 0;
+    var r, c, id, col;
+    for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c]) floorN += 1;
+    var floors = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(TILE * 0.98, 0.18, TILE * 0.98),
+      new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }),
+      Math.max(1, floorN)
+    );
+    var dummy = new THREE.Object3D();
+    var color = new THREE.Color();
+    var fi = 0;
+    for (r = 0; r < CH; r++) {
+      for (c = 0; c < CW; c++) {
+        if (!tileWalk[r * CW + c]) continue;
+        id = tileRoom[r * CW + c];
+        col = id >= 2 && SHELL.rooms[id - 2] ? SHELL.rooms[id - 2].color : 0xc6d48b;
+        dummy.position.set((c + 0.5) * TILE, -0.09, (r + 0.5) * TILE);
         dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(0.42, 2.2, 0.42);
+        dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
-        wallMesh.setMatrixAt(widx, dummy.matrix);
-        widx += 1;
-      });
-      while (widx < wallPieces) {
-        dummy.position.set(0, -8, 0);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(0, 0, 0);
-        dummy.updateMatrix();
-        wallMesh.setMatrixAt(widx, dummy.matrix);
-        widx += 1;
+        floors.setMatrixAt(fi, dummy.matrix);
+        floors.setColorAt(fi, color.setHex(col));
+        fi += 1;
       }
-      wallMesh.instanceMatrix.needsUpdate = true;
-      scene.add(wallMesh);
     }
-    if (shellWalls.lintels.length) {
-      var beam = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0xe7d3a4), shellWalls.lintels.length);
-      var beamDummy = new THREE.Object3D();
-      shellWalls.lintels.forEach(function (s, idx) {
-        var dx = s.x2 - s.x1, dz = s.z2 - s.z1;
-        var len = Math.sqrt(dx * dx + dz * dz);
-        if (len < 0.02) {
-          beamDummy.position.set(0, -8, 0);
-          beamDummy.rotation.set(0, 0, 0);
-          beamDummy.scale.set(0, 0, 0);
-        } else {
-          beamDummy.position.set((s.x1 + s.x2) / 2, 1.96, (s.z1 + s.z2) / 2);
-          beamDummy.rotation.set(0, Math.atan2(dx, dz), 0);
-          beamDummy.scale.set(0.4, 0.48, len);
-        }
-        beamDummy.updateMatrix();
-        beam.setMatrixAt(idx, beamDummy.matrix);
-      });
-      beam.instanceMatrix.needsUpdate = true;
-      scene.add(beam);
+    floors.instanceMatrix.needsUpdate = true;
+    if (floors.instanceColor) floors.instanceColor.needsUpdate = true;
+    floors.userData.kind = "floor";
+    scene.add(floors);
+
+    var walls = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(0.98, 1.15, 0.98),
+      mat(0xf4efe2),
+      Math.max(1, wallSpots.length)
+    );
+    wallSpots.forEach(function (s, idx) {
+      dummy.position.set((s[0] + 0.5) * TILE, 0.57, (s[1] + 0.5) * TILE);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      walls.setMatrixAt(idx, dummy.matrix);
+    });
+    if (!wallSpots.length) {
+      dummy.position.set(0, -20, 0);
+      dummy.scale.set(0, 0, 0);
+      dummy.updateMatrix();
+      walls.setMatrixAt(0, dummy.matrix);
     }
+    walls.instanceMatrix.needsUpdate = true;
+    walls.userData.kind = "wall";
+    scene.add(walls);
 
     SHELL.rooms.forEach(function (room) {
       if (room.kind === "wc" || room.kind === "store") return;
+      var center = roomCenter(room.id);
+      if (!center) return;
       var tag = labelSprite(room.name);
-      tag.position.set((room.c + 0.5) * CELL, 2.45, (room.r + 0.5) * CELL);
+      tag.position.set(center.x, 1.7, center.z);
       scene.add(tag);
     });
+
     (SHELL.beds || []).forEach(function (bed) {
+      var prefer = roomById[bed.room] ? roomById[bed.room].index : 0;
+      var place = snapPoint(bed.x, bed.z, prefer);
       var group = new THREE.Group();
-      addBox(group, 0.95, 0.18, 1.7, 0xf7f1e4, 0, 0.2, 0);
-      var blanket = addBox(group, 0.78, 0.08, 1.25, 0x6cb5d6, 0, 0.32, 0.05);
+      addBox(group, 1.15, 0.28, 1.65, 0xf7f1e4, 0, 0.28, 0);
+      var blanket = addBox(group, 0.95, 0.16, 1.25, 0x6cb5d6, 0, 0.46, 0.05);
       blanket.userData.kind = "bed";
       blanket.userData.room = bed.room;
-      addBox(group, 0.42, 0.08, 0.28, 0xfff8ee, 0, 0.4, -0.62);
-      group.position.set(bed.x, 0, bed.z);
+      addBox(group, 0.6, 0.18, 0.36, 0xfff8ee, 0, 0.58, -0.5);
+      group.position.set(place.x, 0, place.z);
       group.rotation.y = bed.ang || 0;
       scene.add(group);
     });
-    addBox(scene, 4.2, 0.5, 1.05, 0xefe6d4, MARK.nurse.x - 0.4, 0.32, MARK.nurse.z - 0.2);
-    addBox(scene, 0.55, 0.22, 0.38, 0x2c3440, MARK.computer.x, 0.55, MARK.computer.z);
-    addBox(scene, 0.5, 0.32, 0.08, 0x8fd0ff, MARK.computer.x, 0.86, MARK.computer.z);
-    addBox(scene, 0.62, 0.3, 0.42, 0x4d5966, MARK.fax.x, 0.5, MARK.fax.z);
-    addBox(scene, 0.7, 0.7, 0.5, 0xf4f7fb, MARK.treat.x - 1.2, 0.4, MARK.treat.z);
-    addBox(scene, 0.18, 0.32, 0.08, 0xd6453d, MARK.treat.x - 1.2, 0.9, MARK.treat.z);
+
+    addNurseStation();
+    addTreatRoom();
 
     playerMesh = new THREE.Group();
     addBox(playerMesh, 0.46, 0.48, 0.34, 0x2f6f9a, 0, 0.46, 0);
     addBox(playerMesh, 0.32, 0.28, 0.28, 0xf3c7a1, 0, 0.82, 0);
     addBox(playerMesh, 0.36, 0.1, 0.36, 0xfff8ee, 0, 0.98, 0);
     addBox(playerMesh, 0.08, 0.08, 0.08, 0x1b2830, 0.08, 0.84, 0.12);
-    playerMesh.scale.set(0.9, 0.9, 0.9);
     scene.add(playerMesh);
 
     trolleyMesh = new THREE.Group();
@@ -839,11 +856,50 @@
     addBox(trolleyMesh, 0.12, 0.12, 0.12, 0x222222, 0.22, 0.16, 0.14);
     scene.add(trolleyMesh);
 
-    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.9), mat(0xe23b32));
-    incidentMesh.position.set(MARK.incident.x, 0.06, MARK.incident.z);
+    incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.8), mat(0xe23b32));
+    incidentMesh.position.set(MARK.incident.x, 0.08, MARK.incident.z);
     incidentMesh.visible = false;
     scene.add(incidentMesh);
     built = true;
+  }
+
+  function addNurseStation() {
+    var cells = cellsOf("nurse");
+    var cx = 0, cz = 0, i;
+    cells.forEach(function (p) { cx += p.x; cz += p.z; });
+    if (cells.length) { cx /= cells.length; cz /= cells.length; }
+    cells.sort(function (a, b) {
+      var da = (a.x - cx) * (a.x - cx) + (a.z - cz) * (a.z - cz);
+      var db = (b.x - cx) * (b.x - cx) + (b.z - cz) * (b.z - cz);
+      return da - db;
+    });
+    function key(x, z) { return Math.round(x * 8) + "," + Math.round(z * 8); }
+    var used = {};
+    used[key(MARK.fax.x, MARK.fax.z)] = 1;
+    used[key(MARK.computer.x, MARK.computer.z)] = 1;
+    var n = 0;
+    for (i = 0; i < cells.length && n < 6; i++) {
+      if (used[key(cells[i].x, cells[i].z)]) continue;
+      addBox(scene, 0.7, 0.7, 0.55, 0xefe6d4, cells[i].x, 0.4, cells[i].z);
+      n += 1;
+    }
+    addBox(scene, 0.55, 0.28, 0.4, 0x4d5966, MARK.fax.x, 0.7, MARK.fax.z);
+    addBox(scene, 0.28, 0.04, 0.22, 0xf4f7fb, MARK.fax.x, 0.88, MARK.fax.z - 0.12);
+    addBox(scene, 0.5, 0.22, 0.36, 0x2c3440, MARK.computer.x, 0.55, MARK.computer.z);
+    addBox(scene, 0.46, 0.3, 0.08, 0x8fd0ff, MARK.computer.x, 0.84, MARK.computer.z);
+  }
+
+  function addTreatRoom() {
+    var cells = cellsOf("treat");
+    if (!cells.length) return;
+    var spot = cells[0];
+    var best = 1e9;
+    cells.forEach(function (p) {
+      var d = (p.x - MARK.trolley.x) * (p.x - MARK.trolley.x) + (p.z - MARK.trolley.z) * (p.z - MARK.trolley.z);
+      if (d > 0.5 && d < best) { best = d; spot = p; }
+    });
+    addBox(scene, 0.9, 0.9, 0.7, 0xf4f7fb, spot.x, 0.5, spot.z);
+    addBox(scene, 0.28, 0.5, 0.08, 0xd6453d, spot.x, 1.15, spot.z);
   }
 
   function labelSprite(text) {
@@ -857,70 +913,60 @@
     g.lineWidth = 6;
     g.strokeRect(8, 8, 496, 80);
     g.fillStyle = "#fff8ee";
-    g.font = "bold 40px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+    g.font = "bold 42px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
     g.textAlign = "center";
     g.textBaseline = "middle";
     g.fillText(text, 256, 50);
     var tex = new THREE.CanvasTexture(c);
     tex.magFilter = THREE.NearestFilter;
     var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(3.2, 0.6, 1);
+    sprite.scale.set(3.4, 0.64, 1);
     return sprite;
   }
 
-  function paintShellFill(ctx, w, h) {
-    var ring = SHELL.ring || [];
-    if (ring.length < 3) return;
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-over";
-    ctx.fillStyle = "#f4efe2";
-    ctx.beginPath();
-    ctx.moveTo(ring[0][0] / CELL * (w / GW), ring[0][1] / CELL * (h / GH));
-    var i;
-    for (i = 1; i < ring.length; i++) ctx.lineTo(ring[i][0] / CELL * (w / GW), ring[i][1] / CELL * (h / GH));
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
   var mapCache = null;
   var mapBox = null;
   function ensureMapCache() {
     if (mapCache) return;
-    var minC = GW, minR = GH, maxC = 0, maxR = 0, r, c, id, col, a;
-    for (r = 0; r < GH; r++) {
-      for (c = 0; c < GW; c++) {
-        if (walk[r * GW + c] !== 1) continue;
+    var minC = CW, minR = CH, maxC = 0, maxR = 0, r, c, seenWall = {};
+    wallSpots.forEach(function (s) { seenWall[s[0] + "," + s[1]] = 1; });
+    for (r = 0; r < CH; r++) {
+      for (c = 0; c < CW; c++) {
+        if (!tileWalk[r * CW + c] && !seenWall[c + "," + r]) continue;
         if (c < minC) minC = c;
         if (c > maxC) maxC = c;
         if (r < minR) minR = r;
         if (r > maxR) maxR = r;
       }
     }
-    minC = Math.max(0, minC - 3);
-    minR = Math.max(0, minR - 3);
-    maxC = Math.min(GW - 1, maxC + 3);
-    maxR = Math.min(GH - 1, maxR + 3);
+    minC = Math.max(0, minC - 1);
+    minR = Math.max(0, minR - 1);
+    maxC = Math.min(CW - 1, maxC + 1);
+    maxR = Math.min(CH - 1, maxR + 1);
     mapBox = { minC: minC, minR: minR, bw: maxC - minC + 1, bh: maxR - minR + 1 };
-    var img = new ImageData(GW, GH);
+    mapCache = document.createElement("canvas");
+    mapCache.width = mapBox.bw;
+    mapCache.height = mapBox.bh;
+    var g = mapCache.getContext("2d");
+    var img = g.createImageData(mapBox.bw, mapBox.bh);
     var data = img.data;
-    for (r = 0; r < GH; r++) {
-      for (c = 0; c < GW; c++) {
-        a = (r * GW + c) * 4;
-        if (walk[r * GW + c] !== 1) { data[a + 3] = 0; continue; }
-        id = roomOf[r * GW + c];
-        col = id >= 2 ? SHELL.rooms[id - 2].color : 0xd7c4a3;
+    for (r = minR; r <= maxR; r++) {
+      for (c = minC; c <= maxC; c++) {
+        var a = ((r - minR) * mapBox.bw + (c - minC)) * 4;
+        var col = 0;
+        if (tileWalk[r * CW + c]) {
+          var id = tileRoom[r * CW + c];
+          col = id >= 2 && SHELL.rooms[id - 2] ? SHELL.rooms[id - 2].color : 0xc6d48b;
+        } else if (seenWall[c + "," + r]) {
+          col = 0xf4efe2;
+        } else continue;
         data[a] = (col >> 16) & 255;
         data[a + 1] = (col >> 8) & 255;
         data[a + 2] = col & 255;
         data[a + 3] = 255;
       }
     }
-    mapCache = document.createElement("canvas");
-    mapCache.width = GW;
-    mapCache.height = GH;
-    var g = mapCache.getContext("2d");
     g.putImageData(img, 0, 0);
-    paintShellFill(g, GW, GH);
   }
   function paintMap(ctx, w, h, labels) {
     ensureMapCache();
@@ -930,40 +976,24 @@
     var scale = Math.min((w - 16) / b.bw, (h - 16) / b.bh);
     var ox = (w - b.bw * scale) / 2;
     var oy = (h - b.bh * scale) / 2;
-    function mx(x) { return ox + (x / CELL - b.minC) * scale; }
-    function mz(z) { return oy + (z / CELL - b.minR) * scale; }
+    function mx(x) { return ox + (x / TILE - b.minC) * scale; }
+    function mz(z) { return oy + (z / TILE - b.minR) * scale; }
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(mapCache, b.minC, b.minR, b.bw, b.bh, ox, oy, b.bw * scale, b.bh * scale);
-    var shellWalls = buildEnclosure();
-    ctx.strokeStyle = "rgba(62, 48, 36, 0.92)";
-    ctx.lineWidth = Math.max(1.25, scale * 0.55);
-    ctx.lineCap = "square";
-    shellWalls.walls.forEach(function (s) {
-      ctx.beginPath();
-      ctx.moveTo(mx(s.x1), mz(s.z1));
-      ctx.lineTo(mx(s.x2), mz(s.z2));
-      ctx.stroke();
-    });
-    ctx.strokeStyle = "rgba(180, 140, 70, 0.95)";
-    ctx.lineWidth = Math.max(1, scale * 0.28);
-    shellWalls.lintels.forEach(function (s) {
-      ctx.beginPath();
-      ctx.moveTo(mx(s.x1), mz(s.z1));
-      ctx.lineTo(mx(s.x2), mz(s.z2));
-      ctx.stroke();
-    });
+    ctx.drawImage(mapCache, ox, oy, b.bw * scale, b.bh * scale);
     if (labels) {
       ctx.fillStyle = "#142226";
       ctx.textAlign = "center";
       ctx.font = "bold 12px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
       SHELL.rooms.forEach(function (room) {
         if (room.kind === "wc" || room.kind === "store") return;
-        ctx.fillText(room.name, mx((room.c + 0.5) * CELL), mz((room.r + 0.5) * CELL));
+        var center = roomCenter(room.id);
+        if (!center) return;
+        ctx.fillText(room.name, mx(center.x), mz(center.z));
       });
     }
     ctx.fillStyle = "#e23b32";
     ctx.beginPath();
-    ctx.arc(mx(player.x), mz(player.z), Math.max(3.5, scale * 1.3), 0, Math.PI * 2);
+    ctx.arc(mx(player.x), mz(player.z), Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
     ctx.fill();
   }
   function drawMinimap() {
@@ -1012,14 +1042,14 @@
     if (camera && renderer && !glFailed) {
       try {
         var aspect = Math.max(0.45, (renderer.domElement.clientWidth || 1) / Math.max(1, renderer.domElement.clientHeight || 1));
-        var view = 6.4;
-        var halfW = view * aspect;
-        var halfH = view;
-        if (halfW > 9.5) { halfH *= 9.5 / halfW; halfW = 9.5; }
-        camera.left = -halfW; camera.right = halfW; camera.top = halfH; camera.bottom = -halfH;
+        var view = 7.2;
+        camera.left = -view * aspect;
+        camera.right = view * aspect;
+        camera.top = view;
+        camera.bottom = -view;
         camera.updateProjectionMatrix();
-        camera.position.set(player.x + 7, 11, player.z + 7);
-        camera.lookAt(player.x, 0.2, player.z);
+        camera.position.set(player.x + 7.5, 11, player.z + 7.5);
+        camera.lookAt(player.x, 0, player.z);
         renderer.render(scene, camera);
       } catch (err) {
         glFailed = true;
@@ -1176,7 +1206,7 @@
     var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (i = 0; i < q.length; i++) {
       cur = q[i];
-      if (cur[0] === b.c && cur[1] === b.r) return cur[2] * CELL;
+      if (cur[0] === b.c && cur[1] === b.r) return cur[2] * TILE;
       for (k = 0; k < 4; k++) {
         nx = cur[0] + nbs[k][0];
         ny = cur[1] + nbs[k][1];
@@ -1228,10 +1258,20 @@
     pathMeters: pathMeters,
     axes: function () { return screenAxes(); },
     enclosure: function () {
-      var e = buildEnclosure();
-      var jambs = 0;
-      e.posts.forEach(function (p) { if (p.jamb) jambs += 1; });
-      return { walls: e.walls.length, lintels: e.lintels.length, posts: e.posts.length, jambs: jambs, byRoom: e.byRoom };
+      return { tile: TILE, walls: wallSpots.length, byRoom: roomStat };
+    },
+    look: function () {
+      var wall = null;
+      if (scene) scene.traverse(function (obj) {
+        if (obj.userData && obj.userData.kind === "wall" && obj.geometry && obj.geometry.parameters) wall = obj.geometry.parameters;
+      });
+      var clear = "";
+      if (renderer && renderer.getClearColor) {
+        var col = new THREE.Color();
+        renderer.getClearColor(col);
+        clear = col.getHexString();
+      }
+      return { tile: TILE, wall: wall, clear: clear, ortho: !!(camera && camera.isOrthographicCamera) };
     },
     walkable: function (x, z) { return canStand(x, z); },
     slide: function (dx, dz) { var m = slide(dx, dz); if (m) onTravel(m); return m; },
