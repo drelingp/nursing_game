@@ -1,8 +1,10 @@
-/* 病房探索 — Ward C resampled to Pokémon blocks, orthographic walk. */
+import * as THREE from "three";
+
 (function () {
   "use strict";
 
   var SHELL = window.WARD_SHELL;
+  if (!SHELL || !SHELL.layout || !Array.isArray(SHELL.rooms)) return;
   var LAY = SHELL.layout;
   var TILE = LAY.tile;
   var CW = LAY.cols;
@@ -134,6 +136,7 @@
   var tileRoom = new Uint16Array(CW * CH);
   var wallSpots = [];
   var roomStat = {};
+  var layoutProblems = [];
 
   function fillRect(c, r, w, h, id) {
     var z, x;
@@ -146,14 +149,24 @@
     }
   }
 
+  function roomDoors(def) {
+    if (!def) return [];
+    return def.doors || (def.door ? [def.door] : []);
+  }
+
   function buildLayout() {
     LAY.corridors.forEach(function (rc) { fillRect(rc[0], rc[1], rc[2], rc[3], 1); });
     SHELL.rooms.forEach(function (room) {
       var def = LAY.rooms[room.id];
       if (!def) { console.warn("ward layout: 未配置房間 " + room.id); return; }
       fillRect(def.rect[0], def.rect[1], def.rect[2], def.rect[3], room.index);
-      tileWalk[def.door[1] * CW + def.door[0]] = 1;
-      tileRoom[def.door[1] * CW + def.door[0]] = room.index;
+    });
+    SHELL.rooms.forEach(function (room) {
+      var def = LAY.rooms[room.id];
+      roomDoors(def).forEach(function (door) {
+        tileWalk[door[1] * CW + door[0]] = 1;
+        tileRoom[door[1] * CW + door[0]] = 1;
+      });
     });
     auditLayout();
     collectWalls();
@@ -164,43 +177,83 @@
     var problems = [];
     var r, c, k, nc, nr;
     SHELL.rooms.forEach(function (room) {
+      var def = LAY.rooms[room.id];
+      if (!def) { problems.push(room.id + " 冇配置"); return; }
+      var doors = roomDoors(def);
       var openings = 0, size = 0;
       for (r = 0; r < CH; r++) {
         for (c = 0; c < CW; c++) {
           if (!tileWalk[r * CW + c] || tileRoom[r * CW + c] !== room.index) continue;
           size++;
-          for (k = 0; k < 4; k++) {
+          for (k = 0; k < nbs.length; k++) {
             nc = c + nbs[k][0];
             nr = r + nbs[k][1];
-            if (nc < 0 || nr < 0 || nc >= CW || nr >= CH) continue;
-            if (tileWalk[nr * CW + nc] && tileRoom[nr * CW + nc] !== room.index) openings++;
+            if (!walkAt(nc, nr) || tileRoom[nr * CW + nc] === room.index) continue;
+            openings++;
+            if (!doors.some(function (door) { return door[0] === nc && door[1] === nr; })) {
+              problems.push(room.id + " 有未標示出口 " + nc + "," + nr);
+            }
           }
         }
       }
-      if (!size) problems.push(room.id + " 冇地板");
-      else if (openings !== 1) problems.push(room.id + " 有 " + openings + " 度門");
+      if (size !== def.rect[2] * def.rect[3]) problems.push(room.id + " 面積不正確");
+      if (openings !== doors.length) problems.push(room.id + " 有 " + openings + " 度門，預期 " + doors.length + " 度");
+      doors.forEach(function (door) {
+        var dc = door[0], dr = door[1], neighbors = [], roomNeighbors = 0;
+        if (!Number.isInteger(dc) || !Number.isInteger(dr) || !walkAt(dc, dr) || tileRoom[dr * CW + dc] !== 1) {
+          problems.push(room.id + " 門口無效 " + dc + "," + dr);
+          return;
+        }
+        nbs.forEach(function (offset) {
+          var x = dc + offset[0], z = dr + offset[1];
+          if (!walkAt(x, z)) return;
+          neighbors.push(offset);
+          if (tileRoom[z * CW + x] === room.index) roomNeighbors++;
+        });
+        if (roomNeighbors !== 1 || neighbors.length !== 2 ||
+            neighbors[0][0] + neighbors[1][0] !== 0 || neighbors[0][1] + neighbors[1][1] !== 0) {
+          problems.push(room.id + " 門口連接不正確 " + dc + "," + dr);
+        }
+      });
     });
-    var seen = new Uint8Array(CW * CH);
-    var queue = [];
+
     var startC = LAY.marks.start[0], startR = LAY.marks.start[1];
-    if (tileWalk[startR * CW + startC]) {
-      seen[startR * CW + startC] = 1;
-      queue.push([startC, startR]);
-    }
-    while (queue.length) {
-      var cur = queue.pop();
-      for (k = 0; k < 4; k++) {
-        nc = cur[0] + nbs[k][0];
-        nr = cur[1] + nbs[k][1];
-        if (nc < 0 || nr < 0 || nc >= CW || nr >= CH) continue;
-        if (seen[nr * CW + nc] || !tileWalk[nr * CW + nc]) continue;
-        seen[nr * CW + nc] = 1;
-        queue.push([nc, nr]);
+    function flood(blocked) {
+      var seen = new Uint8Array(CW * CH);
+      var queue = [];
+      if (walkAt(startC, startR) && (!blocked || !blocked(startC, startR))) {
+        seen[startR * CW + startC] = 1;
+        queue.push([startC, startR]);
       }
+      for (var index = 0; index < queue.length; index++) {
+        var current = queue[index];
+        nbs.forEach(function (offset) {
+          var x = current[0] + offset[0], z = current[1] + offset[1];
+          if (!walkAt(x, z) || seen[z * CW + x] || (blocked && blocked(x, z))) return;
+          seen[z * CW + x] = 1;
+          queue.push([x, z]);
+        });
+      }
+      return seen;
     }
-    var sealed = 0;
+    var seen = flood(null), sealed = 0;
     for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c] && !seen[r * CW + c]) sealed++;
     if (sealed) problems.push(sealed + " 格行唔到");
+    Object.keys(LAY.marks).forEach(function (name) {
+      var mark = LAY.marks[name];
+      if (!walkAt(mark[0], mark[1]) || !seen[mark[1] * CW + mark[0]]) problems.push(name + " 標記行唔到");
+    });
+    var visit = roomById.vis1, lift = LAY.marks.lift;
+    if (visit && lift) {
+      var visitDoors = roomDoors(LAY.rooms.vis1);
+      var withoutVisit = flood(function (col, row) {
+        return tileRoom[row * CW + col] === visit.index || visitDoors.some(function (door) {
+          return door[0] === col && door[1] === row;
+        });
+      });
+      if (withoutVisit[lift[1] * CW + lift[0]]) problems.push("升降機大堂直接連接病房");
+    }
+    layoutProblems = problems;
     if (problems.length) console.warn("ward layout 自檢: " + problems.join("; "));
   }
 
@@ -359,7 +412,7 @@
       else if (step === "goFax") text = "任務：去護士站，撳 A 用傳真機影印藥紙。";
       else if (step === "docs") text = "任務：再撳 A，準備急救文件。";
     } else if (quest === "admit") {
-      if (step === "intro" || step === "goElev") text = "任務：去病人及職員升降機大堂，撳 A 核對收症。";
+      if (step === "intro" || step === "goElev") text = "任務：去升降機大堂，撳 A 核對收症。";
       else if (step === "battle") text = "任務：收症問答。A 確認，B 取消選擇。";
       else if (step === "goBed") text = "任務：去收症房，撳 A 完成安排。";
     } else if (quest === "rest") {
@@ -501,7 +554,7 @@
     step = "intro";
     seen.admit = true;
     say([
-      "收症：虛構病人「林先生」同護送喺病人及職員升降機大堂等候。",
+      "收症：虛構病人「林先生」同護送喺升降機大堂等候。",
       "先去升降機大堂，撳 A 核對身份，再答收症問題，最後去收症房。"
     ], function () { step = "goElev"; setQuestLabel(); });
   }
@@ -646,26 +699,43 @@
     else openMenu();
   }
 
+  var materialCache = Object.create(null);
+  var boxCache = Object.create(null);
+  var shadowGeometry = new THREE.CircleGeometry(0.5, 16);
+  var shadowMaterial = new THREE.MeshBasicMaterial({ color: 0x344c47, transparent: true, opacity: 0.13, depthWrite: false });
+  var leafGeometry = new THREE.SphereGeometry(1, 8, 6);
+
   function mat(color) {
-    return new THREE.MeshLambertMaterial({ color: color, flatShading: true });
+    if (!materialCache[color]) materialCache[color] = new THREE.MeshStandardMaterial({ color: color, roughness: 0.82, metalness: 0.03 });
+    return materialCache[color];
   }
-  function addBox(parent, w, h, d, color, x, y, z) {
-    var mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
+  function addBox(parent, width, height, depth, color, x, y, z) {
+    var key = [width, height, depth].join(":");
+    if (!boxCache[key]) boxCache[key] = new THREE.BoxGeometry(width, height, depth);
+    var mesh = new THREE.Mesh(boxCache[key], mat(color));
     mesh.position.set(x, y, z);
     parent.add(mesh);
     return mesh;
   }
+  function addShadow(parent, x, z, width, depth) {
+    var shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(x, 0.012, z);
+    shadow.scale.set(width, depth, 1);
+    parent.add(shadow);
+  }
 
   function buildScene() {
     var canvas = el("wardCanvas");
-    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, alpha: false });
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
     if (!renderer.getContext()) throw new Error("WebGL");
-    renderer.setClearColor(0x8ec6ea, 1);
-    renderer.setPixelRatio(1);
+    renderer.setClearColor(0xdce8e4, 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 80);
-    scene.add(new THREE.AmbientLight(0xfff4dd, 0.72));
-    var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+    scene.add(new THREE.HemisphereLight(0xf5fbf8, 0xa2afa6, 1.5));
+    var sun = new THREE.DirectionalLight(0xfff7e9, 1.15);
     sun.position.set(8, 16, 6);
     scene.add(sun);
 
@@ -673,18 +743,21 @@
     var r, c, id, col;
     for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c]) floorN += 1;
     var floors = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(TILE * 0.98, 0.18, TILE * 0.98),
-      new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }),
+      new THREE.BoxGeometry(TILE * 0.997, 0.18, TILE * 0.997),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }),
       Math.max(1, floorN)
     );
     var dummy = new THREE.Object3D();
     var color = new THREE.Color();
     var fi = 0;
+    var floorColors = { bed: 0xe5e8e4, single: 0xe5e8e4, nurse: 0xe0e7e4, treat: 0xe6eae7, intake: 0xece8e1, secl: 0xe8e5e0, living: 0xe9e0d6, dine: 0xe9e2d8, train: 0xe4e8e2, consult: 0xe7eae5, med: 0xe2e9e7, elev: 0xdde3e1, bath: 0xdce9e7, garden: 0x9caf91 };
     for (r = 0; r < CH; r++) {
       for (c = 0; c < CW; c++) {
         if (!tileWalk[r * CW + c]) continue;
         id = tileRoom[r * CW + c];
-        col = id >= 2 && SHELL.rooms[id - 2] ? SHELL.rooms[id - 2].color : 0xc6d48b;
+        var room = id >= 2 ? SHELL.rooms[id - 2] : null;
+        col = room ? (floorColors[room.kind] || 0xe6e9e5) : 0xd8dfdc;
+        if (room && room.kind === "garden" && r >= 22 && r <= 24) col = 0xd5d9cd;
         dummy.position.set((c + 0.5) * TILE, -0.09, (r + 0.5) * TILE);
         dummy.rotation.set(0, 0, 0);
         dummy.scale.set(1, 1, 1);
@@ -701,7 +774,7 @@
 
     var walls = new THREE.InstancedMesh(
       new THREE.BoxGeometry(0.98, 1.15, 0.98),
-      mat(0xf4efe2),
+      mat(0xe7ebe6),
       Math.max(1, wallSpots.length)
     );
     wallSpots.forEach(function (s, idx) {
@@ -720,22 +793,29 @@
     walls.instanceMatrix.needsUpdate = true;
     walls.userData.kind = "wall";
     scene.add(walls);
+    addCorridorDetails();
 
+    var drawnDoors = {};
     SHELL.rooms.forEach(function (room) {
       var def = LAY.rooms[room.id];
       if (!def) return;
-      var dc = def.door[0], dr = def.door[1];
-      var dx = (dc + 0.5) * TILE, dz = (dr + 0.5) * TILE;
-      var off = TILE / 2 - 0.09;
-      if (walkAt(dc, dr - 1) && walkAt(dc, dr + 1)) {
-        addBox(scene, 0.18, 1.15, 0.18, 0x7a4a22, dx - off, 0.575, dz);
-        addBox(scene, 0.18, 1.15, 0.18, 0x7a4a22, dx + off, 0.575, dz);
-        addBox(scene, TILE, 0.22, 0.18, 0x7a4a22, dx, 1.26, dz);
-      } else {
-        addBox(scene, 0.18, 1.15, 0.18, 0x7a4a22, dx, 0.575, dz - off);
-        addBox(scene, 0.18, 1.15, 0.18, 0x7a4a22, dx, 0.575, dz + off);
-        addBox(scene, 0.18, 0.22, TILE, 0x7a4a22, dx, 1.26, dz);
-      }
+      roomDoors(def).forEach(function (door) {
+        var dc = door[0], dr = door[1];
+        var key = dc + "," + dr;
+        if (drawnDoors[key]) return;
+        drawnDoors[key] = true;
+        var dx = (dc + 0.5) * TILE, dz = (dr + 0.5) * TILE;
+        var off = TILE / 2 - 0.09;
+        if (walkAt(dc, dr - 1) && walkAt(dc, dr + 1)) {
+          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx - off, 0.575, dz);
+          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx + off, 0.575, dz);
+          addBox(scene, TILE, 0.22, 0.18, 0x819591, dx, 1.26, dz);
+        } else {
+          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx, 0.575, dz - off);
+          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx, 0.575, dz + off);
+          addBox(scene, 0.18, 0.22, TILE, 0x819591, dx, 1.26, dz);
+        }
+      });
     });
 
     SHELL.rooms.forEach(function (room) {
@@ -749,13 +829,24 @@
 
     (LAY.beds || []).forEach(function (bed) {
       var prefer = roomById[bed.room] ? roomById[bed.room].index : 0;
-      var place = snapPoint((bed.c + 0.5) * TILE, (bed.r + 0.5) * TILE, prefer);
+      var place = { x: (bed.c + 0.5) * TILE, z: (bed.r + 0.5) * TILE };
+      var bedCell = cellAt(place.x, place.z);
+      if (!walkAt(bedCell.c, bedCell.r) || tileRoom[bedCell.r * CW + bedCell.c] !== prefer) {
+        place = snapPoint(place.x, place.z, prefer);
+      }
       var group = new THREE.Group();
-      addBox(group, 1.15, 0.28, 1.65, 0xf7f1e4, 0, 0.28, 0);
-      var blanket = addBox(group, 0.95, 0.16, 1.25, 0x6cb5d6, 0, 0.46, 0.05);
+      group.userData.kind = "furniture";
+      group.userData.room = bed.room;
+      addShadow(group, 0, 0, 1.35, 1.85);
+      addBox(group, 1.15, 0.16, 1.65, 0xbfcac6, 0, 0.22, 0);
+      addBox(group, 1.02, 0.18, 1.53, 0xf7f9f5, 0, 0.39, 0);
+      var blanket = addBox(group, 0.98, 0.09, 1.05, 0x91bbb0, 0, 0.53, 0.19);
       blanket.userData.kind = "bed";
       blanket.userData.room = bed.room;
-      addBox(group, 0.6, 0.18, 0.36, 0xfff8ee, 0, 0.58, -0.5);
+      addBox(group, 0.62, 0.12, 0.32, 0xffffff, 0, 0.55, -0.53);
+      addBox(group, 1.12, 0.46, 0.07, 0xabb9b3, 0, 0.44, -0.77);
+      addBox(group, 0.38, 0.48, 0.42, 0xd3dad4, 0.84, 0.24, -0.42);
+      addBox(group, 0.32, 0.035, 0.36, 0x9faea6, 0.84, 0.49, -0.42);
       group.position.set(place.x, 0, place.z);
       group.rotation.y = bed.ang || 0;
       scene.add(group);
@@ -763,6 +854,7 @@
 
     addNurseStation();
     addTreatRoom();
+    addOtherRoomFurniture();
 
     playerMesh = new THREE.Group();
     addBox(playerMesh, 0.46, 0.48, 0.34, 0x2f6f9a, 0, 0.46, 0);
@@ -786,43 +878,218 @@
     built = true;
   }
 
-  function addNurseStation() {
-    var cells = cellsOf("nurse");
-    var cx = 0, cz = 0, i;
-    cells.forEach(function (p) { cx += p.x; cz += p.z; });
-    if (cells.length) { cx /= cells.length; cz /= cells.length; }
-    cells.sort(function (a, b) {
-      var da = (a.x - cx) * (a.x - cx) + (a.z - cz) * (a.z - cz);
-      var db = (b.x - cx) * (b.x - cx) + (b.z - cz) * (b.z - cz);
-      return da - db;
+  function addCorridorDetails() {
+    var directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    var doors = Object.create(null);
+    SHELL.rooms.forEach(function (room) {
+      roomDoors(LAY.rooms[room.id]).forEach(function (door) { doors[door.join(",")] = true; });
     });
-    function key(x, z) { return Math.round(x * 8) + "," + Math.round(z * 8); }
-    var used = {};
-    used[key(MARK.fax.x, MARK.fax.z)] = 1;
-    used[key(MARK.computer.x, MARK.computer.z)] = 1;
-    var n = 0;
-    for (i = 0; i < cells.length && n < 6; i++) {
-      if (used[key(cells[i].x, cells[i].z)]) continue;
-      addBox(scene, 0.7, 0.7, 0.55, 0xefe6d4, cells[i].x, 0.4, cells[i].z);
-      n += 1;
-    }
-    addBox(scene, 0.55, 0.28, 0.4, 0x4d5966, MARK.fax.x, 0.7, MARK.fax.z);
-    addBox(scene, 0.28, 0.04, 0.22, 0xf4f7fb, MARK.fax.x, 0.88, MARK.fax.z - 0.12);
-    addBox(scene, 0.5, 0.22, 0.36, 0x2c3440, MARK.computer.x, 0.55, MARK.computer.z);
-    addBox(scene, 0.46, 0.3, 0.08, 0x8fd0ff, MARK.computer.x, 0.84, MARK.computer.z);
+    var rails = [];
+    wallSpots.forEach(function (wall) {
+      directions.forEach(function (direction) {
+        var col = wall[0] + direction[0], row = wall[1] + direction[1];
+        if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1 || doors[col + "," + row]) return;
+        rails.push({ x: (wall[0] + 0.5) * TILE + direction[0] * (TILE / 2 + 0.02),
+          z: (wall[1] + 0.5) * TILE + direction[1] * (TILE / 2 + 0.02),
+          angle: direction[0] ? Math.PI / 2 : 0 });
+      });
+    });
+    if (!rails.length) return;
+    var mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.07, 0.08), mat(0xa6b8b0), rails.length);
+    var dummy = new THREE.Object3D();
+    rails.forEach(function (rail, index) {
+      dummy.position.set(rail.x, 0.73, rail.z);
+      dummy.rotation.set(0, rail.angle, 0);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(index, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    scene.add(mesh);
+    var lamps = rails.filter(function (rail, index) { return index % 8 === 0; });
+    var lampMaterial = new THREE.MeshStandardMaterial({ color: 0xf6f5ea, emissive: 0xffe9c7, emissiveIntensity: 0.3 });
+    var fixtures = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.14, 0.1), lampMaterial, lamps.length);
+    lamps.forEach(function (lamp, index) {
+      dummy.position.set(lamp.x, 1.03, lamp.z);
+      dummy.rotation.set(0, lamp.angle, 0);
+      dummy.updateMatrix();
+      fixtures.setMatrixAt(index, dummy.matrix);
+    });
+    fixtures.instanceMatrix.needsUpdate = true;
+    scene.add(fixtures);
   }
 
-  function addTreatRoom() {
-    var cells = cellsOf("treat");
-    if (!cells.length) return;
-    var spot = cells[0];
-    var best = 1e9;
-    cells.forEach(function (p) {
-      var d = (p.x - MARK.trolley.x) * (p.x - MARK.trolley.x) + (p.z - MARK.trolley.z) * (p.z - MARK.trolley.z);
-      if (d > 0.5 && d < best) { best = d; spot = p; }
+  function roomGroup(id) {
+    var rect = LAY.rooms[id].rect;
+    var group = new THREE.Group();
+    group.position.set(rect[0] * TILE, 0, rect[1] * TILE);
+    group.userData.kind = "furniture";
+    group.userData.room = id;
+    scene.add(group);
+    return group;
+  }
+  function addTable(parent, x, z, width, depth) {
+    addShadow(parent, x, z, width + 0.2, depth + 0.2);
+    addBox(parent, width, 0.09, depth, 0xb7a58d, x, 0.76, z);
+    addBox(parent, 0.09, 0.7, depth * 0.76, 0xb5c2bc, x - width * 0.38, 0.36, z);
+    addBox(parent, 0.09, 0.7, depth * 0.76, 0xb5c2bc, x + width * 0.38, 0.36, z);
+  }
+  function addChair(parent, x, z, angle) {
+    var chair = new THREE.Group();
+    chair.position.set(x, 0, z);
+    chair.rotation.y = angle || 0;
+    addBox(chair, 0.5, 0.1, 0.5, 0x78948c, 0, 0.48, 0);
+    addBox(chair, 0.5, 0.48, 0.08, 0x78948c, 0, 0.74, -0.22);
+    addBox(chair, 0.38, 0.42, 0.38, 0xb2bdb5, 0, 0.23, 0);
+    parent.add(chair);
+  }
+  function addCabinet(parent, x, z, width, depth, height) {
+    addShadow(parent, x, z, width + 0.12, depth + 0.12);
+    addBox(parent, width, height, depth, 0xd9e1dc, x, height / 2, z);
+    addBox(parent, width * 0.88, 0.025, depth + 0.015, 0xaab8b1, x, height * 0.55, z);
+    addBox(parent, 0.07, 0.07, 0.04, 0x7c9188, x + width * 0.3, height * 0.75, z + depth / 2 + 0.01);
+  }
+  function addSofa(parent, x, z, width) {
+    addShadow(parent, x, z, width + 0.2, 0.9);
+    addBox(parent, width, 0.32, 0.66, 0x8ba9a0, x, 0.35, z);
+    addBox(parent, width, 0.55, 0.12, 0x7d9d93, x, 0.66, z - 0.28);
+    addBox(parent, 0.1, 0.32, 0.66, 0x758e87, x - width / 2, 0.48, z);
+    addBox(parent, 0.1, 0.32, 0.66, 0x758e87, x + width / 2, 0.48, z);
+  }
+  function addScreen(parent, x, z, width) {
+    addBox(parent, width, 1.05, 0.05, 0xe9eeea, x, 0.8, z);
+    addBox(parent, 0.06, 1.2, 0.06, 0x9bada5, x - width / 2, 0.6, z);
+    addBox(parent, 0.06, 1.2, 0.06, 0x9bada5, x + width / 2, 0.6, z);
+  }
+  function addPlant(parent, x, z, scale, flowering) {
+    var plant = new THREE.Group();
+    plant.position.set(x, 0, z);
+    plant.scale.setScalar(scale);
+    plant.userData.kind = "plant";
+    addBox(plant, 0.48, 0.36, 0.48, 0xa79280, 0, 0.18, 0);
+    addBox(plant, 0.08, 0.5, 0.08, 0x6b8564, 0, 0.56, 0);
+    [[-0.18, 0.72, 0, 0.31, 0x6e9875], [0.18, 0.8, 0.05, 0.33, 0x87a980], [0, 1.01, -0.04, 0.3, 0x5f8c6c]].forEach(function (leaf) {
+      var mesh = new THREE.Mesh(leafGeometry, mat(leaf[4]));
+      mesh.position.set(leaf[0], leaf[1], leaf[2]);
+      mesh.scale.set(leaf[3], leaf[3] * 1.12, leaf[3]);
+      plant.add(mesh);
     });
-    addBox(scene, 0.9, 0.9, 0.7, 0xf4f7fb, spot.x, 0.5, spot.z);
-    addBox(scene, 0.28, 0.5, 0.08, 0xd6453d, spot.x, 1.15, spot.z);
+    if (flowering) {
+      var flower = new THREE.Mesh(leafGeometry, mat(0xd8a39b));
+      flower.position.set(0.16, 1.12, 0.08);
+      flower.scale.setScalar(0.12);
+      plant.add(flower);
+    }
+    parent.add(plant);
+  }
+  function addNurseStation() {
+    var room = roomGroup("nurse");
+    var faxX = MARK.fax.x - room.position.x, faxZ = MARK.fax.z - room.position.z;
+    var computerX = MARK.computer.x - room.position.x, computerZ = MARK.computer.z - room.position.z;
+    addTable(room, faxX, faxZ, 1.15, 0.7);
+    addTable(room, computerX, computerZ, 1.15, 0.7);
+    addBox(room, 0.55, 0.25, 0.4, 0x687a79, faxX, 0.94, faxZ);
+    addBox(room, 0.28, 0.035, 0.22, 0xf8faf8, faxX, 1.08, faxZ - 0.08);
+    addBox(room, 0.45, 0.3, 0.07, 0x485c5d, computerX, 1.05, computerZ - 0.08);
+    addBox(room, 0.36, 0.21, 0.01, 0x99c3bb, computerX, 1.05, computerZ - 0.035);
+    addChair(room, faxX, faxZ + 0.85, Math.PI);
+    addChair(room, computerX, computerZ + 0.85, Math.PI);
+    addCabinet(room, 0.38, 3.5, 0.55, 1.35, 1.05);
+  }
+  function addTreatRoom() {
+    var room = roomGroup("treat");
+    addCabinet(room, 3.05, 0.4, 0.78, 0.5, 1.25);
+    addShadow(room, 2.95, 4.25, 1.15, 2.0);
+    addBox(room, 0.95, 0.16, 1.8, 0xa3b1ab, 2.95, 0.38, 4.25);
+    addBox(room, 0.86, 0.18, 1.68, 0xf4f7f3, 2.95, 0.55, 4.25);
+    addBox(room, 0.55, 0.1, 0.3, 0xd3e3da, 2.95, 0.69, 3.65);
+  }
+  function addOtherRoomFurniture() {
+    ["b1", "b2"].forEach(function (id) {
+      var ward = roomGroup(id), rect = LAY.rooms[id].rect;
+      var northBeds = LAY.beds.filter(function (bed) { return bed.room === id && bed.ang === 0; });
+      northBeds.sort(function (left, right) { return left.c - right.c; });
+      for (var index = 0; index < northBeds.length - 1; index++) {
+        var x = ((northBeds[index].c + northBeds[index + 1].c) / 2 + 0.5 - rect[0]) * TILE;
+        [0.75, rect[3] * TILE - 0.75].forEach(function (z) {
+          var partition = new THREE.Group();
+          partition.userData.kind = "partition";
+          partition.userData.room = id;
+          partition.position.set(x, 0, z);
+          partition.rotation.y = Math.PI / 2;
+          addScreen(partition, 0, 0, 1.2);
+          ward.add(partition);
+        });
+      }
+    });
+    var room = roomGroup("iso1");
+    addScreen(room, 4.5, 1.0, 1.1);
+    addCabinet(room, 0.45, 4.7, 0.65, 0.6, 1.1);
+
+    room = roomGroup("intake");
+    addTable(room, 2.8, 4.15, 1.4, 0.7);
+    addChair(room, 2.8, 4.95, Math.PI);
+    addScreen(room, 0.9, 2.9, 1.15);
+    addCabinet(room, 0.45, 0.45, 0.7, 0.6, 1.1);
+
+    room = roomGroup("secl");
+    addSofa(room, 2.4, 0.55, 1.6);
+    addBox(room, 1.1, 0.1, 0.85, 0xc3cfc5, 0.95, 0.08, 3.2);
+    addPlant(room, 4.05, 0.55, 0.7, false);
+
+    room = roomGroup("vis1");
+    addSofa(room, 3.15, 0.55, 1.55);
+    addTable(room, 3.1, 1.55, 0.95, 0.55);
+    addChair(room, 4.05, 2.9, Math.PI / 2);
+    addPlant(room, 4.15, 0.55, 0.65, true);
+
+    room = roomGroup("dine");
+    addTable(room, 3.75, 2.35, 1.45, 0.9);
+    addChair(room, 3.55, 3.2, Math.PI);
+    addChair(room, 4.8, 2.4, Math.PI / 2);
+    addCabinet(room, 0.45, 3.9, 0.7, 0.55, 0.8);
+
+    room = roomGroup("train");
+    addTable(room, 3.75, 3.35, 1.5, 0.75);
+    addChair(room, 3.25, 2.55, 0);
+    addChair(room, 4.25, 2.55, 0);
+    addCabinet(room, 0.45, 3.9, 0.7, 0.55, 1.15);
+
+    room = roomGroup("con1");
+    addTable(room, 3.2, 0.85, 1.35, 0.65);
+    addChair(room, 3.25, 1.75, Math.PI);
+    addBox(room, 0.95, 0.2, 1.75, 0xf3f6f1, 0.8, 0.53, 2.45);
+    addBox(room, 0.9, 0.18, 1.8, 0xa9b8b2, 0.8, 0.34, 2.45);
+    addScreen(room, 1.0, 3.65, 1.15);
+
+    room = roomGroup("med");
+    addCabinet(room, 3.35, 2.3, 0.55, 1.9, 1.35);
+    addTable(room, 1.2, 3.8, 1.55, 0.6);
+    addBox(room, 0.32, 0.22, 0.25, 0xb7cfc2, 1.2, 0.93, 3.8);
+
+    room = roomGroup("lift");
+    addBox(room, 0.12, 1.45, 1.65, 0x98aaa7, 0.12, 0.725, 2.35);
+    addBox(room, 0.14, 1.15, 0.74, 0xcbd6d1, 0.2, 0.62, 1.94);
+    addBox(room, 0.14, 1.15, 0.74, 0xcbd6d1, 0.2, 0.62, 2.76);
+    addBox(room, 0.16, 0.18, 0.2, 0x52766d, 0.2, 1.2, 3.45);
+    addSofa(room, 2.8, 0.55, 1.35);
+
+    room = roomGroup("bath");
+    addShadow(room, 0.85, 3.35, 1.25, 2.0);
+    addBox(room, 1.08, 0.48, 1.85, 0xd7e3de, 0.85, 0.29, 3.35);
+    addBox(room, 0.86, 0.12, 1.62, 0xf4f8f6, 0.85, 0.57, 3.35);
+    addCabinet(room, 3.1, 0.4, 0.9, 0.55, 0.7);
+    addBox(room, 0.65, 0.12, 0.45, 0xf8faf8, 3.1, 0.77, 0.4);
+    addBox(room, 0.07, 0.08, 1.5, 0x9aaca7, 0.16, 0.98, 3.35);
+
+    room = roomGroup("garden");
+    addBox(room, 4.5, 0.22, 0.65, 0xa9937e, 4.45, 0.11, 1.0);
+    addBox(room, 3.2, 0.22, 0.65, 0xa9937e, 2.6, 0.11, 11.8);
+    [[1.0, 1.1, 0.85, true], [2.8, 1.0, 0.95, false], [4.6, 1.0, 0.8, true],
+      [6.4, 1.0, 1.05, false], [6.7, 3.1, 0.8, true], [6.7, 9.0, 1.0, false],
+      [5.9, 11.6, 0.9, true], [3.0, 11.8, 0.85, false], [1.1, 10.1, 1.0, true]].forEach(function (plant) {
+      addPlant(room, plant[0], plant[1], plant[2], plant[3]);
+    });
+    addSofa(room, 3.6, 9.4, 1.6);
   }
 
   function labelSprite(text) {
@@ -830,20 +1097,17 @@
     c.width = 512;
     c.height = 96;
     var g = c.getContext("2d");
-    g.fillStyle = "rgba(12, 40, 48, 0.78)";
-    g.fillRect(8, 8, 496, 80);
-    g.strokeStyle = "#f6e27a";
-    g.lineWidth = 6;
-    g.strokeRect(8, 8, 496, 80);
-    g.fillStyle = "#fff8ee";
-    g.font = "bold 42px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+    g.fillStyle = "rgba(32, 57, 54, 0.82)";
+    g.fillRect(18, 18, 476, 60);
+    g.fillStyle = "#f8faf7";
+    g.font = "bold 38px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
     g.textAlign = "center";
     g.textBaseline = "middle";
     g.fillText(text, 256, 50);
     var tex = new THREE.CanvasTexture(c);
     tex.magFilter = THREE.NearestFilter;
     var sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(3.4, 0.64, 1);
+    sprite.scale.set(2.5, 0.47, 1);
     return sprite;
   }
 
@@ -1144,10 +1408,6 @@
   function start() {
     active = true;
     paused = false;
-    if (!window.THREE || !SHELL) {
-      showGlError("畫面未載入。請同 game.html 一齊開啟 vendor/three.min.js 同 ward-shell.js。唔使密碼。");
-      return;
-    }
     if (!built) {
       try { buildScene(); bind(); }
       catch (err) {
@@ -1199,11 +1459,19 @@
     walkable: function (x, z) { return canStand(x, z); },
     slide: function (dx, dz) { var m = slide(dx, dz); if (m) onTravel(m); return m; },
     audit: function () {
-      var beds = {};
+      var beds = {}, bedPositions = [], partitions = [], furniture = {}, plants = 0;
       if (scene) scene.traverse(function (obj) {
-        if (obj.userData && obj.userData.kind === "bed") beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
+        if (!obj.userData) return;
+        if (obj.userData.kind === "bed") {
+          beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
+          bedPositions.push({ room: obj.userData.room, x: obj.parent.position.x, z: obj.parent.position.z, rotation: obj.parent.rotation.y });
+        } else if (obj.userData.kind === "partition") {
+          partitions.push({ room: obj.userData.room, x: obj.parent.position.x + obj.position.x, z: obj.parent.position.z + obj.position.z });
+        } else if (obj.userData.kind === "furniture") {
+          furniture[obj.userData.room] = (furniture[obj.userData.room] || 0) + 1;
+        } else if (obj.userData.kind === "plant") plants++;
       });
-      return { beds: beds, rooms: SHELL.rooms.map(function (r) { return r.id; }) };
+      return { beds: beds, bedPositions: bedPositions, partitions: partitions, furniture: furniture, plants: plants, rooms: SHELL.rooms.map(function (r) { return r.id; }), problems: layoutProblems.slice() };
     }
   };
 })();

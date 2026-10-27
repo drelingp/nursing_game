@@ -1,0 +1,12 @@
+@@ -155,2 +160,4 @@
+-      tileWalk[def.door[1] * CW + def.door[0]] = 1;
+-      tileRoom[def.door[1] * CW + def.door[0]] = room.index;
++      roomDoors(def).forEach(function (door) {
++        tileWalk[door[1] * CW + door[0]] = 1;
++        tileRoom[door[1] * CW + door[0]] = room.index;
++      });
+@@ -180,2 +187,3 @@
++      var expected = roomDoors(LAY.rooms[room.id]).length;
+       if (!size) problems.push(room.id + " 冇地板");
+-      else if (openings !== 1) problems.push(room.id + " 有 " + openings + " 度門");
++      else if (openings !== expected) problems.push(room.id + " 有 " + openings + " 度門，預期 " + expected + " 度");

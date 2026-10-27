@@ -1,0 +1,14 @@
+{
+  "name": "nursing-game",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:ward": "esbuild ward.js --bundle --platform=browser --format=iife --target=es2020 --legal-comments=inline --outfile=ward.bundle.js",
+    "test:ward": "node -e \"process.env.PW_DISABLE_TS_ESM='1';process.argv.splice(1,0,'playwright');require('@playwright/test/cli')\" test tests/ward.spec.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "esbuild": "0.24.2",
+    "three": "0.160.1"
+  }
+}

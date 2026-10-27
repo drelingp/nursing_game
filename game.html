@@ -690,6 +690,10 @@
       .mode-card { padding: 12px 12px; }
       .home-foot { font-size: 12px; margin-top: 8px; }
     }
+    @media (orientation: landscape) and (max-height: 360px) {
+      .mode-grid { flex: 0 0 auto; grid-auto-rows: minmax(170px, auto); }
+      .mode-card { min-height: 170px; }
+    }
     .mode-card.explore { background: #c44738; color: #fff8ee; }
     @media (min-width: 720px) {
       .mode-card.explore { grid-column: 1 / -1; }
@@ -711,9 +715,7 @@
       flex: 1 1 auto;
       min-height: 220px;
       background: #16323c;
-      border-radius: 12px;
       overflow: hidden;
-      border: 3px solid #1e5c67;
       touch-action: none;
     }
     #wardCanvas {
@@ -741,22 +743,6 @@
       background: #f6e27a;
     }
     .ward-fallback.show { display: flex; }
-    .ward-lookhint {
-      position: absolute;
-      left: 50%;
-      bottom: 10px;
-      transform: translateX(-50%);
-      z-index: 2;
-      margin: 0;
-      padding: 4px 8px;
-      border-radius: 8px;
-      background: rgba(8, 28, 34, 0.72);
-      color: #fff8ee;
-      font-size: 12px;
-      font-weight: 800;
-      pointer-events: none;
-      white-space: nowrap;
-    }
     .ward-hud {
       position: absolute;
       left: 8px;
@@ -863,11 +849,13 @@
       border-radius: 12px;
       padding: 8px;
       overflow: auto;
+      touch-action: pan-y;
     }
     .ward-battle.hidden, .ward-dialog.hidden, .ward-menu.hidden { display: none; }
     .battle-name {
       align-self: flex-start;
       background: #fff8ee;
+      color: #142226;
       border: 3px solid #1b3c6e;
       border-radius: 8px;
       padding: 4px 8px;
@@ -1007,7 +995,7 @@
           <button class="mode-card explore" id="btnWard" type="button">
             <span class="mode-emoji" aria-hidden="true">病</span>
             <strong>病房探索</strong>
-            <span>寶可夢式俯視 C 座，跟官方圖則。搖桿任意方向行，W A S D 係八向。A 互動，B 任務。唔使密碼。</span>
+            <span>探索病房各個空間，完成虛構護理訓練任務。</span>
           </button>
         </div>
         <p class="home-foot">本遊戲只供訓練用途，實際工作請依照部門指引。分數只是學習回饋，不是績效考核。內容為虛構訓練案例。</p>
@@ -1048,7 +1036,6 @@
           <canvas id="wardCanvas"></canvas>
           <p class="ward-fallback" id="wardFallback">立體畫面開唔到。請用 Chrome 雙擊 game.html。唔使密碼。</p>
           <canvas id="wardFlat" aria-hidden="true"></canvas>
-          <p class="ward-lookhint">搖桿任意方向　W A S D 八向</p>
           <div class="ward-hud">
             <div class="ward-room" id="wardRoomLabel">走廊</div>
             <div class="ward-quest" id="wardQuestLabel">搖桿任意方向行。W A S D 或方向鍵係八向。A 互動，B 任務。唔使密碼。</div>
@@ -1104,10 +1091,9 @@
     </div>
   </div>
 
-  <script src="vendor/three.min.js"></script>
   <script src="ward-shell.js"></script>
   <script src="ward-map.js"></script>
-  <script src="ward.js"></script>
+  <script src="ward.bundle.js"></script>
   <script>
   (function () {
     "use strict";
@@ -2779,7 +2765,14 @@
       document.body.classList.remove("is-home");
       document.body.classList.add("is-playing");
       setPauseEnabled(true);
+      var fallback = document.getElementById("wardFallback");
+      fallback.classList.remove("show");
       if (window.WardMode) WardMode.start();
+      else {
+        fallback.textContent = "病房檔案未載入。請確保 game.html、ward-shell.js 同 ward.bundle.js 喺同一個資料夾。";
+        fallback.classList.add("show");
+        setPauseEnabled(false);
+      }
     });
     document.getElementById("btnMute").addEventListener("click", toggleMute);
     document.getElementById("btnPause").addEventListener("click", togglePause);
@@ -2827,7 +2820,7 @@
       var t = e.target;
       var allow = false;
       while (t && t !== document.body) {
-        if (t.classList && (t.classList.contains("modal") || t.classList.contains("play-head") || t.classList.contains("panel"))) {
+        if (t.classList && (t.classList.contains("modal") || t.classList.contains("play-head") || t.classList.contains("panel") || t.classList.contains("ward-battle"))) {
           allow = true;
           break;
         }
