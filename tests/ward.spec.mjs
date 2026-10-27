@@ -39,6 +39,79 @@ async function enterWard(page) {
   await page.waitForFunction(() => window.WardMode && window.WardMode.state().camera === 'ortho');
 }
 
+async function attachScreenshot(page, testInfo, name) {
+  const path = testInfo.outputPath(name + '.png');
+  await page.screenshot({ path });
+  await testInfo.attach(name, { path, contentType: 'image/png' });
+}
+
+test('reference layout retains the bedroom scale and diagonal wing', () => {
+  const sandbox = { window: {} };
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward-shell.js'), 'utf8'), sandbox);
+  const layout = sandbox.window.WARD_SHELL.layout;
+  const first = layout.rooms.b1;
+  const second = layout.rooms.b2;
+  expect(Array.from(first.rect.slice(2))).toEqual([8, 6]);
+  expect(Array.from(second.rect.slice(2))).toEqual([8, 6]);
+  expect(Math.abs(first.angle || 0)).toBeGreaterThan(0.4);
+  expect(Math.abs(first.angle || 0)).toBeLessThan(0.8);
+  expect(second.angle).toBeCloseTo(first.angle);
+  expect(first.rect[0]).toBeGreaterThan(second.rect[0]);
+  expect(first.rect[1]).toBeLessThan(second.rect[1]);
+  const area = room => {
+    if (!room.polygon) return room.rect[2] * room.rect[3];
+    return Math.abs(room.polygon.reduce((sum, point, index) => {
+      const next = room.polygon[(index + 1) % room.polygon.length];
+      return sum + point[0] * next[1] - next[0] * point[1];
+    }, 0)) / 2;
+  };
+  const bedroom = area(first);
+  for (const [ids, min, max] of [
+    [['iso1', 'secl'], 0.2, 0.4],
+    [['bath', 'med'], 0.1, 0.3],
+    [['treat', 'con1', 'vis1', 'train', 'lift', 'intake'], 0.35, 0.75],
+    [['nurse'], 0.3, 0.65], [['dine'], 1.1, 1.7], [['garden'], 3.8, 5.4]
+  ]) {
+    for (const id of ids) {
+      expect(area(layout.rooms[id]) / bedroom, id).toBeGreaterThanOrEqual(min);
+      expect(area(layout.rooms[id]) / bedroom, id).toBeLessThanOrEqual(max);
+    }
+  }
+  expect(layout.rooms.bath.rect[0]).toBeLessThan(layout.rooms.con1.rect[0]);
+  expect(layout.rooms.con1.rect[0]).toBeLessThan(layout.rooms.vis1.rect[0]);
+  expect(layout.rooms.lift.rect[1]).toBeGreaterThan(layout.rooms.vis1.rect[1]);
+  expect(layout.rooms.garden.rect[0]).toBeLessThan(layout.rooms.dine.rect[0]);
+});
+
+test('reference layout keeps all mission markers reachable', () => {
+  const sandbox = { console: { warn() {} } };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward-shell.js'), 'utf8'), sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward.bundle.js'), 'utf8'), sandbox);
+  const mode = sandbox.WardMode;
+  const markers = mode.markers();
+  expect(Array.from(mode.audit().problems)).toEqual([]);
+  for (const [name, point] of Object.entries(markers)) {
+    expect(mode.walkable(point.x, point.z), name).toBe(true);
+    expect(mode.pathMeters(markers.start.x, markers.start.z, point.x, point.z), name).toBeGreaterThanOrEqual(0);
+  }
+  const layout = sandbox.window.WARD_SHELL.layout;
+  for (const [name, roomId] of Object.entries({ trolley: 'treat', fax: 'nurse', computer: 'nurse',
+    lift: 'lift', intake: 'intake', secl: 'secl', treat: 'treat', nurse: 'nurse' })) {
+    const room = layout.rooms[roomId], [left, top, width, depth] = room.rect;
+    const angle = room.angle || 0, point = markers[name];
+    const dx = point.x / layout.tile - left - width / 2, dz = point.z / layout.tile - top - depth / 2;
+    const x = dx * Math.cos(angle) - dz * Math.sin(angle) + width / 2;
+    const z = dx * Math.sin(angle) + dz * Math.cos(angle) + depth / 2;
+    expect(x, name + ' room x').toBeGreaterThan(0);
+    expect(x, name + ' room x').toBeLessThan(width);
+    expect(z, name + ' room z').toBeGreaterThan(0);
+    expect(z, name + ' room z').toBeLessThan(depth);
+  }
+});
+
 test('map preserves exact rooms, doors, markers, and lift isolation', async ({ context, page }) => {
   const externalRequests = await openOffline(context, page);
   const result = await page.evaluate(() => {
@@ -47,23 +120,30 @@ test('map preserves exact rooms, doors, markers, and lift isolation', async ({ c
     const start = mode.markers().start;
     const rooms = mode.rooms.map(room => {
       const def = layout.rooms[room.id];
-      const center = { x: (def.rect[0] + 0.5) * layout.tile, z: (def.rect[1] + 0.5) * layout.tile };
-      return { id: room.id, name: room.name, rect: def.rect, doors: def.doors || [def.door], reachable: mode.pathMeters(start.x, start.z, center.x, center.z) >= 0 };
+      const center = { x: (def.rect[0] + def.rect[2] / 2) * layout.tile, z: (def.rect[1] + def.rect[3] / 2) * layout.tile };
+      return { id: room.id, name: room.name, rect: def.rect, doors: def.doors,
+        reachable: mode.walkable(center.x, center.z) && mode.pathMeters(start.x, start.z, center.x, center.z) >= 0 };
     });
     const markers = Object.fromEntries(Object.entries(mode.markers()).map(([name, point]) => [name, mode.walkable(point.x, point.z) && mode.pathMeters(start.x, start.z, point.x, point.z) >= 0]));
     const visit = layout.rooms.vis1;
-    const blocked = new Set(visit.doors.map(door => door.join(',')));
-    for (let row = visit.rect[1]; row < visit.rect[1] + visit.rect[3]; row++) {
-      for (let col = visit.rect[0]; col < visit.rect[0] + visit.rect[2]; col++) blocked.add(col + ',' + row);
-    }
-    const seen = new Set(), queue = [layout.marks.start];
+    const nav = layout.navTile;
+    const seen = new Set(), queue = [[Math.floor(start.x / nav), Math.floor(start.z / nav)]];
     for (let index = 0; index < queue.length; index++) {
       const [col, row] = queue[index], key = col + ',' + row;
-      if (seen.has(key) || blocked.has(key) || !mode.walkable((col + 0.5) * layout.tile, (row + 0.5) * layout.tile)) continue;
+      const x = (col + 0.5) * nav, z = (row + 0.5) * nav;
+      const insideVisit = x >= visit.rect[0] * layout.tile && x <= (visit.rect[0] + visit.rect[2]) * layout.tile &&
+        z >= visit.rect[1] * layout.tile && z <= (visit.rect[1] + visit.rect[3]) * layout.tile;
+      if (seen.has(key) || insideVisit || !mode.walkable(x, z)) continue;
       seen.add(key);
       queue.push([col + 1, row], [col - 1, row], [col, row + 1], [col, row - 1]);
     }
-    return { rooms, markers, enclosure: mode.enclosure(), problems: mode.audit().problems, liftReachableWithoutVisit: seen.has(layout.marks.lift.join(',')), wallWalkable: mode.walkable(6.5 * layout.tile, 1.5 * layout.tile), outsideWalkable: mode.walkable(-1, -1) };
+    const lift = mode.markers().lift;
+    const first = layout.rooms.b1, angle = first.angle;
+    const wallX = (first.rect[0] + first.rect[2] / 2 - first.rect[3] / 2 * Math.sin(angle)) * layout.tile;
+    const wallZ = (first.rect[1] + first.rect[3] / 2 - first.rect[3] / 2 * Math.cos(angle)) * layout.tile;
+    return { rooms, markers, enclosure: mode.enclosure(), problems: mode.audit().problems,
+      liftReachableWithoutVisit: seen.has(Math.floor(lift.x / nav) + ',' + Math.floor(lift.z / nav)),
+      wallWalkable: mode.walkable(wallX, wallZ), outsideWalkable: mode.walkable(-1, -1) };
   });
   expect(externalRequests).toEqual([]);
   expect(result.problems).toEqual([]);
@@ -72,13 +152,10 @@ test('map preserves exact rooms, doors, markers, and lift isolation', async ({ c
   for (const id of ['calm', 'duty', 'pantry', 'group']) expect(result.rooms.map(room => room.id)).not.toContain(id);
   for (const room of result.rooms) {
     const stat = result.enclosure.byRoom[room.id];
-    expect(stat.n, room.id + ' area').toBe(room.rect[2] * room.rect[3]);
+    expect(stat.n, room.id + ' area').toBeGreaterThan(0);
     expect(stat.door, room.id + ' doors').toBe(room.doors.length);
     expect(room.reachable, room.id + ' reachable').toBe(true);
   }
-  expect(result.enclosure.byRoom.treat.n).toBe(24);
-  expect(result.enclosure.byRoom.intake.n).toBe(30);
-  expect(result.enclosure.byRoom.nurse.n).toBe(54);
   const visit = result.rooms.find(room => room.id === 'vis1');
   const lift = result.rooms.find(room => room.id === 'lift');
   const nurse = result.rooms.find(room => room.id === 'nurse');
@@ -86,17 +163,15 @@ test('map preserves exact rooms, doors, markers, and lift isolation', async ({ c
   expect(lift.name).toBe('升降機大堂');
   expect(visit.doors).toHaveLength(2);
   expect(lift.doors).toHaveLength(1);
-  expect(visit.doors).toContainEqual(lift.doors[0]);
   expect(nurse.doors).toHaveLength(2);
-  expect(nurse.doors[0][0]).toBe(nurse.doors[1][0]);
-  expect(nurse.doors.map(door => door[1]).sort((a, b) => a - b)).toEqual([nurse.rect[1] - 1, nurse.rect[1] + nurse.rect[3]]);
+  expect(nurse.doors.map(door => door.edge).sort()).toEqual([1, 3]);
   expect(Object.values(result.markers).every(Boolean)).toBe(true);
   expect(result.liftReachableWithoutVisit).toBe(false);
   expect(result.wallWalkable).toBe(false);
   expect(result.outsideWalkable).toBe(false);
 });
 
-test('map audit rejects a direct lift bypass and an unreachable marker', () => {
+test('map audit rejects invalid doors, overlaps, bypasses, and unreachable markers', () => {
   const shell = readFileSync(resolve(root, 'ward-shell.js'), 'utf8');
   const bundle = readFileSync(resolve(root, 'ward.bundle.js'), 'utf8');
   function inspect(change) {
@@ -108,14 +183,18 @@ test('map audit rejects a direct lift bypass and an unreachable marker', () => {
     vm.runInContext(bundle, sandbox);
     return Array.from(sandbox.WardMode.audit().problems);
   }
-  const bypass = inspect(layout => layout.corridors.push([1, 6, 1, 1]));
-  expect(bypass.some(problem => problem.includes('未標示出口'))).toBe(true);
+  const bypass = inspect(layout => layout.rooms.lift.doors.push({ edge: 3, at: 0.5, width: 2 }));
   expect(bypass.some(problem => problem.includes('直接連接病房'))).toBe(true);
+  const invalidDoor = inspect(layout => { layout.rooms.treat.doors[0].at = 0; });
+  expect(invalidDoor.some(problem => problem.includes('treat 門口無效'))).toBe(true);
+  const overlap = inspect(layout => { layout.rooms.intake.rect = [36.7, 37.4, 4, 4.5]; });
+  expect(overlap.some(problem => problem.includes('intake / treat 房間重疊'))).toBe(true);
+  expect(overlap.some(problem => problem.includes('treat 有未標示出口'))).toBe(true);
   const marker = inspect(layout => { layout.marks.intake = [0, 0]; });
   expect(marker.some(problem => problem.includes('intake 標記行唔到'))).toBe(true);
 });
 
-test('map scene contains correctly placed beds and furniture in every room', async ({ context, page }) => {
+test('reference layout renders beds and furniture inside rotated rooms', async ({ context, page }) => {
   await openOffline(context, page);
   await enterWard(page);
   const result = await page.evaluate(() => ({ audit: window.WardMode.audit(), layout: window.WARD_SHELL.layout }));
@@ -124,37 +203,59 @@ test('map scene contains correctly placed beds and furniture in every room', asy
   expect(result.audit.plants).toBeGreaterThanOrEqual(9);
   for (const room of result.audit.rooms) expect(result.audit.furniture[room], room + ' furniture').toBeGreaterThan(0);
   for (const id of ['b1', 'b2']) {
-    const rect = result.layout.rooms[id].rect, tile = result.layout.tile;
-    const beds = result.audit.bedPositions.filter(bed => bed.room === id).sort((a, b) => a.z - b.z || a.x - b.x);
+    const def = result.layout.rooms[id], rect = def.rect, tile = result.layout.tile;
+    const center = [(rect[0] + rect[2] / 2) * tile, (rect[1] + rect[3] / 2) * tile];
+    const local = point => {
+      const dx = point.x - center[0], dz = point.z - center[1];
+      return { x: dx * Math.cos(def.angle) - dz * Math.sin(def.angle) + rect[2] * tile / 2,
+        z: dx * Math.sin(def.angle) + dz * Math.cos(def.angle) + rect[3] * tile / 2,
+        rotation: point.rotation };
+    };
+    const beds = result.audit.bedPositions.filter(bed => bed.room === id).map(local)
+      .sort((a, b) => Math.abs(a.z - b.z) > 0.01 ? a.z - b.z : a.x - b.x);
     expect(beds).toHaveLength(6);
     for (const bed of beds.slice(0, 3)) {
-      expect(Math.abs(bed.z - (rect[1] * tile + 1.65 / 2))).toBeLessThan(0.02);
-      expect(bed.rotation).toBe(0);
+      expect(bed.z).toBeCloseTo(0.88 * tile);
+      expect(bed.rotation).toBeCloseTo(def.angle);
     }
     for (const bed of beds.slice(3)) {
-      expect(Math.abs(bed.z - ((rect[1] + rect[3]) * tile - 1.65 / 2))).toBeLessThan(0.02);
-      expect(bed.rotation).toBeCloseTo(Math.PI);
+      expect(bed.z).toBeCloseTo(5.12 * tile);
+      expect(bed.rotation).toBeCloseTo(def.angle + Math.PI);
     }
     for (const row of [beds.slice(0, 3), beds.slice(3)]) {
       expect(row[1].x - row[0].x).toBeGreaterThan(1.15);
       expect(row[2].x - row[1].x).toBeGreaterThan(1.15);
+      for (const bed of row) expect(bed.x).toBeGreaterThan(0.6);
+      for (const bed of row) expect(bed.x).toBeLessThan(rect[2] * tile - 0.6);
     }
-    const partitions = result.audit.partitions.filter(partition => partition.room === id);
+    const partitions = result.audit.partitions.filter(partition => partition.room === id).map(local);
     expect(partitions).toHaveLength(4);
     for (const partition of partitions) {
       const row = beds.filter(bed => Math.abs(bed.z - partition.z) < 0.2).sort((a, b) => a.x - b.x);
       expect(row).toHaveLength(3);
       expect(row.some((bed, index) => index < 2 && partition.x > bed.x + 0.6 && partition.x < row[index + 1].x - 0.6)).toBe(true);
-      const door = result.layout.rooms[id].door;
-      expect(Math.hypot(partition.x - (door[0] + 0.5) * tile, partition.z - (door[1] + 0.5) * tile)).toBeGreaterThan(tile);
     }
   }
 });
 
-async function moveToCell(page, targetCol, targetRow) {
-  const result = await page.evaluate(({ targetCol, targetRow }) => {
-    const mode = window.WardMode, tile = window.WARD_SHELL.layout.tile, state = mode.state();
+test('NPC nurses remain present while mission patients start hidden', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page);
+  const result = await page.evaluate(() => {
+    const npcs = window.WardMode.audit().npcs || [];
+    return { npcs, walkable: npcs.filter(npc => npc.role === 'nurse').map(npc => window.WardMode.walkable(npc.x, npc.z)) };
+  });
+  expect(result.npcs.filter(npc => npc.role === 'nurse' && npc.visible)).toHaveLength(3);
+  expect(result.npcs.filter(npc => npc.role === 'patient')).toHaveLength(3);
+  expect(result.npcs.filter(npc => npc.role === 'patient' && npc.visible)).toHaveLength(0);
+  expect(result.walkable.every(Boolean)).toBe(true);
+});
+
+async function moveToPoint(page, target) {
+  const result = await page.evaluate(target => {
+    const mode = window.WardMode, tile = window.WARD_SHELL.layout.navTile, state = mode.state();
     const start = [Math.floor(state.x / tile), Math.floor(state.z / tile)];
+    const targetCol = Math.floor(target.x / tile), targetRow = Math.floor(target.z / tile);
     const key = (col, row) => col + ',' + row;
     const queue = [start], previous = new Map([[key(...start), null]]);
     for (let index = 0; index < queue.length; index++) {
@@ -162,7 +263,17 @@ async function moveToCell(page, targetCol, targetRow) {
       if (col === targetCol && row === targetRow) break;
       for (const [nextCol, nextRow] of [[col + 1, row], [col - 1, row], [col, row + 1], [col, row - 1]]) {
         const nextKey = key(nextCol, nextRow);
-        if (previous.has(nextKey) || !mode.walkable((nextCol + 0.5) * tile, (nextRow + 0.5) * tile)) continue;
+        if (previous.has(nextKey)) continue;
+        const dx = nextCol - col, dz = nextRow - row;
+        let clear = true;
+        for (let part = 1; part <= 4; part++) {
+          const x = (col + 0.5 + dx * part / 4) * tile, z = (row + 0.5 + dz * part / 4) * tile;
+          if (!mode.walkable(x, z) || (state.pushing && !mode.walkable(x + dx * 0.85, z + dz * 0.85))) {
+            clear = false;
+            break;
+          }
+        }
+        if (!clear) continue;
         previous.set(nextKey, key(col, row));
         queue.push([nextCol, nextRow]);
       }
@@ -188,9 +299,21 @@ async function moveToCell(page, targetCol, targetRow) {
       }
     }
     return { kind: 'arrived', state: mode.state() };
-  }, { targetCol, targetRow });
+  }, target);
   expect(result.kind, JSON.stringify(result)).not.toBe('blocked');
   return result;
+}
+
+async function marker(page, name) {
+  return page.evaluate(name => window.WardMode.markers()[name], name);
+}
+
+async function character(page, id) {
+  return page.evaluate(id => window.WardMode.audit().npcs.find(npc => npc.id === id), id);
+}
+
+async function visiblePatients(page) {
+  return page.evaluate(() => window.WardMode.audit().npcs.filter(npc => npc.role === 'patient' && npc.visible).map(npc => npc.id));
 }
 
 async function state(page) {
@@ -217,6 +340,63 @@ async function answerQuestions(page, firstQuestion = 0) {
   await dismissDialogs(page);
 }
 
+test('NPC interactions respect walls, pause, and restart', async ({ context, page }) => {
+  test.setTimeout(120000);
+  await openOffline(context, page);
+  await enterWard(page);
+  let nurse = await character(page, 'nurse1');
+  let movement = await moveToPoint(page, nurse);
+  if (movement.kind === 'interrupted') {
+    await dismissDialogs(page);
+    movement = await moveToPoint(page, nurse);
+  }
+  expect(movement.kind).toBe('arrived');
+  await page.locator('#btnPause').click();
+  await page.keyboard.press('z');
+  expect((await state(page)).dialog).toBe(false);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#overlayPause')).toBeHidden();
+  expect((await state(page)).menu).toBe(false);
+  await page.locator('#wardMinimap').click();
+  await page.keyboard.press('z');
+  expect((await state(page)).dialog).toBe(false);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#wardMapOverlay')).toBeHidden();
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('留喺病人身邊');
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goTrolley');
+
+  expect((await moveToPoint(page, await character(page, 'nurse2'))).kind).toBe('arrived');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('處理文件');
+  await dismissDialogs(page);
+  expect((await moveToPoint(page, await character(page, 'nurse3'))).kind).toBe('arrived');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('核對身份');
+  await dismissDialogs(page);
+
+  const outside = await page.evaluate(() => {
+    const layout = window.WARD_SHELL.layout, rect = layout.rooms.con1.rect;
+    const nurse = window.WardMode.audit().npcs.find(npc => npc.id === 'nurse3');
+    return { x: (rect[0] + rect[2] + 0.65) * layout.tile, z: nurse.z };
+  });
+  expect((await moveToPoint(page, outside)).kind).toBe('arrived');
+  nurse = await character(page, 'nurse3');
+  const current = await state(page);
+  expect(Math.hypot(current.x - nurse.x, current.z - nurse.z)).toBeLessThan(1.55);
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).not.toContainText('核對身份');
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goTrolley');
+
+  await page.locator('#btnHomeTop').click();
+  await enterWard(page);
+  expect((await state(page)).quest).toBe('');
+  expect(await visiblePatients(page)).toEqual([]);
+  expect((await page.evaluate(() => window.WardMode.audit().npcs.filter(npc => npc.role === 'nurse' && npc.visible))).length).toBe(3);
+});
+
 test('quests complete through real interactions and small-step trolley turns', async ({ context, page }, testInfo) => {
   test.setTimeout(120000);
   const requests = await openOffline(context, page);
@@ -224,62 +404,99 @@ test('quests complete through real interactions and small-step trolley turns', a
   page.on('pageerror', error => errors.push(error.message));
   await enterWard(page);
 
-  expect((await moveToCell(page, 18, 17)).kind).toBe('interrupted');
+  expect((await moveToPoint(page, await marker(page, 'trolley'))).kind).toBe('interrupted');
   expect((await state(page)).quest).toBe('code');
   await dismissDialogs(page);
   expect((await state(page)).step).toBe('goTrolley');
-  expect((await moveToCell(page, 22, 12)).kind).toBe('arrived');
+  expect(await visiblePatients(page)).toEqual(['codePatient']);
+  const emergencyNurse = await character(page, 'nurse1'), emergencyPatient = await character(page, 'codePatient');
+  expect(Math.hypot(emergencyNurse.x - emergencyPatient.x, emergencyNurse.z - emergencyPatient.z)).toBeLessThan(1.55);
+  expect((await moveToPoint(page, { x: emergencyPatient.x + 0.7, z: emergencyPatient.z })).kind).toBe('arrived');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await attachScreenshot(page, testInfo, 'ward-emergency-characters');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('病人暫時沒有回應');
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goTrolley');
+  expect((await moveToPoint(page, await marker(page, 'trolley'))).kind).toBe('arrived');
   await interact(page);
   expect((await state(page)).pushing).toBe(true);
   await dismissDialogs(page);
-  expect((await moveToCell(page, 18, 12)).kind).toBe('arrived');
-  expect((await moveToCell(page, 18, 17)).kind).toBe('arrived');
-  expect((await moveToCell(page, 22, 17)).kind).toBe('interrupted');
+  expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('interrupted');
   expect((await state(page)).step).toBe('battle');
   await dismissDialogs(page);
   await answerQuestions(page);
   expect((await state(page)).step).toBe('goFax');
-  expect((await moveToCell(page, 21, 22)).kind).toBe('arrived');
+  expect((await moveToPoint(page, await marker(page, 'fax'))).kind).toBe('arrived');
   await interact(page);
   expect((await state(page)).step).toBe('docs');
   await dismissDialogs(page);
   await interact(page);
   await dismissDialogs(page);
   expect((await state(page)).quest).toBe('');
+  expect(await visiblePatients(page)).toEqual([]);
 
-  expect((await moveToCell(page, 3, 3)).kind).toBe('interrupted');
+  expect((await moveToPoint(page, await marker(page, 'lift'))).kind).toBe('interrupted');
   expect((await state(page)).quest).toBe('admit');
   await dismissDialogs(page);
-  expect((await moveToCell(page, 3, 3)).kind).toBe('arrived');
+  expect(await visiblePatients(page)).toEqual(['admitPatient']);
+  const admissionAtLift = await character(page, 'admitPatient');
+  expect((await moveToPoint(page, { x: admissionAtLift.x - 0.7, z: admissionAtLift.z })).kind).toBe('arrived');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await attachScreenshot(page, testInfo, 'ward-admission-character');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('等候收症');
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goElev');
+  expect((await moveToPoint(page, await marker(page, 'lift'))).kind).toBe('arrived');
   await interact(page);
   await dismissDialogs(page);
   await answerQuestions(page);
   expect((await state(page)).step).toBe('goBed');
-  expect((await moveToCell(page, 27, 13)).kind).toBe('arrived');
+  const admissionAtIntake = await character(page, 'admitPatient');
+  expect(Math.hypot(admissionAtIntake.x - admissionAtLift.x, admissionAtIntake.z - admissionAtLift.z)).toBeGreaterThan(2);
+  expect((await moveToPoint(page, admissionAtIntake)).kind).toBe('arrived');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('等候收症安排');
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goBed');
+  expect((await moveToPoint(page, await marker(page, 'intake'))).kind).toBe('arrived');
   await interact(page);
   await dismissDialogs(page);
   expect((await state(page)).quest).toBe('');
 
-  expect((await moveToCell(page, 21, 3)).kind).toBe('interrupted');
+  expect((await moveToPoint(page, await marker(page, 'secl'))).kind).toBe('interrupted');
   expect((await state(page)).quest).toBe('rest');
   await dismissDialogs(page);
-  expect((await moveToCell(page, 21, 3)).kind).toBe('arrived');
+  expect(await visiblePatients(page)).toEqual(['restPatient']);
+  expect((await moveToPoint(page, await character(page, 'restPatient'))).kind).toBe('arrived');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('先同我解釋');
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goRoom');
+  expect((await moveToPoint(page, await marker(page, 'secl'))).kind).toBe('arrived');
   await interact(page);
   await dismissDialogs(page);
   await answerQuestions(page);
   expect((await state(page)).step).toBe('goNurse');
-  expect((await moveToCell(page, 21, 22)).kind).toBe('arrived');
+  expect((await moveToPoint(page, await marker(page, 'fax'))).kind).toBe('arrived');
   await interact(page);
   await dismissDialogs(page);
   expect((await state(page)).quest).toBe('');
-  let garden = await moveToCell(page, 44, 24);
+  expect(await visiblePatients(page)).toEqual([]);
+  const gardenPoint = await page.evaluate(() => {
+    const layout = window.WARD_SHELL.layout, rect = layout.rooms.garden.rect;
+    return { x: (rect[0] + 4) * layout.tile, z: (rect[1] + 6) * layout.tile };
+  });
+  let garden = await moveToPoint(page, gardenPoint);
   if (garden.kind === 'interrupted') {
     await dismissDialogs(page);
-    garden = await moveToCell(page, 44, 24);
+    expect(await visiblePatients(page)).toHaveLength(1);
+    garden = await moveToPoint(page, gardenPoint);
   }
   expect(garden.kind).toBe('arrived');
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  await testInfo.attach('ward-garden', { body: await page.screenshot(), contentType: 'image/png' });
+  await attachScreenshot(page, testInfo, 'ward-garden');
   expect(requests).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -430,9 +647,48 @@ test('responsive canvas remains visible, animated, and interactive on desktop an
     expect(overlap(rects.wardJoy, rects.wardBtnA), JSON.stringify(viewport)).toBe(false);
     expect(overlap(rects.wardJoy, rects.wardBtnB), JSON.stringify(viewport)).toBe(false);
     expect(overlap(rects.wardQuestLabel, rects.wardMinimap), JSON.stringify(viewport)).toBe(false);
+    await page.locator('#wardMinimap').click();
+    await expect(page.locator('#wardMapOverlay')).toBeVisible();
+    await expect(page.locator('#wardMapLegend li')).toHaveCount(15);
+    const mapRects = await page.evaluate(() => {
+      const map = document.getElementById('wardMapBig'), legend = document.getElementById('wardMapLegend');
+      const mapBox = map.getBoundingClientRect(), legendBox = legend.getBoundingClientRect();
+      return { map: { x: mapBox.x, y: mapBox.y, right: mapBox.right, bottom: mapBox.bottom, width: mapBox.width, height: mapBox.height },
+        legend: { x: legendBox.x, y: legendBox.y, right: legendBox.right, bottom: legendBox.bottom,
+          overflow: legend.scrollWidth > legend.clientWidth + 1 } };
+    });
+    expect(mapRects.map.width / mapRects.map.height, JSON.stringify(viewport)).toBeCloseTo(480 / 680, 1);
+    expect(mapRects.map.x).toBeGreaterThanOrEqual(0);
+    expect(mapRects.map.y).toBeGreaterThanOrEqual(0);
+    expect(mapRects.map.right).toBeLessThanOrEqual(viewport.width);
+    expect(mapRects.map.bottom).toBeLessThanOrEqual(viewport.height);
+    expect(overlap(mapRects.map, mapRects.legend), JSON.stringify(viewport)).toBe(false);
+    expect(mapRects.legend.overflow, JSON.stringify(viewport)).toBe(false);
+    const labels = await page.evaluate(() => window.WardMode.audit().mapLabels);
+    expect(labels).toHaveLength(15);
+    for (let left = 0; left < labels.length; left++) for (let right = left + 1; right < labels.length; right++) {
+      expect(Math.hypot(labels[left].x - labels[right].x, labels[left].y - labels[right].y),
+        JSON.stringify({ viewport, left: labels[left].id, right: labels[right].id }))
+        .toBeGreaterThanOrEqual(labels[left].radius + labels[right].radius);
+    }
+    await attachScreenshot(page, testInfo, 'ward-map-' + viewport.width + 'x' + viewport.height);
+    const canScrollLegend = await page.locator('#wardMapLegend').evaluate(node => node.scrollHeight > node.clientHeight + 1);
+    if (mobile && canScrollLegend) {
+      const box = await page.locator('#wardMapLegend').boundingBox();
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Input.synthesizeScrollGesture', {
+        x: box.x + box.width / 2, y: box.y + box.height - 15,
+        xDistance: 0, yDistance: -100, speed: 500, gestureSourceType: 'touch'
+      });
+      await cdp.detach();
+      await expect.poll(() => page.locator('#wardMapLegend').evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+    } else await page.locator('#wardMapLegend li').last().scrollIntoViewIfNeeded();
+    await expect(page.locator('#wardMapOverlay')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#wardMapOverlay')).toBeHidden();
     expect(requests).toEqual([]);
     expect(errors).toEqual([]);
-    await testInfo.attach('ward-' + viewport.width + 'x' + viewport.height, { body: await page.screenshot(), contentType: 'image/png' });
+    await attachScreenshot(page, testInfo, 'ward-' + viewport.width + 'x' + viewport.height);
     await context.close();
   }
 });
@@ -444,7 +700,7 @@ test('mobile dialog and questions remain readable and actionable', async ({ brow
   const page = await context.newPage();
   await openOffline(context, page);
   await enterWard(page);
-  expect((await moveToCell(page, 18, 17)).kind).toBe('interrupted');
+  expect((await moveToPoint(page, await marker(page, 'trolley'))).kind).toBe('interrupted');
   for (let index = 0; index < 3; index++) {
     const rects = await page.evaluate(() => {
       const ids = ['wardView', 'wardQuestLabel', 'wardMinimap', 'wardDialog'];
@@ -462,16 +718,23 @@ test('mobile dialog and questions remain readable and actionable', async ({ brow
     await page.keyboard.press('z');
   }
   expect((await state(page)).step).toBe('goTrolley');
-  await moveToCell(page, 22, 12);
-  await interact(page);
+  const nurse = await character(page, 'nurse1');
+  expect((await moveToPoint(page, { x: nurse.x - 0.7, z: nurse.z })).kind).toBe('arrived');
+  expect(await visiblePatients(page)).toEqual(['codePatient']);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await attachScreenshot(page, testInfo, 'ward-mobile-characters');
+  await page.locator('#wardBtnA').tap();
+  await expect(page.locator('#wardDialogText')).toContainText('留喺病人身邊');
+  await page.locator('#wardBtnA').tap();
+  expect((await state(page)).dialog).toBe(false);
+  await moveToPoint(page, await marker(page, 'trolley'));
+  await page.locator('#wardBtnA').tap();
   await dismissDialogs(page);
-  await moveToCell(page, 18, 12);
-  await moveToCell(page, 18, 17);
-  expect((await moveToCell(page, 22, 17)).kind).toBe('interrupted');
+  expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('interrupted');
   await dismissDialogs(page);
   await expect(page.locator('#wardBattle')).toBeVisible();
   await expect(page.locator('#battleFoeName')).toHaveCSS('color', 'rgb(20, 34, 38)');
-  await testInfo.attach('ward-mobile-question', { body: await page.screenshot(), contentType: 'image/png' });
+  await attachScreenshot(page, testInfo, 'ward-mobile-question');
   const battle = page.locator('#wardBattle'), box = await battle.boundingBox();
   const cdp = await context.newCDPSession(page);
   const x = box.x + box.width / 2, startY = box.y + box.height - 25;

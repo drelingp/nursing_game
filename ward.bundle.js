@@ -675,17 +675,17 @@
       return this;
     }
     transpose() {
-      let tmp;
+      let tmp2;
       const m = this.elements;
-      tmp = m[1];
+      tmp2 = m[1];
       m[1] = m[3];
-      m[3] = tmp;
-      tmp = m[2];
+      m[3] = tmp2;
+      tmp2 = m[2];
       m[2] = m[6];
-      m[6] = tmp;
-      tmp = m[5];
+      m[6] = tmp2;
+      tmp2 = m[5];
       m[5] = m[7];
-      m[7] = tmp;
+      m[7] = tmp2;
       return this;
     }
     getNormalMatrix(matrix4) {
@@ -3150,29 +3150,29 @@
       _edge2.subVectors(c, a);
       _normal$1.crossVectors(_edge1, _edge2);
       let DdN = this.direction.dot(_normal$1);
-      let sign;
+      let sign2;
       if (DdN > 0) {
         if (backfaceCulling) return null;
-        sign = 1;
+        sign2 = 1;
       } else if (DdN < 0) {
-        sign = -1;
+        sign2 = -1;
         DdN = -DdN;
       } else {
         return null;
       }
       _diff.subVectors(this.origin, a);
-      const DdQxE2 = sign * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
+      const DdQxE2 = sign2 * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
       if (DdQxE2 < 0) {
         return null;
       }
-      const DdE1xQ = sign * this.direction.dot(_edge1.cross(_diff));
+      const DdE1xQ = sign2 * this.direction.dot(_edge1.cross(_diff));
       if (DdE1xQ < 0) {
         return null;
       }
       if (DdQxE2 + DdE1xQ > DdN) {
         return null;
       }
-      const QdN = -sign * _diff.dot(_normal$1);
+      const QdN = -sign2 * _diff.dot(_normal$1);
       if (QdN < 0) {
         return null;
       }
@@ -3541,25 +3541,25 @@
     }
     transpose() {
       const te = this.elements;
-      let tmp;
-      tmp = te[1];
+      let tmp2;
+      tmp2 = te[1];
       te[1] = te[4];
-      te[4] = tmp;
-      tmp = te[2];
+      te[4] = tmp2;
+      tmp2 = te[2];
       te[2] = te[8];
-      te[8] = tmp;
-      tmp = te[6];
+      te[8] = tmp2;
+      tmp2 = te[6];
       te[6] = te[9];
-      te[9] = tmp;
-      tmp = te[3];
+      te[9] = tmp2;
+      tmp2 = te[3];
       te[3] = te[12];
-      te[12] = tmp;
-      tmp = te[7];
+      te[12] = tmp2;
+      tmp2 = te[7];
       te[7] = te[13];
-      te[13] = tmp;
-      tmp = te[11];
+      te[13] = tmp2;
+      tmp2 = te[11];
       te[11] = te[14];
-      te[14] = tmp;
+      te[14] = tmp2;
       return this;
     }
     setPosition(x, y, z) {
@@ -6284,20 +6284,20 @@
           );
         }
       }
-      const tmp = new Vector3(), tmp2 = new Vector3();
+      const tmp2 = new Vector3(), tmp22 = new Vector3();
       const n = new Vector3(), n2 = new Vector3();
       function handleVertex(v) {
         n.fromArray(normals, v * 3);
         n2.copy(n);
         const t = tan1[v];
-        tmp.copy(t);
-        tmp.sub(n.multiplyScalar(n.dot(t))).normalize();
-        tmp2.crossVectors(n2, t);
-        const test = tmp2.dot(tan2[v]);
+        tmp2.copy(t);
+        tmp2.sub(n.multiplyScalar(n.dot(t))).normalize();
+        tmp22.crossVectors(n2, t);
+        const test = tmp22.dot(tan2[v]);
         const w = test < 0 ? -1 : 1;
-        tangents[v * 4] = tmp.x;
-        tangents[v * 4 + 1] = tmp.y;
-        tangents[v * 4 + 2] = tmp.z;
+        tangents[v * 4] = tmp2.x;
+        tangents[v * 4 + 1] = tmp2.y;
+        tangents[v * 4 + 2] = tmp2.z;
         tangents[v * 4 + 3] = w;
       }
       for (let i = 0, il = groups.length; i < il; ++i) {
@@ -6618,7 +6618,7 @@
       }
       return target;
     }
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const material = this.material;
       const matrixWorld = this.matrixWorld;
@@ -6636,9 +6636,9 @@
       if (geometry.boundingBox !== null) {
         if (_ray$3.intersectsBox(geometry.boundingBox) === false) return;
       }
-      this._computeIntersections(raycaster, intersects, _ray$3);
+      this._computeIntersections(raycaster, intersects2, _ray$3);
     }
-    _computeIntersections(raycaster, intersects, rayLocalSpace) {
+    _computeIntersections(raycaster, intersects2, rayLocalSpace) {
       let intersection;
       const geometry = this.geometry;
       const material = this.material;
@@ -6664,7 +6664,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -6678,7 +6678,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -6697,7 +6697,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -6711,7 +6711,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -6886,9 +6886,9 @@
   function mergeUniforms(uniforms) {
     const merged = {};
     for (let u = 0; u < uniforms.length; u++) {
-      const tmp = cloneUniforms(uniforms[u]);
-      for (const p in tmp) {
-        merged[p] = tmp[p];
+      const tmp2 = cloneUniforms(uniforms[u]);
+      for (const p in tmp2) {
+        merged[p] = tmp2[p];
       }
     }
     return merged;
@@ -18053,7 +18053,7 @@
       this.material = material;
       this.center = new Vector2(0.5, 0.5);
     }
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       if (raycaster.camera === null) {
         console.error('THREE.Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
       }
@@ -18088,7 +18088,7 @@
       }
       const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
       if (distance < raycaster.near || distance > raycaster.far) return;
-      intersects.push({
+      intersects2.push({
         distance,
         point: _intersectPoint.clone(),
         uv: Triangle.getInterpolation(_intersectPoint, _vA, _vB, _vC, _uvA, _uvB, _uvC, new Vector2()),
@@ -18201,7 +18201,7 @@
     getMatrixAt(index, matrix) {
       matrix.fromArray(this.instanceMatrix.array, index * 16);
     }
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const matrixWorld = this.matrixWorld;
       const raycastTimes = this.count;
       _mesh$1.geometry = this.geometry;
@@ -18220,7 +18220,7 @@
           const intersect = _instanceIntersects[i];
           intersect.instanceId = instanceId;
           intersect.object = this;
-          intersects.push(intersect);
+          intersects2.push(intersect);
         }
         _instanceIntersects.length = 0;
       }
@@ -18245,6 +18245,1026 @@
       super(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy);
       this.isCanvasTexture = true;
       this.needsUpdate = true;
+    }
+  };
+  var Curve = class {
+    constructor() {
+      this.type = "Curve";
+      this.arcLengthDivisions = 200;
+    }
+    // Virtual base class method to overwrite and implement in subclasses
+    //	- t [0 .. 1]
+    getPoint() {
+      console.warn("THREE.Curve: .getPoint() not implemented.");
+      return null;
+    }
+    // Get point at relative position in curve according to arc length
+    // - u [0 .. 1]
+    getPointAt(u, optionalTarget) {
+      const t = this.getUtoTmapping(u);
+      return this.getPoint(t, optionalTarget);
+    }
+    // Get sequence of points using getPoint( t )
+    getPoints(divisions = 5) {
+      const points = [];
+      for (let d = 0; d <= divisions; d++) {
+        points.push(this.getPoint(d / divisions));
+      }
+      return points;
+    }
+    // Get sequence of points using getPointAt( u )
+    getSpacedPoints(divisions = 5) {
+      const points = [];
+      for (let d = 0; d <= divisions; d++) {
+        points.push(this.getPointAt(d / divisions));
+      }
+      return points;
+    }
+    // Get total curve arc length
+    getLength() {
+      const lengths = this.getLengths();
+      return lengths[lengths.length - 1];
+    }
+    // Get list of cumulative segment lengths
+    getLengths(divisions = this.arcLengthDivisions) {
+      if (this.cacheArcLengths && this.cacheArcLengths.length === divisions + 1 && !this.needsUpdate) {
+        return this.cacheArcLengths;
+      }
+      this.needsUpdate = false;
+      const cache = [];
+      let current, last = this.getPoint(0);
+      let sum = 0;
+      cache.push(0);
+      for (let p = 1; p <= divisions; p++) {
+        current = this.getPoint(p / divisions);
+        sum += current.distanceTo(last);
+        cache.push(sum);
+        last = current;
+      }
+      this.cacheArcLengths = cache;
+      return cache;
+    }
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.getLengths();
+    }
+    // Given u ( 0 .. 1 ), get a t to find p. This gives you points which are equidistant
+    getUtoTmapping(u, distance) {
+      const arcLengths = this.getLengths();
+      let i = 0;
+      const il = arcLengths.length;
+      let targetArcLength;
+      if (distance) {
+        targetArcLength = distance;
+      } else {
+        targetArcLength = u * arcLengths[il - 1];
+      }
+      let low = 0, high = il - 1, comparison;
+      while (low <= high) {
+        i = Math.floor(low + (high - low) / 2);
+        comparison = arcLengths[i] - targetArcLength;
+        if (comparison < 0) {
+          low = i + 1;
+        } else if (comparison > 0) {
+          high = i - 1;
+        } else {
+          high = i;
+          break;
+        }
+      }
+      i = high;
+      if (arcLengths[i] === targetArcLength) {
+        return i / (il - 1);
+      }
+      const lengthBefore = arcLengths[i];
+      const lengthAfter = arcLengths[i + 1];
+      const segmentLength = lengthAfter - lengthBefore;
+      const segmentFraction = (targetArcLength - lengthBefore) / segmentLength;
+      const t = (i + segmentFraction) / (il - 1);
+      return t;
+    }
+    // Returns a unit vector tangent at t
+    // In case any sub curve does not implement its tangent derivation,
+    // 2 points a small delta apart will be used to find its gradient
+    // which seems to give a reasonable approximation
+    getTangent(t, optionalTarget) {
+      const delta = 1e-4;
+      let t1 = t - delta;
+      let t2 = t + delta;
+      if (t1 < 0) t1 = 0;
+      if (t2 > 1) t2 = 1;
+      const pt1 = this.getPoint(t1);
+      const pt2 = this.getPoint(t2);
+      const tangent = optionalTarget || (pt1.isVector2 ? new Vector2() : new Vector3());
+      tangent.copy(pt2).sub(pt1).normalize();
+      return tangent;
+    }
+    getTangentAt(u, optionalTarget) {
+      const t = this.getUtoTmapping(u);
+      return this.getTangent(t, optionalTarget);
+    }
+    computeFrenetFrames(segments, closed) {
+      const normal = new Vector3();
+      const tangents = [];
+      const normals = [];
+      const binormals = [];
+      const vec = new Vector3();
+      const mat = new Matrix4();
+      for (let i = 0; i <= segments; i++) {
+        const u = i / segments;
+        tangents[i] = this.getTangentAt(u, new Vector3());
+      }
+      normals[0] = new Vector3();
+      binormals[0] = new Vector3();
+      let min = Number.MAX_VALUE;
+      const tx = Math.abs(tangents[0].x);
+      const ty = Math.abs(tangents[0].y);
+      const tz = Math.abs(tangents[0].z);
+      if (tx <= min) {
+        min = tx;
+        normal.set(1, 0, 0);
+      }
+      if (ty <= min) {
+        min = ty;
+        normal.set(0, 1, 0);
+      }
+      if (tz <= min) {
+        normal.set(0, 0, 1);
+      }
+      vec.crossVectors(tangents[0], normal).normalize();
+      normals[0].crossVectors(tangents[0], vec);
+      binormals[0].crossVectors(tangents[0], normals[0]);
+      for (let i = 1; i <= segments; i++) {
+        normals[i] = normals[i - 1].clone();
+        binormals[i] = binormals[i - 1].clone();
+        vec.crossVectors(tangents[i - 1], tangents[i]);
+        if (vec.length() > Number.EPSILON) {
+          vec.normalize();
+          const theta = Math.acos(clamp(tangents[i - 1].dot(tangents[i]), -1, 1));
+          normals[i].applyMatrix4(mat.makeRotationAxis(vec, theta));
+        }
+        binormals[i].crossVectors(tangents[i], normals[i]);
+      }
+      if (closed === true) {
+        let theta = Math.acos(clamp(normals[0].dot(normals[segments]), -1, 1));
+        theta /= segments;
+        if (tangents[0].dot(vec.crossVectors(normals[0], normals[segments])) > 0) {
+          theta = -theta;
+        }
+        for (let i = 1; i <= segments; i++) {
+          normals[i].applyMatrix4(mat.makeRotationAxis(tangents[i], theta * i));
+          binormals[i].crossVectors(tangents[i], normals[i]);
+        }
+      }
+      return {
+        tangents,
+        normals,
+        binormals
+      };
+    }
+    clone() {
+      return new this.constructor().copy(this);
+    }
+    copy(source) {
+      this.arcLengthDivisions = source.arcLengthDivisions;
+      return this;
+    }
+    toJSON() {
+      const data = {
+        metadata: {
+          version: 4.6,
+          type: "Curve",
+          generator: "Curve.toJSON"
+        }
+      };
+      data.arcLengthDivisions = this.arcLengthDivisions;
+      data.type = this.type;
+      return data;
+    }
+    fromJSON(json) {
+      this.arcLengthDivisions = json.arcLengthDivisions;
+      return this;
+    }
+  };
+  var EllipseCurve = class extends Curve {
+    constructor(aX = 0, aY = 0, xRadius = 1, yRadius = 1, aStartAngle = 0, aEndAngle = Math.PI * 2, aClockwise = false, aRotation = 0) {
+      super();
+      this.isEllipseCurve = true;
+      this.type = "EllipseCurve";
+      this.aX = aX;
+      this.aY = aY;
+      this.xRadius = xRadius;
+      this.yRadius = yRadius;
+      this.aStartAngle = aStartAngle;
+      this.aEndAngle = aEndAngle;
+      this.aClockwise = aClockwise;
+      this.aRotation = aRotation;
+    }
+    getPoint(t, optionalTarget) {
+      const point = optionalTarget || new Vector2();
+      const twoPi = Math.PI * 2;
+      let deltaAngle = this.aEndAngle - this.aStartAngle;
+      const samePoints = Math.abs(deltaAngle) < Number.EPSILON;
+      while (deltaAngle < 0) deltaAngle += twoPi;
+      while (deltaAngle > twoPi) deltaAngle -= twoPi;
+      if (deltaAngle < Number.EPSILON) {
+        if (samePoints) {
+          deltaAngle = 0;
+        } else {
+          deltaAngle = twoPi;
+        }
+      }
+      if (this.aClockwise === true && !samePoints) {
+        if (deltaAngle === twoPi) {
+          deltaAngle = -twoPi;
+        } else {
+          deltaAngle = deltaAngle - twoPi;
+        }
+      }
+      const angle = this.aStartAngle + t * deltaAngle;
+      let x = this.aX + this.xRadius * Math.cos(angle);
+      let y = this.aY + this.yRadius * Math.sin(angle);
+      if (this.aRotation !== 0) {
+        const cos = Math.cos(this.aRotation);
+        const sin = Math.sin(this.aRotation);
+        const tx = x - this.aX;
+        const ty = y - this.aY;
+        x = tx * cos - ty * sin + this.aX;
+        y = tx * sin + ty * cos + this.aY;
+      }
+      return point.set(x, y);
+    }
+    copy(source) {
+      super.copy(source);
+      this.aX = source.aX;
+      this.aY = source.aY;
+      this.xRadius = source.xRadius;
+      this.yRadius = source.yRadius;
+      this.aStartAngle = source.aStartAngle;
+      this.aEndAngle = source.aEndAngle;
+      this.aClockwise = source.aClockwise;
+      this.aRotation = source.aRotation;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.aX = this.aX;
+      data.aY = this.aY;
+      data.xRadius = this.xRadius;
+      data.yRadius = this.yRadius;
+      data.aStartAngle = this.aStartAngle;
+      data.aEndAngle = this.aEndAngle;
+      data.aClockwise = this.aClockwise;
+      data.aRotation = this.aRotation;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.aX = json.aX;
+      this.aY = json.aY;
+      this.xRadius = json.xRadius;
+      this.yRadius = json.yRadius;
+      this.aStartAngle = json.aStartAngle;
+      this.aEndAngle = json.aEndAngle;
+      this.aClockwise = json.aClockwise;
+      this.aRotation = json.aRotation;
+      return this;
+    }
+  };
+  var ArcCurve = class extends EllipseCurve {
+    constructor(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      super(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      this.isArcCurve = true;
+      this.type = "ArcCurve";
+    }
+  };
+  function CubicPoly() {
+    let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+    function init(x0, x1, t0, t1) {
+      c0 = x0;
+      c1 = t0;
+      c2 = -3 * x0 + 3 * x1 - 2 * t0 - t1;
+      c3 = 2 * x0 - 2 * x1 + t0 + t1;
+    }
+    return {
+      initCatmullRom: function(x0, x1, x2, x3, tension) {
+        init(x1, x2, tension * (x2 - x0), tension * (x3 - x1));
+      },
+      initNonuniformCatmullRom: function(x0, x1, x2, x3, dt0, dt1, dt2) {
+        let t1 = (x1 - x0) / dt0 - (x2 - x0) / (dt0 + dt1) + (x2 - x1) / dt1;
+        let t2 = (x2 - x1) / dt1 - (x3 - x1) / (dt1 + dt2) + (x3 - x2) / dt2;
+        t1 *= dt1;
+        t2 *= dt1;
+        init(x1, x2, t1, t2);
+      },
+      calc: function(t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return c0 + c1 * t + c2 * t2 + c3 * t3;
+      }
+    };
+  }
+  var tmp = /* @__PURE__ */ new Vector3();
+  var px = /* @__PURE__ */ new CubicPoly();
+  var py = /* @__PURE__ */ new CubicPoly();
+  var pz = /* @__PURE__ */ new CubicPoly();
+  var CatmullRomCurve3 = class extends Curve {
+    constructor(points = [], closed = false, curveType = "centripetal", tension = 0.5) {
+      super();
+      this.isCatmullRomCurve3 = true;
+      this.type = "CatmullRomCurve3";
+      this.points = points;
+      this.closed = closed;
+      this.curveType = curveType;
+      this.tension = tension;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const l = points.length;
+      const p = (l - (this.closed ? 0 : 1)) * t;
+      let intPoint = Math.floor(p);
+      let weight = p - intPoint;
+      if (this.closed) {
+        intPoint += intPoint > 0 ? 0 : (Math.floor(Math.abs(intPoint) / l) + 1) * l;
+      } else if (weight === 0 && intPoint === l - 1) {
+        intPoint = l - 2;
+        weight = 1;
+      }
+      let p0, p3;
+      if (this.closed || intPoint > 0) {
+        p0 = points[(intPoint - 1) % l];
+      } else {
+        tmp.subVectors(points[0], points[1]).add(points[0]);
+        p0 = tmp;
+      }
+      const p1 = points[intPoint % l];
+      const p2 = points[(intPoint + 1) % l];
+      if (this.closed || intPoint + 2 < l) {
+        p3 = points[(intPoint + 2) % l];
+      } else {
+        tmp.subVectors(points[l - 1], points[l - 2]).add(points[l - 1]);
+        p3 = tmp;
+      }
+      if (this.curveType === "centripetal" || this.curveType === "chordal") {
+        const pow = this.curveType === "chordal" ? 0.5 : 0.25;
+        let dt0 = Math.pow(p0.distanceToSquared(p1), pow);
+        let dt1 = Math.pow(p1.distanceToSquared(p2), pow);
+        let dt2 = Math.pow(p2.distanceToSquared(p3), pow);
+        if (dt1 < 1e-4) dt1 = 1;
+        if (dt0 < 1e-4) dt0 = dt1;
+        if (dt2 < 1e-4) dt2 = dt1;
+        px.initNonuniformCatmullRom(p0.x, p1.x, p2.x, p3.x, dt0, dt1, dt2);
+        py.initNonuniformCatmullRom(p0.y, p1.y, p2.y, p3.y, dt0, dt1, dt2);
+        pz.initNonuniformCatmullRom(p0.z, p1.z, p2.z, p3.z, dt0, dt1, dt2);
+      } else if (this.curveType === "catmullrom") {
+        px.initCatmullRom(p0.x, p1.x, p2.x, p3.x, this.tension);
+        py.initCatmullRom(p0.y, p1.y, p2.y, p3.y, this.tension);
+        pz.initCatmullRom(p0.z, p1.z, p2.z, p3.z, this.tension);
+      }
+      point.set(
+        px.calc(weight),
+        py.calc(weight),
+        pz.calc(weight)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i = 0, l = source.points.length; i < l; i++) {
+        const point = source.points[i];
+        this.points.push(point.clone());
+      }
+      this.closed = source.closed;
+      this.curveType = source.curveType;
+      this.tension = source.tension;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i = 0, l = this.points.length; i < l; i++) {
+        const point = this.points[i];
+        data.points.push(point.toArray());
+      }
+      data.closed = this.closed;
+      data.curveType = this.curveType;
+      data.tension = this.tension;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i = 0, l = json.points.length; i < l; i++) {
+        const point = json.points[i];
+        this.points.push(new Vector3().fromArray(point));
+      }
+      this.closed = json.closed;
+      this.curveType = json.curveType;
+      this.tension = json.tension;
+      return this;
+    }
+  };
+  function CatmullRom(t, p0, p1, p2, p3) {
+    const v0 = (p2 - p0) * 0.5;
+    const v1 = (p3 - p1) * 0.5;
+    const t2 = t * t;
+    const t3 = t * t2;
+    return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+  }
+  function QuadraticBezierP0(t, p) {
+    const k = 1 - t;
+    return k * k * p;
+  }
+  function QuadraticBezierP1(t, p) {
+    return 2 * (1 - t) * t * p;
+  }
+  function QuadraticBezierP2(t, p) {
+    return t * t * p;
+  }
+  function QuadraticBezier(t, p0, p1, p2) {
+    return QuadraticBezierP0(t, p0) + QuadraticBezierP1(t, p1) + QuadraticBezierP2(t, p2);
+  }
+  function CubicBezierP0(t, p) {
+    const k = 1 - t;
+    return k * k * k * p;
+  }
+  function CubicBezierP1(t, p) {
+    const k = 1 - t;
+    return 3 * k * k * t * p;
+  }
+  function CubicBezierP2(t, p) {
+    return 3 * (1 - t) * t * t * p;
+  }
+  function CubicBezierP3(t, p) {
+    return t * t * t * p;
+  }
+  function CubicBezier(t, p0, p1, p2, p3) {
+    return CubicBezierP0(t, p0) + CubicBezierP1(t, p1) + CubicBezierP2(t, p2) + CubicBezierP3(t, p3);
+  }
+  var CubicBezierCurve = class extends Curve {
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2(), v3 = new Vector2()) {
+      super();
+      this.isCubicBezierCurve = true;
+      this.type = "CubicBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t, v0.y, v1.y, v2.y, v3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var CubicBezierCurve3 = class extends Curve {
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3()) {
+      super();
+      this.isCubicBezierCurve3 = true;
+      this.type = "CubicBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t, v0.y, v1.y, v2.y, v3.y),
+        CubicBezier(t, v0.z, v1.z, v2.z, v3.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var LineCurve = class extends Curve {
+    constructor(v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isLineCurve = true;
+      this.type = "LineCurve";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      if (t === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u, optionalTarget) {
+      return this.getPoint(u, optionalTarget);
+    }
+    getTangent(t, optionalTarget = new Vector2()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u, optionalTarget) {
+      return this.getTangent(u, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var LineCurve3 = class extends Curve {
+    constructor(v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isLineCurve3 = true;
+      this.type = "LineCurve3";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      if (t === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u, optionalTarget) {
+      return this.getPoint(u, optionalTarget);
+    }
+    getTangent(t, optionalTarget = new Vector3()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u, optionalTarget) {
+      return this.getTangent(u, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve = class extends Curve {
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isQuadraticBezierCurve = true;
+      this.type = "QuadraticBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t, v0.x, v1.x, v2.x),
+        QuadraticBezier(t, v0.y, v1.y, v2.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve3 = class extends Curve {
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isQuadraticBezierCurve3 = true;
+      this.type = "QuadraticBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t, v0.x, v1.x, v2.x),
+        QuadraticBezier(t, v0.y, v1.y, v2.y),
+        QuadraticBezier(t, v0.z, v1.z, v2.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var SplineCurve = class extends Curve {
+    constructor(points = []) {
+      super();
+      this.isSplineCurve = true;
+      this.type = "SplineCurve";
+      this.points = points;
+    }
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const p = (points.length - 1) * t;
+      const intPoint = Math.floor(p);
+      const weight = p - intPoint;
+      const p0 = points[intPoint === 0 ? intPoint : intPoint - 1];
+      const p1 = points[intPoint];
+      const p2 = points[intPoint > points.length - 2 ? points.length - 1 : intPoint + 1];
+      const p3 = points[intPoint > points.length - 3 ? points.length - 1 : intPoint + 2];
+      point.set(
+        CatmullRom(weight, p0.x, p1.x, p2.x, p3.x),
+        CatmullRom(weight, p0.y, p1.y, p2.y, p3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i = 0, l = source.points.length; i < l; i++) {
+        const point = source.points[i];
+        this.points.push(point.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i = 0, l = this.points.length; i < l; i++) {
+        const point = this.points[i];
+        data.points.push(point.toArray());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i = 0, l = json.points.length; i < l; i++) {
+        const point = json.points[i];
+        this.points.push(new Vector2().fromArray(point));
+      }
+      return this;
+    }
+  };
+  var Curves = /* @__PURE__ */ Object.freeze({
+    __proto__: null,
+    ArcCurve,
+    CatmullRomCurve3,
+    CubicBezierCurve,
+    CubicBezierCurve3,
+    EllipseCurve,
+    LineCurve,
+    LineCurve3,
+    QuadraticBezierCurve,
+    QuadraticBezierCurve3,
+    SplineCurve
+  });
+  var CurvePath = class extends Curve {
+    constructor() {
+      super();
+      this.type = "CurvePath";
+      this.curves = [];
+      this.autoClose = false;
+    }
+    add(curve) {
+      this.curves.push(curve);
+    }
+    closePath() {
+      const startPoint = this.curves[0].getPoint(0);
+      const endPoint = this.curves[this.curves.length - 1].getPoint(1);
+      if (!startPoint.equals(endPoint)) {
+        const lineType = startPoint.isVector2 === true ? "LineCurve" : "LineCurve3";
+        this.curves.push(new Curves[lineType](endPoint, startPoint));
+      }
+      return this;
+    }
+    // To get accurate point with reference to
+    // entire path distance at time t,
+    // following has to be done:
+    // 1. Length of each sub path have to be known
+    // 2. Locate and identify type of curve
+    // 3. Get t for the curve
+    // 4. Return curve.getPointAt(t')
+    getPoint(t, optionalTarget) {
+      const d = t * this.getLength();
+      const curveLengths = this.getCurveLengths();
+      let i = 0;
+      while (i < curveLengths.length) {
+        if (curveLengths[i] >= d) {
+          const diff = curveLengths[i] - d;
+          const curve = this.curves[i];
+          const segmentLength = curve.getLength();
+          const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength;
+          return curve.getPointAt(u, optionalTarget);
+        }
+        i++;
+      }
+      return null;
+    }
+    // We cannot use the default THREE.Curve getPoint() with getLength() because in
+    // THREE.Curve, getLength() depends on getPoint() but in THREE.CurvePath
+    // getPoint() depends on getLength
+    getLength() {
+      const lens = this.getCurveLengths();
+      return lens[lens.length - 1];
+    }
+    // cacheLengths must be recalculated.
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.cacheLengths = null;
+      this.getCurveLengths();
+    }
+    // Compute lengths and cache them
+    // We cannot overwrite getLengths() because UtoT mapping uses it.
+    getCurveLengths() {
+      if (this.cacheLengths && this.cacheLengths.length === this.curves.length) {
+        return this.cacheLengths;
+      }
+      const lengths = [];
+      let sums = 0;
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        sums += this.curves[i].getLength();
+        lengths.push(sums);
+      }
+      this.cacheLengths = lengths;
+      return lengths;
+    }
+    getSpacedPoints(divisions = 40) {
+      const points = [];
+      for (let i = 0; i <= divisions; i++) {
+        points.push(this.getPoint(i / divisions));
+      }
+      if (this.autoClose) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    getPoints(divisions = 12) {
+      const points = [];
+      let last;
+      for (let i = 0, curves = this.curves; i < curves.length; i++) {
+        const curve = curves[i];
+        const resolution = curve.isEllipseCurve ? divisions * 2 : curve.isLineCurve || curve.isLineCurve3 ? 1 : curve.isSplineCurve ? divisions * curve.points.length : divisions;
+        const pts = curve.getPoints(resolution);
+        for (let j = 0; j < pts.length; j++) {
+          const point = pts[j];
+          if (last && last.equals(point)) continue;
+          points.push(point);
+          last = point;
+        }
+      }
+      if (this.autoClose && points.length > 1 && !points[points.length - 1].equals(points[0])) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    copy(source) {
+      super.copy(source);
+      this.curves = [];
+      for (let i = 0, l = source.curves.length; i < l; i++) {
+        const curve = source.curves[i];
+        this.curves.push(curve.clone());
+      }
+      this.autoClose = source.autoClose;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.autoClose = this.autoClose;
+      data.curves = [];
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        const curve = this.curves[i];
+        data.curves.push(curve.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.autoClose = json.autoClose;
+      this.curves = [];
+      for (let i = 0, l = json.curves.length; i < l; i++) {
+        const curve = json.curves[i];
+        this.curves.push(new Curves[curve.type]().fromJSON(curve));
+      }
+      return this;
+    }
+  };
+  var Path = class extends CurvePath {
+    constructor(points) {
+      super();
+      this.type = "Path";
+      this.currentPoint = new Vector2();
+      if (points) {
+        this.setFromPoints(points);
+      }
+    }
+    setFromPoints(points) {
+      this.moveTo(points[0].x, points[0].y);
+      for (let i = 1, l = points.length; i < l; i++) {
+        this.lineTo(points[i].x, points[i].y);
+      }
+      return this;
+    }
+    moveTo(x, y) {
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    lineTo(x, y) {
+      const curve = new LineCurve(this.currentPoint.clone(), new Vector2(x, y));
+      this.curves.push(curve);
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    quadraticCurveTo(aCPx, aCPy, aX, aY) {
+      const curve = new QuadraticBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCPx, aCPy),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    bezierCurveTo(aCP1x, aCP1y, aCP2x, aCP2y, aX, aY) {
+      const curve = new CubicBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCP1x, aCP1y),
+        new Vector2(aCP2x, aCP2y),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    splineThru(pts) {
+      const npts = [this.currentPoint.clone()].concat(pts);
+      const curve = new SplineCurve(npts);
+      this.curves.push(curve);
+      this.currentPoint.copy(pts[pts.length - 1]);
+      return this;
+    }
+    arc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absarc(
+        aX + x0,
+        aY + y0,
+        aRadius,
+        aStartAngle,
+        aEndAngle,
+        aClockwise
+      );
+      return this;
+    }
+    absarc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      this.absellipse(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      return this;
+    }
+    ellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absellipse(aX + x0, aY + y0, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      return this;
+    }
+    absellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const curve = new EllipseCurve(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      if (this.curves.length > 0) {
+        const firstPoint = curve.getPoint(0);
+        if (!firstPoint.equals(this.currentPoint)) {
+          this.lineTo(firstPoint.x, firstPoint.y);
+        }
+      }
+      this.curves.push(curve);
+      const lastPoint = curve.getPoint(1);
+      this.currentPoint.copy(lastPoint);
+      return this;
+    }
+    copy(source) {
+      super.copy(source);
+      this.currentPoint.copy(source.currentPoint);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.currentPoint = this.currentPoint.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.currentPoint.fromArray(json.currentPoint);
+      return this;
     }
   };
   var CircleGeometry = class _CircleGeometry extends BufferGeometry {
@@ -18294,6 +19314,589 @@
       return new _CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
     }
   };
+  var Shape = class extends Path {
+    constructor(points) {
+      super(points);
+      this.uuid = generateUUID();
+      this.type = "Shape";
+      this.holes = [];
+    }
+    getPointsHoles(divisions) {
+      const holesPts = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        holesPts[i] = this.holes[i].getPoints(divisions);
+      }
+      return holesPts;
+    }
+    // get points of shape and holes (keypoints based on segments parameter)
+    extractPoints(divisions) {
+      return {
+        shape: this.getPoints(divisions),
+        holes: this.getPointsHoles(divisions)
+      };
+    }
+    copy(source) {
+      super.copy(source);
+      this.holes = [];
+      for (let i = 0, l = source.holes.length; i < l; i++) {
+        const hole = source.holes[i];
+        this.holes.push(hole.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.uuid = this.uuid;
+      data.holes = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        const hole = this.holes[i];
+        data.holes.push(hole.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.uuid = json.uuid;
+      this.holes = [];
+      for (let i = 0, l = json.holes.length; i < l; i++) {
+        const hole = json.holes[i];
+        this.holes.push(new Path().fromJSON(hole));
+      }
+      return this;
+    }
+  };
+  var Earcut = {
+    triangulate: function(data, holeIndices, dim = 2) {
+      const hasHoles = holeIndices && holeIndices.length;
+      const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+      let outerNode = linkedList(data, 0, outerLen, dim, true);
+      const triangles = [];
+      if (!outerNode || outerNode.next === outerNode.prev) return triangles;
+      let minX, minY, maxX, maxY, x, y, invSize;
+      if (hasHoles) outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
+      if (data.length > 80 * dim) {
+        minX = maxX = data[0];
+        minY = maxY = data[1];
+        for (let i = dim; i < outerLen; i += dim) {
+          x = data[i];
+          y = data[i + 1];
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+        invSize = Math.max(maxX - minX, maxY - minY);
+        invSize = invSize !== 0 ? 32767 / invSize : 0;
+      }
+      earcutLinked(outerNode, triangles, dim, minX, minY, invSize, 0);
+      return triangles;
+    }
+  };
+  function linkedList(data, start, end, dim, clockwise) {
+    let i, last;
+    if (clockwise === signedArea(data, start, end, dim) > 0) {
+      for (i = start; i < end; i += dim) last = insertNode(i, data[i], data[i + 1], last);
+    } else {
+      for (i = end - dim; i >= start; i -= dim) last = insertNode(i, data[i], data[i + 1], last);
+    }
+    if (last && equals(last, last.next)) {
+      removeNode(last);
+      last = last.next;
+    }
+    return last;
+  }
+  function filterPoints(start, end) {
+    if (!start) return start;
+    if (!end) end = start;
+    let p = start, again;
+    do {
+      again = false;
+      if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
+        removeNode(p);
+        p = end = p.prev;
+        if (p === p.next) break;
+        again = true;
+      } else {
+        p = p.next;
+      }
+    } while (again || p !== end);
+    return end;
+  }
+  function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
+    if (!ear) return;
+    if (!pass && invSize) indexCurve(ear, minX, minY, invSize);
+    let stop = ear, prev, next;
+    while (ear.prev !== ear.next) {
+      prev = ear.prev;
+      next = ear.next;
+      if (invSize ? isEarHashed(ear, minX, minY, invSize) : isEar(ear)) {
+        triangles.push(prev.i / dim | 0);
+        triangles.push(ear.i / dim | 0);
+        triangles.push(next.i / dim | 0);
+        removeNode(ear);
+        ear = next.next;
+        stop = next.next;
+        continue;
+      }
+      ear = next;
+      if (ear === stop) {
+        if (!pass) {
+          earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
+        } else if (pass === 1) {
+          ear = cureLocalIntersections(filterPoints(ear), triangles, dim);
+          earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
+        } else if (pass === 2) {
+          splitEarcut(ear, triangles, dim, minX, minY, invSize);
+        }
+        break;
+      }
+    }
+  }
+  function isEar(ear) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = ax < bx ? ax < cx ? ax : cx : bx < cx ? bx : cx, y0 = ay < by ? ay < cy ? ay : cy : by < cy ? by : cy, x1 = ax > bx ? ax > cx ? ax : cx : bx > cx ? bx : cx, y1 = ay > by ? ay > cy ? ay : cy : by > cy ? by : cy;
+    let p = c.next;
+    while (p !== a) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && pointInTriangle(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.next;
+    }
+    return true;
+  }
+  function isEarHashed(ear, minX, minY, invSize) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = ax < bx ? ax < cx ? ax : cx : bx < cx ? bx : cx, y0 = ay < by ? ay < cy ? ay : cy : by < cy ? by : cy, x1 = ax > bx ? ax > cx ? ax : cx : bx > cx ? bx : cx, y1 = ay > by ? ay > cy ? ay : cy : by > cy ? by : cy;
+    const minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
+    let p = ear.prevZ, n = ear.nextZ;
+    while (p && p.z >= minZ && n && n.z <= maxZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangle(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangle(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    while (p && p.z >= minZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangle(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+    }
+    while (n && n.z <= maxZ) {
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangle(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    return true;
+  }
+  function cureLocalIntersections(start, triangles, dim) {
+    let p = start;
+    do {
+      const a = p.prev, b = p.next.next;
+      if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
+        triangles.push(a.i / dim | 0);
+        triangles.push(p.i / dim | 0);
+        triangles.push(b.i / dim | 0);
+        removeNode(p);
+        removeNode(p.next);
+        p = start = b;
+      }
+      p = p.next;
+    } while (p !== start);
+    return filterPoints(p);
+  }
+  function splitEarcut(start, triangles, dim, minX, minY, invSize) {
+    let a = start;
+    do {
+      let b = a.next.next;
+      while (b !== a.prev) {
+        if (a.i !== b.i && isValidDiagonal(a, b)) {
+          let c = splitPolygon(a, b);
+          a = filterPoints(a, a.next);
+          c = filterPoints(c, c.next);
+          earcutLinked(a, triangles, dim, minX, minY, invSize, 0);
+          earcutLinked(c, triangles, dim, minX, minY, invSize, 0);
+          return;
+        }
+        b = b.next;
+      }
+      a = a.next;
+    } while (a !== start);
+  }
+  function eliminateHoles(data, holeIndices, outerNode, dim) {
+    const queue = [];
+    let i, len, start, end, list;
+    for (i = 0, len = holeIndices.length; i < len; i++) {
+      start = holeIndices[i] * dim;
+      end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+      list = linkedList(data, start, end, dim, false);
+      if (list === list.next) list.steiner = true;
+      queue.push(getLeftmost(list));
+    }
+    queue.sort(compareX);
+    for (i = 0; i < queue.length; i++) {
+      outerNode = eliminateHole(queue[i], outerNode);
+    }
+    return outerNode;
+  }
+  function compareX(a, b) {
+    return a.x - b.x;
+  }
+  function eliminateHole(hole, outerNode) {
+    const bridge = findHoleBridge(hole, outerNode);
+    if (!bridge) {
+      return outerNode;
+    }
+    const bridgeReverse = splitPolygon(bridge, hole);
+    filterPoints(bridgeReverse, bridgeReverse.next);
+    return filterPoints(bridge, bridge.next);
+  }
+  function findHoleBridge(hole, outerNode) {
+    let p = outerNode, qx = -Infinity, m;
+    const hx = hole.x, hy = hole.y;
+    do {
+      if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
+        const x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
+        if (x <= hx && x > qx) {
+          qx = x;
+          m = p.x < p.next.x ? p : p.next;
+          if (x === hx) return m;
+        }
+      }
+      p = p.next;
+    } while (p !== outerNode);
+    if (!m) return null;
+    const stop = m, mx = m.x, my = m.y;
+    let tanMin = Infinity, tan;
+    p = m;
+    do {
+      if (hx >= p.x && p.x >= mx && hx !== p.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+        tan = Math.abs(hy - p.y) / (hx - p.x);
+        if (locallyInside(p, hole) && (tan < tanMin || tan === tanMin && (p.x > m.x || p.x === m.x && sectorContainsSector(m, p)))) {
+          m = p;
+          tanMin = tan;
+        }
+      }
+      p = p.next;
+    } while (p !== stop);
+    return m;
+  }
+  function sectorContainsSector(m, p) {
+    return area(m.prev, m, p.prev) < 0 && area(p.next, m, m.next) < 0;
+  }
+  function indexCurve(start, minX, minY, invSize) {
+    let p = start;
+    do {
+      if (p.z === 0) p.z = zOrder(p.x, p.y, minX, minY, invSize);
+      p.prevZ = p.prev;
+      p.nextZ = p.next;
+      p = p.next;
+    } while (p !== start);
+    p.prevZ.nextZ = null;
+    p.prevZ = null;
+    sortLinked(p);
+  }
+  function sortLinked(list) {
+    let i, p, q, e, tail, numMerges, pSize, qSize, inSize = 1;
+    do {
+      p = list;
+      list = null;
+      tail = null;
+      numMerges = 0;
+      while (p) {
+        numMerges++;
+        q = p;
+        pSize = 0;
+        for (i = 0; i < inSize; i++) {
+          pSize++;
+          q = q.nextZ;
+          if (!q) break;
+        }
+        qSize = inSize;
+        while (pSize > 0 || qSize > 0 && q) {
+          if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
+            e = p;
+            p = p.nextZ;
+            pSize--;
+          } else {
+            e = q;
+            q = q.nextZ;
+            qSize--;
+          }
+          if (tail) tail.nextZ = e;
+          else list = e;
+          e.prevZ = tail;
+          tail = e;
+        }
+        p = q;
+      }
+      tail.nextZ = null;
+      inSize *= 2;
+    } while (numMerges > 1);
+    return list;
+  }
+  function zOrder(x, y, minX, minY, invSize) {
+    x = (x - minX) * invSize | 0;
+    y = (y - minY) * invSize | 0;
+    x = (x | x << 8) & 16711935;
+    x = (x | x << 4) & 252645135;
+    x = (x | x << 2) & 858993459;
+    x = (x | x << 1) & 1431655765;
+    y = (y | y << 8) & 16711935;
+    y = (y | y << 4) & 252645135;
+    y = (y | y << 2) & 858993459;
+    y = (y | y << 1) & 1431655765;
+    return x | y << 1;
+  }
+  function getLeftmost(start) {
+    let p = start, leftmost = start;
+    do {
+      if (p.x < leftmost.x || p.x === leftmost.x && p.y < leftmost.y) leftmost = p;
+      p = p.next;
+    } while (p !== start);
+    return leftmost;
+  }
+  function pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2) {
+    return (cx - px2) * (ay - py2) >= (ax - px2) * (cy - py2) && (ax - px2) * (by - py2) >= (bx - px2) * (ay - py2) && (bx - px2) * (cy - py2) >= (cx - px2) * (by - py2);
+  }
+  function isValidDiagonal(a, b) {
+    return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // dones't intersect other edges
+    (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+    (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
+    equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0);
+  }
+  function area(p, q, r) {
+    return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  }
+  function equals(p1, p2) {
+    return p1.x === p2.x && p1.y === p2.y;
+  }
+  function intersects(p1, q1, p2, q2) {
+    const o1 = sign(area(p1, q1, p2));
+    const o2 = sign(area(p1, q1, q2));
+    const o3 = sign(area(p2, q2, p1));
+    const o4 = sign(area(p2, q2, q1));
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+    return false;
+  }
+  function onSegment(p, q, r) {
+    return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+  }
+  function sign(num) {
+    return num > 0 ? 1 : num < 0 ? -1 : 0;
+  }
+  function intersectsPolygon(a, b) {
+    let p = a;
+    do {
+      if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i && intersects(p, p.next, a, b)) return true;
+      p = p.next;
+    } while (p !== a);
+    return false;
+  }
+  function locallyInside(a, b) {
+    return area(a.prev, a, a.next) < 0 ? area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 : area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
+  }
+  function middleInside(a, b) {
+    let p = a, inside = false;
+    const px2 = (a.x + b.x) / 2, py2 = (a.y + b.y) / 2;
+    do {
+      if (p.y > py2 !== p.next.y > py2 && p.next.y !== p.y && px2 < (p.next.x - p.x) * (py2 - p.y) / (p.next.y - p.y) + p.x)
+        inside = !inside;
+      p = p.next;
+    } while (p !== a);
+    return inside;
+  }
+  function splitPolygon(a, b) {
+    const a2 = new Node(a.i, a.x, a.y), b2 = new Node(b.i, b.x, b.y), an = a.next, bp = b.prev;
+    a.next = b;
+    b.prev = a;
+    a2.next = an;
+    an.prev = a2;
+    b2.next = a2;
+    a2.prev = b2;
+    bp.next = b2;
+    b2.prev = bp;
+    return b2;
+  }
+  function insertNode(i, x, y, last) {
+    const p = new Node(i, x, y);
+    if (!last) {
+      p.prev = p;
+      p.next = p;
+    } else {
+      p.next = last.next;
+      p.prev = last;
+      last.next.prev = p;
+      last.next = p;
+    }
+    return p;
+  }
+  function removeNode(p) {
+    p.next.prev = p.prev;
+    p.prev.next = p.next;
+    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
+    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
+  }
+  function Node(i, x, y) {
+    this.i = i;
+    this.x = x;
+    this.y = y;
+    this.prev = null;
+    this.next = null;
+    this.z = 0;
+    this.prevZ = null;
+    this.nextZ = null;
+    this.steiner = false;
+  }
+  function signedArea(data, start, end, dim) {
+    let sum = 0;
+    for (let i = start, j = end - dim; i < end; i += dim) {
+      sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
+      j = i;
+    }
+    return sum;
+  }
+  var ShapeUtils = class _ShapeUtils {
+    // calculate area of the contour polygon
+    static area(contour) {
+      const n = contour.length;
+      let a = 0;
+      for (let p = n - 1, q = 0; q < n; p = q++) {
+        a += contour[p].x * contour[q].y - contour[q].x * contour[p].y;
+      }
+      return a * 0.5;
+    }
+    static isClockWise(pts) {
+      return _ShapeUtils.area(pts) < 0;
+    }
+    static triangulateShape(contour, holes) {
+      const vertices = [];
+      const holeIndices = [];
+      const faces = [];
+      removeDupEndPts(contour);
+      addContour(vertices, contour);
+      let holeIndex = contour.length;
+      holes.forEach(removeDupEndPts);
+      for (let i = 0; i < holes.length; i++) {
+        holeIndices.push(holeIndex);
+        holeIndex += holes[i].length;
+        addContour(vertices, holes[i]);
+      }
+      const triangles = Earcut.triangulate(vertices, holeIndices);
+      for (let i = 0; i < triangles.length; i += 3) {
+        faces.push(triangles.slice(i, i + 3));
+      }
+      return faces;
+    }
+  };
+  function removeDupEndPts(points) {
+    const l = points.length;
+    if (l > 2 && points[l - 1].equals(points[0])) {
+      points.pop();
+    }
+  }
+  function addContour(vertices, contour) {
+    for (let i = 0; i < contour.length; i++) {
+      vertices.push(contour[i].x);
+      vertices.push(contour[i].y);
+    }
+  }
+  var ShapeGeometry = class _ShapeGeometry extends BufferGeometry {
+    constructor(shapes = new Shape([new Vector2(0, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]), curveSegments = 12) {
+      super();
+      this.type = "ShapeGeometry";
+      this.parameters = {
+        shapes,
+        curveSegments
+      };
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let groupStart = 0;
+      let groupCount = 0;
+      if (Array.isArray(shapes) === false) {
+        addShape(shapes);
+      } else {
+        for (let i = 0; i < shapes.length; i++) {
+          addShape(shapes[i]);
+          this.addGroup(groupStart, groupCount, i);
+          groupStart += groupCount;
+          groupCount = 0;
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function addShape(shape) {
+        const indexOffset = vertices.length / 3;
+        const points = shape.extractPoints(curveSegments);
+        let shapeVertices = points.shape;
+        const shapeHoles = points.holes;
+        if (ShapeUtils.isClockWise(shapeVertices) === false) {
+          shapeVertices = shapeVertices.reverse();
+        }
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          if (ShapeUtils.isClockWise(shapeHole) === true) {
+            shapeHoles[i] = shapeHole.reverse();
+          }
+        }
+        const faces = ShapeUtils.triangulateShape(shapeVertices, shapeHoles);
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          shapeVertices = shapeVertices.concat(shapeHole);
+        }
+        for (let i = 0, l = shapeVertices.length; i < l; i++) {
+          const vertex2 = shapeVertices[i];
+          vertices.push(vertex2.x, vertex2.y, 0);
+          normals.push(0, 0, 1);
+          uvs.push(vertex2.x, vertex2.y);
+        }
+        for (let i = 0, l = faces.length; i < l; i++) {
+          const face = faces[i];
+          const a = face[0] + indexOffset;
+          const b = face[1] + indexOffset;
+          const c = face[2] + indexOffset;
+          indices.push(a, b, c);
+          groupCount += 3;
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      const shapes = this.parameters.shapes;
+      return toJSON(shapes, data);
+    }
+    static fromJSON(data, shapes) {
+      const geometryShapes = [];
+      for (let j = 0, jl = data.shapes.length; j < jl; j++) {
+        const shape = shapes[data.shapes[j]];
+        geometryShapes.push(shape);
+      }
+      return new _ShapeGeometry(geometryShapes, data.curveSegments);
+    }
+  };
+  function toJSON(shapes, data) {
+    data.shapes = [];
+    if (Array.isArray(shapes)) {
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        data.shapes.push(shape.uuid);
+      }
+    } else {
+      data.shapes.push(shapes.uuid);
+    }
+    return data;
+  }
   var SphereGeometry = class _SphereGeometry extends BufferGeometry {
     constructor(radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI) {
       super();
@@ -19580,8 +21183,9 @@
     if (!SHELL || !SHELL.layout || !Array.isArray(SHELL.rooms)) return;
     var LAY = SHELL.layout;
     var TILE = LAY.tile;
-    var CW = LAY.cols;
-    var CH = LAY.rows;
+    var NAV = LAY.navTile || TILE;
+    var CW = Math.ceil(LAY.cols * TILE / NAV);
+    var CH = Math.ceil(LAY.rows * TILE / NAV);
     var SPEED = 2.55;
     var RADIUS = 0.28;
     var CODE_QS = [
@@ -19705,196 +21309,245 @@
     });
     var tileWalk = new Uint8Array(CW * CH);
     var tileRoom = new Uint16Array(CW * CH);
+    var roomPolygons = /* @__PURE__ */ Object.create(null);
+    var corridorPolygons = [];
+    var wallSegments = [];
+    var doorSegments = [];
     var wallSpots = [];
     var roomStat = {};
     var layoutProblems = [];
-    function fillRect(c, r, w, h, id) {
-      var z, x;
-      for (z = r; z < r + h; z++) {
-        for (x = c; x < c + w; x++) {
-          if (x < 0 || z < 0 || x >= CW || z >= CH) continue;
-          tileWalk[z * CW + x] = 1;
-          tileRoom[z * CW + x] = id;
+    var geometryProblems = [];
+    function roomDoors(def) {
+      return def && def.doors ? def.doors : [];
+    }
+    function polygonOf(def) {
+      if (def.polygon) return def.polygon.map(function(point) {
+        return [point[0] * TILE, point[1] * TILE];
+      });
+      var rect = def.rect, angle = def.angle || 0;
+      var centerX = (rect[0] + rect[2] / 2) * TILE;
+      var centerZ = (rect[1] + rect[3] / 2) * TILE;
+      var cos = Math.cos(angle), sin = Math.sin(angle);
+      return [[0, 0], [rect[2], 0], [rect[2], rect[3]], [0, rect[3]]].map(function(point) {
+        var x = (point[0] - rect[2] / 2) * TILE, z = (point[1] - rect[3] / 2) * TILE;
+        return [centerX + x * cos + z * sin, centerZ - x * sin + z * cos];
+      });
+    }
+    function insidePolygon(x, z, polygon) {
+      var inside = false;
+      for (var index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+        var a = polygon[index], b = polygon[previous];
+        if (a[1] > z !== b[1] > z && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+      }
+      return inside;
+    }
+    function distanceToSegment(x, z, segment) {
+      var dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+      var length = dx * dx + dz * dz;
+      var fraction = length ? Math.max(0, Math.min(1, ((x - segment.a[0]) * dx + (z - segment.a[1]) * dz) / length)) : 0;
+      var px2 = segment.a[0] + dx * fraction, pz2 = segment.a[1] + dz * fraction;
+      return Math.hypot(x - px2, z - pz2);
+    }
+    function fillPolygon(polygon, id, overlaps) {
+      var minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+      polygon.forEach(function(point) {
+        minX = Math.min(minX, point[0]);
+        maxX = Math.max(maxX, point[0]);
+        minZ = Math.min(minZ, point[1]);
+        maxZ = Math.max(maxZ, point[1]);
+      });
+      for (var row = Math.max(0, Math.floor(minZ / NAV)); row <= Math.min(CH - 1, Math.floor(maxZ / NAV)); row++) {
+        for (var col = Math.max(0, Math.floor(minX / NAV)); col <= Math.min(CW - 1, Math.floor(maxX / NAV)); col++) {
+          var index = row * CW + col;
+          if (!insidePolygon((col + 0.5) * NAV, (row + 0.5) * NAV, polygon)) continue;
+          if (id >= 2 && tileRoom[index] >= 2 && tileRoom[index] !== id) {
+            var names = [SHELL.rooms[tileRoom[index] - 2].id, SHELL.rooms[id - 2].id].sort();
+            overlaps[names.join(" / ")] = true;
+          }
+          tileWalk[index] = 1;
+          tileRoom[index] = id;
         }
       }
     }
-    function roomDoors(def) {
-      if (!def) return [];
-      return def.doors || (def.door ? [def.door] : []);
-    }
-    function buildLayout() {
-      LAY.corridors.forEach(function(rc) {
-        fillRect(rc[0], rc[1], rc[2], rc[3], 1);
-      });
-      SHELL.rooms.forEach(function(room) {
-        var def = LAY.rooms[room.id];
-        if (!def) {
-          console.warn("ward layout: \u672A\u914D\u7F6E\u623F\u9593 " + room.id);
-          return;
-        }
-        fillRect(def.rect[0], def.rect[1], def.rect[2], def.rect[3], room.index);
-      });
-      SHELL.rooms.forEach(function(room) {
-        var def = LAY.rooms[room.id];
-        roomDoors(def).forEach(function(door) {
-          tileWalk[door[1] * CW + door[0]] = 1;
-          tileRoom[door[1] * CW + door[0]] = 1;
-        });
-      });
-      auditLayout();
-      collectWalls();
-    }
-    function auditLayout() {
-      var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      var problems = [];
-      var r, c, k, nc, nr;
-      SHELL.rooms.forEach(function(room) {
-        var def = LAY.rooms[room.id];
-        if (!def) {
-          problems.push(room.id + " \u5187\u914D\u7F6E");
-          return;
-        }
-        var doors = roomDoors(def);
-        var openings = 0, size = 0;
-        for (r = 0; r < CH; r++) {
-          for (c = 0; c < CW; c++) {
-            if (!tileWalk[r * CW + c] || tileRoom[r * CW + c] !== room.index) continue;
-            size++;
-            for (k = 0; k < nbs.length; k++) {
-              nc = c + nbs[k][0];
-              nr = r + nbs[k][1];
-              if (!walkAt(nc, nr) || tileRoom[nr * CW + nc] === room.index) continue;
-              openings++;
-              if (!doors.some(function(door) {
-                return door[0] === nc && door[1] === nr;
-              })) {
-                problems.push(room.id + " \u6709\u672A\u6A19\u793A\u51FA\u53E3 " + nc + "," + nr);
-              }
-            }
-          }
-        }
-        if (size !== def.rect[2] * def.rect[3]) problems.push(room.id + " \u9762\u7A4D\u4E0D\u6B63\u78BA");
-        if (openings !== doors.length) problems.push(room.id + " \u6709 " + openings + " \u5EA6\u9580\uFF0C\u9810\u671F " + doors.length + " \u5EA6");
-        doors.forEach(function(door) {
-          var dc = door[0], dr = door[1], neighbors = [], roomNeighbors = 0;
-          if (!Number.isInteger(dc) || !Number.isInteger(dr) || !walkAt(dc, dr) || tileRoom[dr * CW + dc] !== 1) {
-            problems.push(room.id + " \u9580\u53E3\u7121\u6548 " + dc + "," + dr);
+    function buildRoomWalls(room, polygon) {
+      var doors = roomDoors(LAY.rooms[room.id]);
+      polygon.forEach(function(start2, edge) {
+        var end = polygon[(edge + 1) % polygon.length];
+        var dx = end[0] - start2[0], dz = end[1] - start2[1];
+        var length = Math.hypot(dx, dz), cuts = [];
+        doors.filter(function(door) {
+          return door.edge === edge;
+        }).forEach(function(door) {
+          var half = door.width * TILE / (2 * length);
+          var from = door.at - half, to = door.at + half;
+          if (from < 0 || to > 1 || from >= to) {
+            geometryProblems.push(room.id + " \u9580\u53E3\u7121\u6548");
             return;
           }
-          nbs.forEach(function(offset) {
-            var x = dc + offset[0], z = dr + offset[1];
-            if (!walkAt(x, z)) return;
-            neighbors.push(offset);
-            if (tileRoom[z * CW + x] === room.index) roomNeighbors++;
+          var opening = {
+            room: room.id,
+            a: [start2[0] + dx * from, start2[1] + dz * from],
+            b: [start2[0] + dx * to, start2[1] + dz * to]
+          };
+          cuts.push({ from, to });
+          doorSegments.push(opening);
+        });
+        cuts.sort(function(left, right) {
+          return left.from - right.from;
+        });
+        var cursor = 0;
+        cuts.concat([{ from: 1, to: 1 }]).forEach(function(cut) {
+          if (cut.from < cursor) geometryProblems.push(room.id + " \u9580\u53E3\u91CD\u758A");
+          if (cut.from > cursor) wallSegments.push({
+            room: room.id,
+            a: [start2[0] + dx * cursor, start2[1] + dz * cursor],
+            b: [start2[0] + dx * cut.from, start2[1] + dz * cut.from]
           });
-          if (roomNeighbors !== 1 || neighbors.length !== 2 || neighbors[0][0] + neighbors[1][0] !== 0 || neighbors[0][1] + neighbors[1][1] !== 0) {
-            problems.push(room.id + " \u9580\u53E3\u9023\u63A5\u4E0D\u6B63\u78BA " + dc + "," + dr);
-          }
+          cursor = Math.max(cursor, cut.to);
         });
       });
-      var startC = LAY.marks.start[0], startR = LAY.marks.start[1];
-      function flood(blocked2) {
-        var seen3 = new Uint8Array(CW * CH);
-        var queue = [];
-        if (walkAt(startC, startR) && (!blocked2 || !blocked2(startC, startR))) {
-          seen3[startR * CW + startC] = 1;
-          queue.push([startC, startR]);
+      if (doors.length !== doorSegments.filter(function(door) {
+        return door.room === room.id;
+      }).length) {
+        geometryProblems.push(room.id + " \u9580\u53E3\u672A\u914D\u7F6E");
+      }
+    }
+    function blockWall(segment) {
+      var padding = NAV * 0.8;
+      var minC = Math.max(0, Math.floor((Math.min(segment.a[0], segment.b[0]) - padding) / NAV));
+      var maxC = Math.min(CW - 1, Math.floor((Math.max(segment.a[0], segment.b[0]) + padding) / NAV));
+      var minR = Math.max(0, Math.floor((Math.min(segment.a[1], segment.b[1]) - padding) / NAV));
+      var maxR = Math.min(CH - 1, Math.floor((Math.max(segment.a[1], segment.b[1]) + padding) / NAV));
+      for (var row = minR; row <= maxR; row++) for (var col = minC; col <= maxC; col++) {
+        if (distanceToSegment((col + 0.5) * NAV, (row + 0.5) * NAV, segment) <= padding) {
+          tileWalk[row * CW + col] = 0;
+          tileRoom[row * CW + col] = 0;
         }
-        for (var index = 0; index < queue.length; index++) {
-          var current = queue[index];
+      }
+    }
+    function buildLayout() {
+      var overlaps = /* @__PURE__ */ Object.create(null);
+      LAY.corridors.forEach(function(def) {
+        var polygon = polygonOf(def);
+        corridorPolygons.push(polygon);
+        fillPolygon(polygon, 1, overlaps);
+      });
+      SHELL.rooms.forEach(function(room) {
+        var def = LAY.rooms[room.id];
+        if (!def) {
+          geometryProblems.push(room.id + " \u5187\u914D\u7F6E");
+          return;
+        }
+        var polygon = polygonOf(def);
+        roomPolygons[room.id] = polygon;
+        fillPolygon(polygon, room.index, overlaps);
+        buildRoomWalls(room, polygon);
+      });
+      Object.keys(overlaps).forEach(function(names) {
+        geometryProblems.push(names + " \u623F\u9593\u91CD\u758A");
+      });
+      wallSegments.forEach(blockWall);
+      collectWalls();
+      auditLayout();
+    }
+    function collectWalls() {
+      var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      wallSpots = [];
+      roomStat = {};
+      SHELL.rooms.forEach(function(room) {
+        roomStat[room.id] = {
+          wall: wallSegments.filter(function(wall) {
+            return wall.room === room.id;
+          }).length,
+          door: roomDoors(LAY.rooms[room.id]).length,
+          n: 0
+        };
+      });
+      for (var row = 0; row < CH; row++) for (var col = 0; col < CW; col++) {
+        var index = row * CW + col, id = tileRoom[index];
+        if (tileWalk[index]) {
+          if (id >= 2 && SHELL.rooms[id - 2]) roomStat[SHELL.rooms[id - 2].id].n++;
+          continue;
+        }
+        var touchesCorridor = nbs.some(function(offset) {
+          var x2 = col + offset[0], z2 = row + offset[1];
+          return walkAt(x2, z2) && tileRoom[z2 * CW + x2] === 1;
+        });
+        if (!touchesCorridor) continue;
+        var x = (col + 0.5) * NAV, z = (row + 0.5) * NAV;
+        if (!wallSegments.some(function(wall) {
+          return distanceToSegment(x, z, wall) < NAV * 1.5;
+        })) wallSpots.push([col, row]);
+      }
+    }
+    function auditLayout() {
+      var problems = geometryProblems.slice();
+      var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      var start2 = cellAt(LAY.marks.start[0] * TILE, LAY.marks.start[1] * TILE);
+      function flood(blocked2) {
+        var seen3 = new Uint8Array(CW * CH), queue = [];
+        if (walkAt(start2.c, start2.r) && (!blocked2 || !blocked2(start2.c, start2.r))) {
+          seen3[start2.r * CW + start2.c] = 1;
+          queue.push(start2.r * CW + start2.c);
+        }
+        for (var index2 = 0; index2 < queue.length; index2++) {
+          var current = queue[index2], col2 = current % CW, row2 = Math.floor(current / CW);
           nbs.forEach(function(offset) {
-            var x = current[0] + offset[0], z = current[1] + offset[1];
-            if (!walkAt(x, z) || seen3[z * CW + x] || blocked2 && blocked2(x, z)) return;
-            seen3[z * CW + x] = 1;
-            queue.push([x, z]);
+            var x = col2 + offset[0], z = row2 + offset[1], next = z * CW + x;
+            if (!walkAt(x, z) || seen3[next] || blocked2 && blocked2(x, z)) return;
+            seen3[next] = 1;
+            queue.push(next);
           });
         }
         return seen3;
       }
       var seen2 = flood(null), sealed = 0;
-      for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c] && !seen2[r * CW + c]) sealed++;
+      for (var index = 0; index < tileWalk.length; index++) if (tileWalk[index] && !seen2[index]) sealed++;
       if (sealed) problems.push(sealed + " \u683C\u884C\u5514\u5230");
+      SHELL.rooms.forEach(function(room) {
+        if (!roomStat[room.id] || !roomStat[room.id].n) problems.push(room.id + " \u9762\u7A4D\u4E0D\u6B63\u78BA");
+      });
+      doorSegments.forEach(function(door) {
+        var dx = door.b[0] - door.a[0], dz = door.b[1] - door.a[1], length = Math.hypot(dx, dz);
+        var x = (door.a[0] + door.b[0]) / 2, z = (door.a[1] + door.b[1]) / 2;
+        var nx = -dz / length * 0.6, nz = dx / length * 0.6;
+        if (!canStand(x + nx, z + nz) || !canStand(x - nx, z - nz)) problems.push(door.room + " \u9580\u53E3\u9023\u63A5\u4E0D\u6B63\u78BA");
+      });
+      var unmarked = /* @__PURE__ */ Object.create(null);
+      for (var row = 0; row < CH; row++) for (var col = 0; col < CW; col++) {
+        var id = tileRoom[row * CW + col];
+        if (!walkAt(col, row) || id < 2) continue;
+        nbs.forEach(function(offset) {
+          var nextCol = col + offset[0], nextRow = row + offset[1];
+          if (!walkAt(nextCol, nextRow) || tileRoom[nextRow * CW + nextCol] === id) return;
+          var name = SHELL.rooms[id - 2].id;
+          var x = (col + 0.5 + offset[0] / 2) * NAV, z = (row + 0.5 + offset[1] / 2) * NAV;
+          if (!doorSegments.some(function(door) {
+            return door.room === name && distanceToSegment(x, z, door) < NAV;
+          })) unmarked[name] = true;
+        });
+      }
+      Object.keys(unmarked).forEach(function(name) {
+        problems.push(name + " \u6709\u672A\u6A19\u793A\u51FA\u53E3");
+      });
       Object.keys(LAY.marks).forEach(function(name) {
-        var mark = LAY.marks[name];
-        if (!walkAt(mark[0], mark[1]) || !seen2[mark[1] * CW + mark[0]]) problems.push(name + " \u6A19\u8A18\u884C\u5514\u5230");
+        var mark = LAY.marks[name], x = mark[0] * TILE, z = mark[1] * TILE, cell = cellAt(x, z);
+        if (!canStand(x, z) || !seen2[cell.r * CW + cell.c]) problems.push(name + " \u6A19\u8A18\u884C\u5514\u5230");
+      });
+      Object.keys(LAY.npcs).forEach(function(name) {
+        var point = LAY.npcs[name], x = point[0] * TILE, z = point[1] * TILE, cell = cellAt(x, z);
+        if (!canStand(x, z) || !seen2[cell.r * CW + cell.c]) problems.push(name + " \u89D2\u8272\u4F4D\u7F6E\u884C\u5514\u5230");
       });
       var visit = roomById.vis1, lift = LAY.marks.lift;
       if (visit && lift) {
-        var visitDoors = roomDoors(LAY.rooms.vis1);
-        var withoutVisit = flood(function(col, row) {
-          return tileRoom[row * CW + col] === visit.index || visitDoors.some(function(door) {
-            return door[0] === col && door[1] === row;
-          });
+        var withoutVisit = flood(function(col2, row2) {
+          return tileRoom[row2 * CW + col2] === visit.index;
         });
-        if (withoutVisit[lift[1] * CW + lift[0]]) problems.push("\u5347\u964D\u6A5F\u5927\u5802\u76F4\u63A5\u9023\u63A5\u75C5\u623F");
+        var liftCell = cellAt(lift[0] * TILE, lift[1] * TILE);
+        if (withoutVisit[liftCell.r * CW + liftCell.c]) problems.push("\u5347\u964D\u6A5F\u5927\u5802\u76F4\u63A5\u9023\u63A5\u75C5\u623F");
       }
       layoutProblems = problems;
       if (problems.length) console.warn("ward layout \u81EA\u6AA2: " + problems.join("; "));
-    }
-    function collectWalls() {
-      var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      var r, c, k, nc, nr, id, near2;
-      wallSpots = [];
-      roomStat = {};
-      SHELL.rooms.forEach(function(room) {
-        roomStat[room.id] = { wall: 0, door: 0, n: 0 };
-      });
-      for (r = 0; r < CH; r++) {
-        for (c = 0; c < CW; c++) {
-          if (tileWalk[r * CW + c]) {
-            id = tileRoom[r * CW + c];
-            if (id >= 2 && SHELL.rooms[id - 2]) {
-              var name = SHELL.rooms[id - 2].id;
-              roomStat[name].n += 1;
-              for (k = 0; k < 4; k++) {
-                nc = c + nbs[k][0];
-                nr = r + nbs[k][1];
-                if (nc < 0 || nr < 0 || nc >= CW || nr >= CH) continue;
-                if (tileWalk[nr * CW + nc] && tileRoom[nr * CW + nc] !== id) roomStat[name].door += 1;
-              }
-            }
-            continue;
-          }
-          near2 = false;
-          var touch = {};
-          for (k = 0; k < 4; k++) {
-            nc = c + nbs[k][0];
-            nr = r + nbs[k][1];
-            if (nc < 0 || nr < 0 || nc >= CW || nr >= CH || !tileWalk[nr * CW + nc]) continue;
-            near2 = true;
-            id = tileRoom[nr * CW + nc];
-            if (id >= 2 && SHELL.rooms[id - 2]) touch[SHELL.rooms[id - 2].id] = 1;
-          }
-          if (!near2) continue;
-          wallSpots.push([c, r]);
-          Object.keys(touch).forEach(function(nm) {
-            roomStat[nm].wall += 1;
-          });
-        }
-      }
-    }
-    function snapPoint(x, z, prefer) {
-      var best = null, bestD = 1e18, fallback = null, fallD = 1e18;
-      var r, c, cx, cz, d, id;
-      for (r = 0; r < CH; r++) {
-        for (c = 0; c < CW; c++) {
-          if (!tileWalk[r * CW + c]) continue;
-          cx = (c + 0.5) * TILE;
-          cz = (r + 0.5) * TILE;
-          d = (cx - x) * (cx - x) + (cz - z) * (cz - z);
-          if (d < fallD) {
-            fallD = d;
-            fallback = { x: cx, z: cz, c, r };
-          }
-          id = tileRoom[r * CW + c];
-          if (prefer && id !== prefer) continue;
-          if (d < bestD) {
-            bestD = d;
-            best = { x: cx, z: cz, c, r };
-          }
-        }
-      }
-      return best || fallback || { x, z, c: 0, r: 0 };
     }
     function cellsOf(id) {
       var want = roomById[id] ? roomById[id].index : -1;
@@ -19903,7 +21556,7 @@
       for (r = 0; r < CH; r++) {
         for (c = 0; c < CW; c++) {
           if (tileWalk[r * CW + c] && tileRoom[r * CW + c] === want) {
-            list.push({ c, r, x: (c + 0.5) * TILE, z: (r + 0.5) * TILE });
+            list.push({ c, r, x: (c + 0.5) * NAV, z: (r + 0.5) * NAV });
           }
         }
       }
@@ -19923,7 +21576,7 @@
     var MARK = {};
     Object.keys(LAY.marks).forEach(function(key) {
       var t = LAY.marks[key];
-      MARK[key] = { x: (t[0] + 0.5) * TILE, z: (t[1] + 0.5) * TILE };
+      MARK[key] = { x: t[0] * TILE, z: t[1] * TILE };
     });
     var player = { x: MARK.start.x, z: MARK.start.z, rot: 0 };
     var trolley = { x: MARK.trolley.x, z: MARK.trolley.z };
@@ -19946,6 +21599,7 @@
     var glFailed = false;
     var triggeredPush = false;
     var renderer, scene, camera, playerMesh, trolleyMesh, incidentMesh;
+    var npcs = /* @__PURE__ */ Object.create(null);
     function el(id) {
       return document.getElementById(id);
     }
@@ -19960,7 +21614,7 @@
       node.classList.add("show");
     }
     function cellAt(x, z) {
-      return { c: Math.floor(x / TILE), r: Math.floor(z / TILE) };
+      return { c: Math.floor(x / NAV), r: Math.floor(z / NAV) };
     }
     function walkAt(c, r) {
       return c >= 0 && r >= 0 && c < CW && r < CH && tileWalk[r * CW + c] === 1;
@@ -20249,6 +21903,27 @@
       if (dx || dz) player.rot = Math.atan2(dx, dz);
       return Math.sqrt(dx * dx + dz * dz);
     }
+    function npcReachable(npc) {
+      var distance = dist(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z);
+      if (distance >= 1.55) return false;
+      var steps = Math.max(1, Math.ceil(distance / (NAV / 2)));
+      for (var index = 1; index <= steps; index++) {
+        var fraction = index / steps;
+        if (!canStand(
+          player.x + (npc.mesh.position.x - player.x) * fraction,
+          player.z + (npc.mesh.position.z - player.z) * fraction
+        )) return false;
+      }
+      return true;
+    }
+    function npcMessage(npc) {
+      if (npc.id === "nurse1") return quest === "code" ? "\u6211\u6703\u7559\u55BA\u75C5\u4EBA\u8EAB\u908A\u3002\u8ACB\u5E36\u6025\u6551\u8ECA\u8FD4\u569F\u3002" : "\u4F60\u597D\uFF0C\u6211\u55BA\u75C5\u623F\u5354\u52A9\u7167\u9867\u75C5\u4EBA\u3002";
+      if (npc.id === "nurse2") return "\u9700\u8981\u8A18\u9304\u6216\u8655\u7406\u6587\u4EF6\uFF0C\u53EF\u4EE5\u8FD4\u8B77\u58EB\u7AD9\u3002";
+      if (npc.id === "nurse3") return "\u7167\u9867\u75C5\u4EBA\u6642\uFF0C\u8A18\u5F97\u6838\u5C0D\u8EAB\u4EFD\u540C\u7559\u610F\u79C1\u96B1\u3002";
+      if (npc.id === "codePatient") return "\u75C5\u4EBA\u66AB\u6642\u6C92\u6709\u56DE\u61C9\uFF0C\u540C\u4E8B\u6B63\u7559\u5728\u65C1\u908A\u3002";
+      if (npc.id === "admitPatient") return step === "goBed" ? "\u591A\u8B1D\uFF0C\u6211\u6703\u7B49\u5019\u6536\u75C7\u5B89\u6392\u3002" : "\u4F60\u597D\uFF0C\u6211\u540C\u8B77\u9001\u55BA\u5EA6\u7B49\u5019\u6536\u75C7\u3002";
+      return "\u6211\u6709\u5572\u7DCA\u5F35\uFF0C\u53EF\u4EE5\u5148\u540C\u6211\u89E3\u91CB\u55CE\uFF1F";
+    }
     function tryInteract() {
       if (!active || paused || menuOpen || mapOpen) return;
       if (battle) {
@@ -20307,6 +21982,17 @@
         });
         return;
       }
+      var nearby = Object.keys(npcs).map(function(id) {
+        return npcs[id];
+      }).filter(function(npc) {
+        return npc.mesh.visible && npcReachable(npc);
+      }).sort(function(left, right) {
+        return dist(player.x, player.z, left.mesh.position.x, left.mesh.position.z) - dist(player.x, player.z, right.mesh.position.x, right.mesh.position.z);
+      });
+      if (nearby.length) {
+        say([npcMessage(nearby[0])]);
+        return;
+      }
       say([roomNameAt(player.x, player.z) + "\u3002\u64B3 B \u53EF\u4EE5\u7747\u4EFB\u52D9\u76EE\u6A19\u3002"]);
     }
     function toggleMap() {
@@ -20358,6 +22044,88 @@
       shadow.scale.set(width, depth, 1);
       parent.add(shadow);
     }
+    function addFloor(polygon, color, height) {
+      var shape = new Shape();
+      polygon.forEach(function(point, index) {
+        if (index) shape.lineTo(point[0], -point[1]);
+        else shape.moveTo(point[0], -point[1]);
+      });
+      shape.closePath();
+      var mesh = new Mesh(new ShapeGeometry(shape), mat(color));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = height;
+      mesh.userData.kind = "floor";
+      scene.add(mesh);
+    }
+    function addWall(segment, color, height, thickness) {
+      var dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+      var wall = addBox(
+        scene,
+        Math.hypot(dx, dz),
+        height,
+        thickness,
+        color,
+        (segment.a[0] + segment.b[0]) / 2,
+        height / 2,
+        (segment.a[1] + segment.b[1]) / 2
+      );
+      wall.rotation.y = -Math.atan2(dz, dx);
+      wall.userData.kind = "wall";
+      return wall;
+    }
+    function roomWorldPoint(id, x, z) {
+      var origin = roomPolygons[id][0], angle = LAY.rooms[id].angle || 0;
+      return {
+        x: origin[0] + (x * Math.cos(angle) + z * Math.sin(angle)) * TILE,
+        z: origin[1] + (-x * Math.sin(angle) + z * Math.cos(angle)) * TILE
+      };
+    }
+    function addNPC(id, role, color, skin, name) {
+      var mesh = new Group(), body = new Group();
+      addShadow(mesh, 0, 0, 0.75, 0.55);
+      addBox(body, 0.18, 0.35, 0.24, 5399659, -0.12, 0.18, 0);
+      addBox(body, 0.18, 0.35, 0.24, 5399659, 0.12, 0.18, 0);
+      addBox(body, 0.46, 0.47, 0.32, color, 0, 0.48, 0);
+      addBox(body, 0.14, 0.34, 0.18, color, -0.29, 0.47, 0);
+      addBox(body, 0.14, 0.34, 0.18, color, 0.29, 0.47, 0);
+      addBox(body, 0.12, 0.12, 0.16, skin, -0.29, 0.27, 0);
+      addBox(body, 0.12, 0.12, 0.16, skin, 0.29, 0.27, 0);
+      addBox(body, 0.34, 0.3, 0.3, skin, 0, 0.86, 0);
+      addBox(body, 0.36, 0.1, 0.32, 5589315, 0, 1.02, 0);
+      addBox(body, 0.04, 0.04, 0.04, 2701362, -0.08, 0.87, 0.16);
+      addBox(body, 0.04, 0.04, 0.04, 2701362, 0.08, 0.87, 0.16);
+      if (role === "nurse") {
+        addBox(body, 0.36, 0.09, 0.34, 16777215, 0, 1.08, 0);
+        addBox(body, 0.12, 0.04, 0.02, 15162714, 0, 0.54, 0.17);
+        addBox(body, 0.04, 0.12, 0.02, 15162714, 0, 0.54, 0.17);
+      }
+      mesh.add(body);
+      var tag = labelSprite(name);
+      tag.scale.set(1.15, 0.22, 1);
+      tag.position.y = role === "nurse" ? 1.35 : 1.18;
+      mesh.add(tag);
+      mesh.userData.kind = "npc";
+      mesh.userData.id = id;
+      scene.add(mesh);
+      npcs[id] = { id, role, mesh, body, tag };
+    }
+    function placeNPC(npc, anchor) {
+      var position = LAY.npcs[anchor];
+      npc.mesh.position.set(position[0] * TILE, 0, position[1] * TILE);
+    }
+    function updateNPCs() {
+      if (!npcs.nurse1) return;
+      ["nurse1", "nurse2", "nurse3"].forEach(function(id) {
+        placeNPC(npcs[id], id);
+        npcs[id].mesh.visible = true;
+      });
+      placeNPC(npcs.codePatient, "codePatient");
+      npcs.codePatient.mesh.visible = quest === "code";
+      placeNPC(npcs.admitPatient, step === "goBed" && quest === "admit" ? "admitIntake" : "admitLift");
+      npcs.admitPatient.mesh.visible = quest === "admit";
+      placeNPC(npcs.restPatient, "restPatient");
+      npcs.restPatient.mesh.visible = quest === "rest";
+    }
     function buildScene() {
       var canvas = el("wardCanvas");
       renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -20371,45 +22139,23 @@
       var sun = new DirectionalLight(16775145, 1.15);
       sun.position.set(8, 16, 6);
       scene.add(sun);
-      var floorN = 0;
-      var r, c, id, col;
-      for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c]) floorN += 1;
-      var floors = new InstancedMesh(
-        new BoxGeometry(TILE * 0.997, 0.18, TILE * 0.997),
-        new MeshStandardMaterial({ color: 16777215, roughness: 0.95 }),
-        Math.max(1, floorN)
-      );
+      corridorPolygons.forEach(function(polygon, index) {
+        addFloor(polygon, 15200225, -0.035 + index * 1e-3);
+      });
+      SHELL.rooms.forEach(function(room) {
+        addFloor(roomPolygons[room.id], room.color, -0.01);
+      });
+      wallSegments.forEach(function(segment) {
+        addWall(segment, 15790828, 1.15, 0.18);
+      });
       var dummy = new Object3D();
-      var color = new Color();
-      var fi = 0;
-      var floorColors = { bed: 15067364, single: 15067364, nurse: 14739428, treat: 15133415, intake: 15526113, secl: 15263200, living: 15327446, dine: 15327960, train: 15001826, consult: 15198949, med: 14871015, elev: 14541793, bath: 14477799, garden: 10268561 };
-      for (r = 0; r < CH; r++) {
-        for (c = 0; c < CW; c++) {
-          if (!tileWalk[r * CW + c]) continue;
-          id = tileRoom[r * CW + c];
-          var room = id >= 2 ? SHELL.rooms[id - 2] : null;
-          col = room ? floorColors[room.kind] || 15133157 : 14213084;
-          if (room && room.kind === "garden" && r >= 22 && r <= 24) col = 14014925;
-          dummy.position.set((c + 0.5) * TILE, -0.09, (r + 0.5) * TILE);
-          dummy.rotation.set(0, 0, 0);
-          dummy.scale.set(1, 1, 1);
-          dummy.updateMatrix();
-          floors.setMatrixAt(fi, dummy.matrix);
-          floors.setColorAt(fi, color.setHex(col));
-          fi += 1;
-        }
-      }
-      floors.instanceMatrix.needsUpdate = true;
-      if (floors.instanceColor) floors.instanceColor.needsUpdate = true;
-      floors.userData.kind = "floor";
-      scene.add(floors);
       var walls = new InstancedMesh(
-        new BoxGeometry(0.98, 1.15, 0.98),
-        mat(15199206),
+        new BoxGeometry(NAV * 1.04, 1.15, NAV * 1.04),
+        mat(15790828),
         Math.max(1, wallSpots.length)
       );
       wallSpots.forEach(function(s, idx) {
-        dummy.position.set((s[0] + 0.5) * TILE, 0.57, (s[1] + 0.5) * TILE);
+        dummy.position.set((s[0] + 0.5) * NAV, 0.575, (s[1] + 0.5) * NAV);
         dummy.rotation.set(0, 0, 0);
         dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
@@ -20426,42 +22172,27 @@
       scene.add(walls);
       addCorridorDetails();
       var drawnDoors = {};
-      SHELL.rooms.forEach(function(room2) {
-        var def = LAY.rooms[room2.id];
-        if (!def) return;
-        roomDoors(def).forEach(function(door) {
-          var dc = door[0], dr = door[1];
-          var key = dc + "," + dr;
-          if (drawnDoors[key]) return;
-          drawnDoors[key] = true;
-          var dx = (dc + 0.5) * TILE, dz = (dr + 0.5) * TILE;
-          var off = TILE / 2 - 0.09;
-          if (walkAt(dc, dr - 1) && walkAt(dc, dr + 1)) {
-            addBox(scene, 0.18, 1.15, 0.18, 8492433, dx - off, 0.575, dz);
-            addBox(scene, 0.18, 1.15, 0.18, 8492433, dx + off, 0.575, dz);
-            addBox(scene, TILE, 0.22, 0.18, 8492433, dx, 1.26, dz);
-          } else {
-            addBox(scene, 0.18, 1.15, 0.18, 8492433, dx, 0.575, dz - off);
-            addBox(scene, 0.18, 1.15, 0.18, 8492433, dx, 0.575, dz + off);
-            addBox(scene, 0.18, 0.22, TILE, 8492433, dx, 1.26, dz);
-          }
-        });
+      doorSegments.forEach(function(door) {
+        var key = [door.a, door.b].map(function(point) {
+          return point[0].toFixed(3) + "," + point[1].toFixed(3);
+        }).sort().join(":");
+        if (drawnDoors[key]) return;
+        drawnDoors[key] = true;
+        addBox(scene, 0.14, 1.15, 0.14, 7772818, door.a[0], 0.575, door.a[1]);
+        addBox(scene, 0.14, 1.15, 0.14, 7772818, door.b[0], 0.575, door.b[1]);
+        var header = addWall(door, 7772818, 0.16, 0.14);
+        header.position.y = 1.19;
       });
-      SHELL.rooms.forEach(function(room2) {
-        if (room2.kind === "wc" || room2.kind === "store") return;
-        var center = roomCenter(room2.id);
+      SHELL.rooms.forEach(function(room) {
+        if (room.kind === "wc" || room.kind === "store") return;
+        var center = roomCenter(room.id);
         if (!center) return;
-        var tag = labelSprite(room2.name);
+        var tag = labelSprite(room.name);
         tag.position.set(center.x, 1.7, center.z);
         scene.add(tag);
       });
       (LAY.beds || []).forEach(function(bed) {
-        var prefer = roomById[bed.room] ? roomById[bed.room].index : 0;
-        var place = { x: (bed.c + 0.5) * TILE, z: (bed.r + 0.5) * TILE };
-        var bedCell = cellAt(place.x, place.z);
-        if (!walkAt(bedCell.c, bedCell.r) || tileRoom[bedCell.r * CW + bedCell.c] !== prefer) {
-          place = snapPoint(place.x, place.z, prefer);
-        }
+        var place = roomWorldPoint(bed.room, bed.x, bed.z);
         var group = new Group();
         group.userData.kind = "furniture";
         group.userData.room = bed.room;
@@ -20476,12 +22207,22 @@
         addBox(group, 0.38, 0.48, 0.42, 13884116, 0.84, 0.24, -0.42);
         addBox(group, 0.32, 0.035, 0.36, 10464934, 0.84, 0.49, -0.42);
         group.position.set(place.x, 0, place.z);
-        group.rotation.y = bed.ang || 0;
+        group.rotation.y = (LAY.rooms[bed.room].angle || 0) + (bed.ang || 0);
         scene.add(group);
       });
       addNurseStation();
       addTreatRoom();
       addOtherRoomFurniture();
+      addNPC("nurse1", "nurse", 3247750, 15318426, "\u8B77\u58EB\u4E00");
+      addNPC("nurse2", "nurse", 14123142, 12091485, "\u8B77\u58EB\u4E8C");
+      addNPC("nurse3", "nurse", 6459323, 15779750, "\u8B77\u58EB\u4E09");
+      addNPC("codePatient", "patient", 15318402, 15054480, "\u75C5\u4EBA");
+      addNPC("admitPatient", "patient", 10267087, 13934973, "\u75C5\u4EBA");
+      addNPC("restPatient", "patient", 11717014, 15253663, "\u75C5\u4EBA");
+      npcs.codePatient.body.rotation.x = -Math.PI / 2;
+      npcs.codePatient.body.position.y = 0.2;
+      npcs.codePatient.tag.position.y = 0.65;
+      updateNPCs();
       playerMesh = new Group();
       addBox(playerMesh, 0.46, 0.48, 0.34, 3108762, 0, 0.46, 0);
       addBox(playerMesh, 0.32, 0.28, 0.28, 15976353, 0, 0.82, 0);
@@ -20503,20 +22244,15 @@
     }
     function addCorridorDetails() {
       var directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      var doors = /* @__PURE__ */ Object.create(null);
-      SHELL.rooms.forEach(function(room) {
-        roomDoors(LAY.rooms[room.id]).forEach(function(door) {
-          doors[door.join(",")] = true;
-        });
-      });
       var rails = [];
-      wallSpots.forEach(function(wall) {
+      wallSpots.forEach(function(wall, index) {
+        if (index % 4) return;
         directions.forEach(function(direction) {
           var col = wall[0] + direction[0], row = wall[1] + direction[1];
-          if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1 || doors[col + "," + row]) return;
+          if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1) return;
           rails.push({
-            x: (wall[0] + 0.5) * TILE + direction[0] * (TILE / 2 + 0.02),
-            z: (wall[1] + 0.5) * TILE + direction[1] * (TILE / 2 + 0.02),
+            x: (wall[0] + 0.5) * NAV + direction[0] * (NAV / 2 + 0.02),
+            z: (wall[1] + 0.5) * NAV + direction[1] * (NAV / 2 + 0.02),
             angle: direction[0] ? Math.PI / 2 : 0
           });
         });
@@ -20547,9 +22283,10 @@
       scene.add(fixtures);
     }
     function roomGroup(id) {
-      var rect = LAY.rooms[id].rect;
+      var origin = roomWorldPoint(id, 0, 0);
       var group = new Group();
-      group.position.set(rect[0] * TILE, 0, rect[1] * TILE);
+      group.position.set(origin.x, 0, origin.z);
+      group.rotation.y = LAY.rooms[id].angle || 0;
       group.userData.kind = "furniture";
       group.userData.room = id;
       scene.add(group);
@@ -20611,8 +22348,9 @@
     }
     function addNurseStation() {
       var room = roomGroup("nurse");
-      var faxX = MARK.fax.x - room.position.x, faxZ = MARK.fax.z - room.position.z;
-      var computerX = MARK.computer.x - room.position.x, computerZ = MARK.computer.z - room.position.z;
+      var fax = room.worldToLocal(new Vector3(MARK.fax.x, 0, MARK.fax.z));
+      var computer = room.worldToLocal(new Vector3(MARK.computer.x, 0, MARK.computer.z));
+      var faxX = fax.x, faxZ = fax.z, computerX = computer.x, computerZ = computer.z;
       addTable(room, faxX, faxZ, 1.15, 0.7);
       addTable(room, computerX, computerZ, 1.15, 0.7);
       addBox(room, 0.55, 0.25, 0.4, 6847097, faxX, 0.94, faxZ);
@@ -20626,10 +22364,10 @@
     function addTreatRoom() {
       var room = roomGroup("treat");
       addCabinet(room, 3.05, 0.4, 0.78, 0.5, 1.25);
-      addShadow(room, 2.95, 4.25, 1.15, 2);
-      addBox(room, 0.95, 0.16, 1.8, 10727851, 2.95, 0.38, 4.25);
-      addBox(room, 0.86, 0.18, 1.68, 16054259, 2.95, 0.55, 4.25);
-      addBox(room, 0.55, 0.1, 0.3, 13886426, 2.95, 0.69, 3.65);
+      addShadow(room, 2.95, 3.65, 1.15, 2);
+      addBox(room, 0.95, 0.16, 1.8, 10727851, 2.95, 0.38, 3.65);
+      addBox(room, 0.86, 0.18, 1.68, 16054259, 2.95, 0.55, 3.65);
+      addBox(room, 0.55, 0.1, 0.3, 13886426, 2.95, 0.69, 3.05);
     }
     function addOtherRoomFurniture() {
       ["b1", "b2"].forEach(function(id) {
@@ -20638,10 +22376,10 @@
           return bed.room === id && bed.ang === 0;
         });
         northBeds.sort(function(left, right) {
-          return left.c - right.c;
+          return left.x - right.x;
         });
         for (var index = 0; index < northBeds.length - 1; index++) {
-          var x = ((northBeds[index].c + northBeds[index + 1].c) / 2 + 0.5 - rect[0]) * TILE;
+          var x = (northBeds[index].x + northBeds[index + 1].x) / 2 * TILE;
           [0.75, rect[3] * TILE - 0.75].forEach(function(z) {
             var partition = new Group();
             partition.userData.kind = "partition";
@@ -20654,17 +22392,17 @@
         }
       });
       var room = roomGroup("iso1");
-      addScreen(room, 4.5, 1, 1.1);
-      addCabinet(room, 0.45, 4.7, 0.65, 0.6, 1.1);
+      addScreen(room, 2.5, 1, 1.1);
+      addCabinet(room, 0.45, 3.5, 0.65, 0.6, 1.1);
       room = roomGroup("intake");
-      addTable(room, 2.8, 4.15, 1.4, 0.7);
-      addChair(room, 2.8, 4.95, Math.PI);
-      addScreen(room, 0.9, 2.9, 1.15);
+      addTable(room, 2.3, 2.95, 1.4, 0.7);
+      addChair(room, 2.3, 3.65, Math.PI);
+      addScreen(room, 0.9, 2.5, 1.15);
       addCabinet(room, 0.45, 0.45, 0.7, 0.6, 1.1);
       room = roomGroup("secl");
-      addSofa(room, 2.4, 0.55, 1.6);
+      addSofa(room, 1.8, 0.55, 1.6);
       addBox(room, 1.1, 0.1, 0.85, 12832709, 0.95, 0.08, 3.2);
-      addPlant(room, 4.05, 0.55, 0.7, false);
+      addPlant(room, 2.8, 0.55, 0.7, false);
       room = roomGroup("vis1");
       addSofa(room, 3.15, 0.55, 1.55);
       addTable(room, 3.1, 1.55, 0.95, 0.55);
@@ -20681,15 +22419,15 @@
       addChair(room, 4.25, 2.55, 0);
       addCabinet(room, 0.45, 3.9, 0.7, 0.55, 1.15);
       room = roomGroup("con1");
-      addTable(room, 3.2, 0.85, 1.35, 0.65);
-      addChair(room, 3.25, 1.75, Math.PI);
+      addTable(room, 2.8, 0.85, 1.35, 0.65);
+      addChair(room, 2.8, 1.75, Math.PI);
       addBox(room, 0.95, 0.2, 1.75, 15988465, 0.8, 0.53, 2.45);
       addBox(room, 0.9, 0.18, 1.8, 11122866, 0.8, 0.34, 2.45);
       addScreen(room, 1, 3.65, 1.15);
       room = roomGroup("med");
-      addCabinet(room, 3.35, 2.3, 0.55, 1.9, 1.35);
-      addTable(room, 1.2, 3.8, 1.55, 0.6);
-      addBox(room, 0.32, 0.22, 0.25, 12046274, 1.2, 0.93, 3.8);
+      addCabinet(room, 0.45, 1.1, 0.55, 1.9, 1.35);
+      addTable(room, 2.25, 0.5, 1.2, 0.6);
+      addBox(room, 0.32, 0.22, 0.25, 12046274, 2.25, 0.93, 0.5);
       room = roomGroup("lift");
       addBox(room, 0.12, 1.45, 1.65, 10005159, 0.12, 0.725, 2.35);
       addBox(room, 0.14, 1.15, 0.74, 13358801, 0.2, 0.62, 1.94);
@@ -20697,13 +22435,15 @@
       addBox(room, 0.16, 0.18, 0.2, 5404269, 0.2, 1.2, 3.45);
       addSofa(room, 2.8, 0.55, 1.35);
       room = roomGroup("bath");
-      addShadow(room, 0.85, 3.35, 1.25, 2);
-      addBox(room, 1.08, 0.48, 1.85, 14148574, 0.85, 0.29, 3.35);
-      addBox(room, 0.86, 0.12, 1.62, 16054518, 0.85, 0.57, 3.35);
-      addCabinet(room, 3.1, 0.4, 0.9, 0.55, 0.7);
-      addBox(room, 0.65, 0.12, 0.45, 16317176, 3.1, 0.77, 0.4);
-      addBox(room, 0.07, 0.08, 1.5, 10136743, 0.16, 0.98, 3.35);
+      addShadow(room, 0.65, 1.05, 1.25, 2);
+      addBox(room, 1.08, 0.48, 1.85, 14148574, 0.65, 0.29, 1.05);
+      addBox(room, 0.86, 0.12, 1.62, 16054518, 0.65, 0.57, 1.05);
+      addCabinet(room, 2.35, 0.4, 0.9, 0.55, 0.7);
+      addBox(room, 0.65, 0.12, 0.45, 16317176, 2.35, 0.77, 0.4);
+      addBox(room, 0.07, 0.08, 1.5, 10136743, 0.16, 0.98, 1.05);
       room = roomGroup("garden");
+      addBox(room, 1.1, 0.025, 14.4, 14933189, 9.7, 5e-3, 8);
+      addBox(room, 1.8, 0.025, 1.1, 14933189, 10.4, 6e-3, 1.9);
       addBox(room, 4.5, 0.22, 0.65, 11113342, 4.45, 0.11, 1);
       addBox(room, 3.2, 0.22, 0.65, 11113342, 2.6, 0.11, 11.8);
       [
@@ -20741,6 +22481,7 @@
     }
     var mapCache = null;
     var mapBox = null;
+    var mapLabelPositions = [];
     function ensureMapCache() {
       if (mapCache) return;
       var minC = CW, minR = CH, maxC = 0, maxR = 0, r, c, seenWall = {};
@@ -20790,31 +22531,81 @@
       var b = mapBox;
       ctx.fillStyle = "#10242c";
       ctx.fillRect(0, 0, w, h);
-      var scale = Math.min((w - 16) / b.bw, (h - 16) / b.bh);
+      var padding = labels ? 16 : Math.min(w, h) * 0.36;
+      var scale = Math.min((w - padding) / b.bw, (h - padding) / b.bh);
       var ox = (w - b.bw * scale) / 2;
       var oy = (h - b.bh * scale) / 2;
       function mx(x) {
-        return ox + (x / TILE - b.minC) * scale;
+        return ox + (x / NAV - b.minC) * scale;
       }
       function mz(z) {
-        return oy + (z / TILE - b.minR) * scale;
+        return oy + (z / NAV - b.minR) * scale;
       }
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(mapCache, ox, oy, b.bw * scale, b.bh * scale);
       if (labels) {
-        ctx.fillStyle = "#142226";
+        var labelScale = Math.max(1, w / Math.max(1, ctx.canvas.clientWidth));
+        var radius = Math.max(12, 7.5 * labelScale);
+        var separation = radius * 2 + labelScale;
         ctx.textAlign = "center";
-        ctx.font = "bold 12px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
-        SHELL.rooms.forEach(function(room) {
-          if (room.kind === "wc" || room.kind === "store") return;
+        ctx.textBaseline = "middle";
+        ctx.font = "bold " + Math.max(16, 10 * labelScale) + "px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+        mapLabelPositions = SHELL.rooms.map(function(room, index) {
           var center = roomCenter(room.id);
-          if (!center) return;
-          ctx.fillText(room.name, mx(center.x), mz(center.z));
+          return {
+            id: room.id,
+            number: index + 1,
+            x: mx(center.x),
+            y: mz(center.z),
+            anchorX: mx(center.x),
+            anchorY: mz(center.z),
+            radius
+          };
+        });
+        for (var pass = 0; pass < 160; pass++) {
+          mapLabelPositions.forEach(function(left, index) {
+            for (var next = index + 1; next < mapLabelPositions.length; next++) {
+              var right = mapLabelPositions[next], dx = right.x - left.x, dy = right.y - left.y;
+              var distance = Math.hypot(dx, dy);
+              if (distance >= separation) continue;
+              if (distance < 1e-3) {
+                dx = 1;
+                dy = 0;
+                distance = 1;
+              }
+              var shift = (separation - distance) / 2;
+              left.x -= dx / distance * shift;
+              left.y -= dy / distance * shift;
+              right.x += dx / distance * shift;
+              right.y += dy / distance * shift;
+            }
+          });
+          mapLabelPositions.forEach(function(label) {
+            label.x = Math.max(radius, Math.min(w - radius, label.x));
+            label.y = Math.max(radius, Math.min(h - radius, label.y));
+          });
+        }
+        ctx.strokeStyle = "#284a45";
+        ctx.lineWidth = Math.max(1, labelScale);
+        mapLabelPositions.forEach(function(label) {
+          if (Math.hypot(label.x - label.anchorX, label.y - label.anchorY) <= radius) return;
+          ctx.beginPath();
+          ctx.moveTo(label.anchorX, label.anchorY);
+          ctx.lineTo(label.x, label.y);
+          ctx.stroke();
+        });
+        mapLabelPositions.forEach(function(label) {
+          ctx.fillStyle = "#203e3c";
+          ctx.beginPath();
+          ctx.arc(label.x, label.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(String(label.number), label.x, label.y);
         });
       }
       ctx.fillStyle = "#e23b32";
       ctx.beginPath();
-      ctx.arc(mx(player.x), mz(player.z), Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
+      ctx.arc(mx(player.x), mz(player.z), labels ? Math.max(4, 4 * labelScale) : Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
       ctx.fill();
     }
     function drawMinimap() {
@@ -20838,6 +22629,14 @@
       var map = el("wardMapBig");
       if (!map) return;
       paintMap(map.getContext("2d"), map.width, map.height, true);
+      var legend = el("wardMapLegend");
+      if (legend && !legend.children.length) {
+        SHELL.rooms.forEach(function(room, index) {
+          var item = document.createElement("li");
+          item.textContent = index + 1 + ". " + room.name;
+          legend.appendChild(item);
+        });
+      }
     }
     function frame(ts) {
       raf = requestAnimationFrame(frame);
@@ -20858,6 +22657,7 @@
       }
       if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
       if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
+      updateNPCs();
       drawMinimap();
       if (camera && renderer && !glFailed) {
         try {
@@ -20911,6 +22711,7 @@
       show("wardMenu", false);
       show("wardMapOverlay", false);
       if (incidentMesh) incidentMesh.visible = false;
+      updateNPCs();
       setQuestLabel();
     }
     function dirOfKey(e) {
@@ -20986,8 +22787,8 @@
         toggleMap();
       });
       var overlay = el("wardMapOverlay");
-      if (overlay) overlay.addEventListener("pointerdown", function() {
-        if (mapOpen) toggleMap();
+      if (overlay) overlay.addEventListener("pointerdown", function(ev) {
+        if (mapOpen && !ev.target.closest("#wardMapLegend")) toggleMap();
       });
       window.addEventListener("keydown", function(e) {
         if (!active) return;
@@ -21032,7 +22833,7 @@
       var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       for (i = 0; i < q.length; i++) {
         cur = q[i];
-        if (cur[0] === b.c && cur[1] === b.r) return cur[2] * TILE;
+        if (cur[0] === b.c && cur[1] === b.r) return cur[2] * NAV;
         for (k = 0; k < 4; k++) {
           nx = cur[0] + nbs[k][0];
           ny = cur[1] + nbs[k][1];
@@ -21129,20 +22930,38 @@
       },
       audit: function() {
         var beds = {}, bedPositions = [], partitions = [], furniture = {}, plants = 0;
+        updateNPCs();
+        if (scene) scene.updateMatrixWorld(true);
         if (scene) scene.traverse(function(obj) {
           if (!obj.userData) return;
           if (obj.userData.kind === "bed") {
             beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
             bedPositions.push({ room: obj.userData.room, x: obj.parent.position.x, z: obj.parent.position.z, rotation: obj.parent.rotation.y });
           } else if (obj.userData.kind === "partition") {
-            partitions.push({ room: obj.userData.room, x: obj.parent.position.x + obj.position.x, z: obj.parent.position.z + obj.position.z });
+            var point = obj.getWorldPosition(new Vector3());
+            partitions.push({ room: obj.userData.room, x: point.x, z: point.z });
           } else if (obj.userData.kind === "furniture") {
             furniture[obj.userData.room] = (furniture[obj.userData.room] || 0) + 1;
           } else if (obj.userData.kind === "plant") plants++;
         });
-        return { beds, bedPositions, partitions, furniture, plants, rooms: SHELL.rooms.map(function(r) {
-          return r.id;
-        }), problems: layoutProblems.slice() };
+        return {
+          beds,
+          bedPositions,
+          partitions,
+          furniture,
+          plants,
+          npcs: Object.keys(npcs).map(function(id) {
+            var npc = npcs[id];
+            return { id, role: npc.role, x: npc.mesh.position.x, z: npc.mesh.position.z, visible: npc.mesh.visible };
+          }),
+          mapLabels: mapLabelPositions.map(function(label) {
+            return { id: label.id, x: label.x, y: label.y, radius: label.radius };
+          }),
+          rooms: SHELL.rooms.map(function(r) {
+            return r.id;
+          }),
+          problems: layoutProblems.slice()
+        };
       }
     };
   })();

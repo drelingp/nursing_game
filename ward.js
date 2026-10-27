@@ -7,8 +7,9 @@ import * as THREE from "three";
   if (!SHELL || !SHELL.layout || !Array.isArray(SHELL.rooms)) return;
   var LAY = SHELL.layout;
   var TILE = LAY.tile;
-  var CW = LAY.cols;
-  var CH = LAY.rows;
+  var NAV = LAY.navTile || TILE;
+  var CW = Math.ceil(LAY.cols * TILE / NAV);
+  var CH = Math.ceil(LAY.rows * TILE / NAV);
   var SPEED = 2.55;
   var RADIUS = 0.28;
 
@@ -134,184 +135,220 @@ import * as THREE from "three";
 
   var tileWalk = new Uint8Array(CW * CH);
   var tileRoom = new Uint16Array(CW * CH);
+  var roomPolygons = Object.create(null);
+  var corridorPolygons = [];
+  var wallSegments = [];
+  var doorSegments = [];
   var wallSpots = [];
   var roomStat = {};
   var layoutProblems = [];
+  var geometryProblems = [];
 
-  function fillRect(c, r, w, h, id) {
-    var z, x;
-    for (z = r; z < r + h; z++) {
-      for (x = c; x < c + w; x++) {
-        if (x < 0 || z < 0 || x >= CW || z >= CH) continue;
-        tileWalk[z * CW + x] = 1;
-        tileRoom[z * CW + x] = id;
+  function roomDoors(def) { return def && def.doors ? def.doors : []; }
+
+  function polygonOf(def) {
+    if (def.polygon) return def.polygon.map(function (point) { return [point[0] * TILE, point[1] * TILE]; });
+    var rect = def.rect, angle = def.angle || 0;
+    var centerX = (rect[0] + rect[2] / 2) * TILE;
+    var centerZ = (rect[1] + rect[3] / 2) * TILE;
+    var cos = Math.cos(angle), sin = Math.sin(angle);
+    return [[0, 0], [rect[2], 0], [rect[2], rect[3]], [0, rect[3]]].map(function (point) {
+      var x = (point[0] - rect[2] / 2) * TILE, z = (point[1] - rect[3] / 2) * TILE;
+      return [centerX + x * cos + z * sin, centerZ - x * sin + z * cos];
+    });
+  }
+
+  function insidePolygon(x, z, polygon) {
+    var inside = false;
+    for (var index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+      var a = polygon[index], b = polygon[previous];
+      if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  }
+
+  function distanceToSegment(x, z, segment) {
+    var dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+    var length = dx * dx + dz * dz;
+    var fraction = length ? Math.max(0, Math.min(1, ((x - segment.a[0]) * dx + (z - segment.a[1]) * dz) / length)) : 0;
+    var px = segment.a[0] + dx * fraction, pz = segment.a[1] + dz * fraction;
+    return Math.hypot(x - px, z - pz);
+  }
+
+  function fillPolygon(polygon, id, overlaps) {
+    var minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    polygon.forEach(function (point) {
+      minX = Math.min(minX, point[0]); maxX = Math.max(maxX, point[0]);
+      minZ = Math.min(minZ, point[1]); maxZ = Math.max(maxZ, point[1]);
+    });
+    for (var row = Math.max(0, Math.floor(minZ / NAV)); row <= Math.min(CH - 1, Math.floor(maxZ / NAV)); row++) {
+      for (var col = Math.max(0, Math.floor(minX / NAV)); col <= Math.min(CW - 1, Math.floor(maxX / NAV)); col++) {
+        var index = row * CW + col;
+        if (!insidePolygon((col + 0.5) * NAV, (row + 0.5) * NAV, polygon)) continue;
+        if (id >= 2 && tileRoom[index] >= 2 && tileRoom[index] !== id) {
+          var names = [SHELL.rooms[tileRoom[index] - 2].id, SHELL.rooms[id - 2].id].sort();
+          overlaps[names.join(" / ")] = true;
+        }
+        tileWalk[index] = 1;
+        tileRoom[index] = id;
       }
     }
   }
 
-  function roomDoors(def) {
-    if (!def) return [];
-    return def.doors || (def.door ? [def.door] : []);
+  function buildRoomWalls(room, polygon) {
+    var doors = roomDoors(LAY.rooms[room.id]);
+    polygon.forEach(function (start, edge) {
+      var end = polygon[(edge + 1) % polygon.length];
+      var dx = end[0] - start[0], dz = end[1] - start[1];
+      var length = Math.hypot(dx, dz), cuts = [];
+      doors.filter(function (door) { return door.edge === edge; }).forEach(function (door) {
+        var half = door.width * TILE / (2 * length);
+        var from = door.at - half, to = door.at + half;
+        if (from < 0 || to > 1 || from >= to) {
+          geometryProblems.push(room.id + " 門口無效");
+          return;
+        }
+        var opening = { room: room.id, a: [start[0] + dx * from, start[1] + dz * from],
+          b: [start[0] + dx * to, start[1] + dz * to] };
+        cuts.push({ from: from, to: to });
+        doorSegments.push(opening);
+      });
+      cuts.sort(function (left, right) { return left.from - right.from; });
+      var cursor = 0;
+      cuts.concat([{ from: 1, to: 1 }]).forEach(function (cut) {
+        if (cut.from < cursor) geometryProblems.push(room.id + " 門口重疊");
+        if (cut.from > cursor) wallSegments.push({ room: room.id,
+          a: [start[0] + dx * cursor, start[1] + dz * cursor],
+          b: [start[0] + dx * cut.from, start[1] + dz * cut.from] });
+        cursor = Math.max(cursor, cut.to);
+      });
+    });
+    if (doors.length !== doorSegments.filter(function (door) { return door.room === room.id; }).length) {
+      geometryProblems.push(room.id + " 門口未配置");
+    }
+  }
+
+  function blockWall(segment) {
+    var padding = NAV * 0.8;
+    var minC = Math.max(0, Math.floor((Math.min(segment.a[0], segment.b[0]) - padding) / NAV));
+    var maxC = Math.min(CW - 1, Math.floor((Math.max(segment.a[0], segment.b[0]) + padding) / NAV));
+    var minR = Math.max(0, Math.floor((Math.min(segment.a[1], segment.b[1]) - padding) / NAV));
+    var maxR = Math.min(CH - 1, Math.floor((Math.max(segment.a[1], segment.b[1]) + padding) / NAV));
+    for (var row = minR; row <= maxR; row++) for (var col = minC; col <= maxC; col++) {
+      if (distanceToSegment((col + 0.5) * NAV, (row + 0.5) * NAV, segment) <= padding) {
+        tileWalk[row * CW + col] = 0;
+        tileRoom[row * CW + col] = 0;
+      }
+    }
   }
 
   function buildLayout() {
-    LAY.corridors.forEach(function (rc) { fillRect(rc[0], rc[1], rc[2], rc[3], 1); });
-    SHELL.rooms.forEach(function (room) {
-      var def = LAY.rooms[room.id];
-      if (!def) { console.warn("ward layout: 未配置房間 " + room.id); return; }
-      fillRect(def.rect[0], def.rect[1], def.rect[2], def.rect[3], room.index);
+    var overlaps = Object.create(null);
+    LAY.corridors.forEach(function (def) {
+      var polygon = polygonOf(def);
+      corridorPolygons.push(polygon);
+      fillPolygon(polygon, 1, overlaps);
     });
     SHELL.rooms.forEach(function (room) {
       var def = LAY.rooms[room.id];
-      roomDoors(def).forEach(function (door) {
-        tileWalk[door[1] * CW + door[0]] = 1;
-        tileRoom[door[1] * CW + door[0]] = 1;
-      });
+      if (!def) { geometryProblems.push(room.id + " 冇配置"); return; }
+      var polygon = polygonOf(def);
+      roomPolygons[room.id] = polygon;
+      fillPolygon(polygon, room.index, overlaps);
+      buildRoomWalls(room, polygon);
     });
-    auditLayout();
+    Object.keys(overlaps).forEach(function (names) { geometryProblems.push(names + " 房間重疊"); });
+    wallSegments.forEach(blockWall);
     collectWalls();
+    auditLayout();
+  }
+
+  function collectWalls() {
+    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    wallSpots = [];
+    roomStat = {};
+    SHELL.rooms.forEach(function (room) {
+      roomStat[room.id] = { wall: wallSegments.filter(function (wall) { return wall.room === room.id; }).length,
+        door: roomDoors(LAY.rooms[room.id]).length, n: 0 };
+    });
+    for (var row = 0; row < CH; row++) for (var col = 0; col < CW; col++) {
+      var index = row * CW + col, id = tileRoom[index];
+      if (tileWalk[index]) {
+        if (id >= 2 && SHELL.rooms[id - 2]) roomStat[SHELL.rooms[id - 2].id].n++;
+        continue;
+      }
+      var touchesCorridor = nbs.some(function (offset) {
+        var x = col + offset[0], z = row + offset[1];
+        return walkAt(x, z) && tileRoom[z * CW + x] === 1;
+      });
+      if (!touchesCorridor) continue;
+      var x = (col + 0.5) * NAV, z = (row + 0.5) * NAV;
+      if (!wallSegments.some(function (wall) { return distanceToSegment(x, z, wall) < NAV * 1.5; })) wallSpots.push([col, row]);
+    }
   }
 
   function auditLayout() {
+    var problems = geometryProblems.slice();
     var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    var problems = [];
-    var r, c, k, nc, nr;
-    SHELL.rooms.forEach(function (room) {
-      var def = LAY.rooms[room.id];
-      if (!def) { problems.push(room.id + " 冇配置"); return; }
-      var doors = roomDoors(def);
-      var openings = 0, size = 0;
-      for (r = 0; r < CH; r++) {
-        for (c = 0; c < CW; c++) {
-          if (!tileWalk[r * CW + c] || tileRoom[r * CW + c] !== room.index) continue;
-          size++;
-          for (k = 0; k < nbs.length; k++) {
-            nc = c + nbs[k][0];
-            nr = r + nbs[k][1];
-            if (!walkAt(nc, nr) || tileRoom[nr * CW + nc] === room.index) continue;
-            openings++;
-            if (!doors.some(function (door) { return door[0] === nc && door[1] === nr; })) {
-              problems.push(room.id + " 有未標示出口 " + nc + "," + nr);
-            }
-          }
-        }
-      }
-      if (size !== def.rect[2] * def.rect[3]) problems.push(room.id + " 面積不正確");
-      if (openings !== doors.length) problems.push(room.id + " 有 " + openings + " 度門，預期 " + doors.length + " 度");
-      doors.forEach(function (door) {
-        var dc = door[0], dr = door[1], neighbors = [], roomNeighbors = 0;
-        if (!Number.isInteger(dc) || !Number.isInteger(dr) || !walkAt(dc, dr) || tileRoom[dr * CW + dc] !== 1) {
-          problems.push(room.id + " 門口無效 " + dc + "," + dr);
-          return;
-        }
-        nbs.forEach(function (offset) {
-          var x = dc + offset[0], z = dr + offset[1];
-          if (!walkAt(x, z)) return;
-          neighbors.push(offset);
-          if (tileRoom[z * CW + x] === room.index) roomNeighbors++;
-        });
-        if (roomNeighbors !== 1 || neighbors.length !== 2 ||
-            neighbors[0][0] + neighbors[1][0] !== 0 || neighbors[0][1] + neighbors[1][1] !== 0) {
-          problems.push(room.id + " 門口連接不正確 " + dc + "," + dr);
-        }
-      });
-    });
-
-    var startC = LAY.marks.start[0], startR = LAY.marks.start[1];
+    var start = cellAt(LAY.marks.start[0] * TILE, LAY.marks.start[1] * TILE);
     function flood(blocked) {
-      var seen = new Uint8Array(CW * CH);
-      var queue = [];
-      if (walkAt(startC, startR) && (!blocked || !blocked(startC, startR))) {
-        seen[startR * CW + startC] = 1;
-        queue.push([startC, startR]);
+      var seen = new Uint8Array(CW * CH), queue = [];
+      if (walkAt(start.c, start.r) && (!blocked || !blocked(start.c, start.r))) {
+        seen[start.r * CW + start.c] = 1;
+        queue.push(start.r * CW + start.c);
       }
       for (var index = 0; index < queue.length; index++) {
-        var current = queue[index];
+        var current = queue[index], col = current % CW, row = Math.floor(current / CW);
         nbs.forEach(function (offset) {
-          var x = current[0] + offset[0], z = current[1] + offset[1];
-          if (!walkAt(x, z) || seen[z * CW + x] || (blocked && blocked(x, z))) return;
-          seen[z * CW + x] = 1;
-          queue.push([x, z]);
+          var x = col + offset[0], z = row + offset[1], next = z * CW + x;
+          if (!walkAt(x, z) || seen[next] || (blocked && blocked(x, z))) return;
+          seen[next] = 1;
+          queue.push(next);
         });
       }
       return seen;
     }
     var seen = flood(null), sealed = 0;
-    for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c] && !seen[r * CW + c]) sealed++;
+    for (var index = 0; index < tileWalk.length; index++) if (tileWalk[index] && !seen[index]) sealed++;
     if (sealed) problems.push(sealed + " 格行唔到");
+    SHELL.rooms.forEach(function (room) {
+      if (!roomStat[room.id] || !roomStat[room.id].n) problems.push(room.id + " 面積不正確");
+    });
+    doorSegments.forEach(function (door) {
+      var dx = door.b[0] - door.a[0], dz = door.b[1] - door.a[1], length = Math.hypot(dx, dz);
+      var x = (door.a[0] + door.b[0]) / 2, z = (door.a[1] + door.b[1]) / 2;
+      var nx = -dz / length * 0.6, nz = dx / length * 0.6;
+      if (!canStand(x + nx, z + nz) || !canStand(x - nx, z - nz)) problems.push(door.room + " 門口連接不正確");
+    });
+    var unmarked = Object.create(null);
+    for (var row = 0; row < CH; row++) for (var col = 0; col < CW; col++) {
+      var id = tileRoom[row * CW + col];
+      if (!walkAt(col, row) || id < 2) continue;
+      nbs.forEach(function (offset) {
+        var nextCol = col + offset[0], nextRow = row + offset[1];
+        if (!walkAt(nextCol, nextRow) || tileRoom[nextRow * CW + nextCol] === id) return;
+        var name = SHELL.rooms[id - 2].id;
+        var x = (col + 0.5 + offset[0] / 2) * NAV, z = (row + 0.5 + offset[1] / 2) * NAV;
+        if (!doorSegments.some(function (door) { return door.room === name && distanceToSegment(x, z, door) < NAV; })) unmarked[name] = true;
+      });
+    }
+    Object.keys(unmarked).forEach(function (name) { problems.push(name + " 有未標示出口"); });
     Object.keys(LAY.marks).forEach(function (name) {
-      var mark = LAY.marks[name];
-      if (!walkAt(mark[0], mark[1]) || !seen[mark[1] * CW + mark[0]]) problems.push(name + " 標記行唔到");
+      var mark = LAY.marks[name], x = mark[0] * TILE, z = mark[1] * TILE, cell = cellAt(x, z);
+      if (!canStand(x, z) || !seen[cell.r * CW + cell.c]) problems.push(name + " 標記行唔到");
+    });
+    Object.keys(LAY.npcs).forEach(function (name) {
+      var point = LAY.npcs[name], x = point[0] * TILE, z = point[1] * TILE, cell = cellAt(x, z);
+      if (!canStand(x, z) || !seen[cell.r * CW + cell.c]) problems.push(name + " 角色位置行唔到");
     });
     var visit = roomById.vis1, lift = LAY.marks.lift;
     if (visit && lift) {
-      var visitDoors = roomDoors(LAY.rooms.vis1);
-      var withoutVisit = flood(function (col, row) {
-        return tileRoom[row * CW + col] === visit.index || visitDoors.some(function (door) {
-          return door[0] === col && door[1] === row;
-        });
-      });
-      if (withoutVisit[lift[1] * CW + lift[0]]) problems.push("升降機大堂直接連接病房");
+      var withoutVisit = flood(function (col, row) { return tileRoom[row * CW + col] === visit.index; });
+      var liftCell = cellAt(lift[0] * TILE, lift[1] * TILE);
+      if (withoutVisit[liftCell.r * CW + liftCell.c]) problems.push("升降機大堂直接連接病房");
     }
     layoutProblems = problems;
     if (problems.length) console.warn("ward layout 自檢: " + problems.join("; "));
-  }
-
-  function collectWalls() {
-    var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    var r, c, k, nc, nr, id, near;
-    wallSpots = [];
-    roomStat = {};
-    SHELL.rooms.forEach(function (room) { roomStat[room.id] = { wall: 0, door: 0, n: 0 }; });
-    for (r = 0; r < CH; r++) {
-      for (c = 0; c < CW; c++) {
-        if (tileWalk[r * CW + c]) {
-          id = tileRoom[r * CW + c];
-          if (id >= 2 && SHELL.rooms[id - 2]) {
-            var name = SHELL.rooms[id - 2].id;
-            roomStat[name].n += 1;
-            for (k = 0; k < 4; k++) {
-              nc = c + nbs[k][0];
-              nr = r + nbs[k][1];
-              if (nc < 0 || nr < 0 || nc >= CW || nr >= CH) continue;
-              if (tileWalk[nr * CW + nc] && tileRoom[nr * CW + nc] !== id) roomStat[name].door += 1;
-            }
-          }
-          continue;
-        }
-        near = false;
-        var touch = {};
-        for (k = 0; k < 4; k++) {
-          nc = c + nbs[k][0];
-          nr = r + nbs[k][1];
-          if (nc < 0 || nr < 0 || nc >= CW || nr >= CH || !tileWalk[nr * CW + nc]) continue;
-          near = true;
-          id = tileRoom[nr * CW + nc];
-          if (id >= 2 && SHELL.rooms[id - 2]) touch[SHELL.rooms[id - 2].id] = 1;
-        }
-        if (!near) continue;
-        wallSpots.push([c, r]);
-        Object.keys(touch).forEach(function (nm) { roomStat[nm].wall += 1; });
-      }
-    }
-  }
-
-  function snapPoint(x, z, prefer) {
-    var best = null, bestD = 1e18, fallback = null, fallD = 1e18;
-    var r, c, cx, cz, d, id;
-    for (r = 0; r < CH; r++) {
-      for (c = 0; c < CW; c++) {
-        if (!tileWalk[r * CW + c]) continue;
-        cx = (c + 0.5) * TILE;
-        cz = (r + 0.5) * TILE;
-        d = (cx - x) * (cx - x) + (cz - z) * (cz - z);
-        if (d < fallD) { fallD = d; fallback = { x: cx, z: cz, c: c, r: r }; }
-        id = tileRoom[r * CW + c];
-        if (prefer && id !== prefer) continue;
-        if (d < bestD) { bestD = d; best = { x: cx, z: cz, c: c, r: r }; }
-      }
-    }
-    return best || fallback || { x: x, z: z, c: 0, r: 0 };
   }
 
   function cellsOf(id) {
@@ -321,7 +358,7 @@ import * as THREE from "three";
     for (r = 0; r < CH; r++) {
       for (c = 0; c < CW; c++) {
         if (tileWalk[r * CW + c] && tileRoom[r * CW + c] === want) {
-          list.push({ c: c, r: r, x: (c + 0.5) * TILE, z: (r + 0.5) * TILE });
+          list.push({ c: c, r: r, x: (c + 0.5) * NAV, z: (r + 0.5) * NAV });
         }
       }
     }
@@ -341,7 +378,7 @@ import * as THREE from "three";
   var MARK = {};
   Object.keys(LAY.marks).forEach(function (key) {
     var t = LAY.marks[key];
-    MARK[key] = { x: (t[0] + 0.5) * TILE, z: (t[1] + 0.5) * TILE };
+    MARK[key] = { x: t[0] * TILE, z: t[1] * TILE };
   });
 
   var player = { x: MARK.start.x, z: MARK.start.z, rot: 0 };
@@ -365,6 +402,7 @@ import * as THREE from "three";
   var glFailed = false;
   var triggeredPush = false;
   var renderer, scene, camera, playerMesh, trolleyMesh, incidentMesh;
+  var npcs = Object.create(null);
 
   function el(id) { return document.getElementById(id); }
   function show(id, on) {
@@ -378,7 +416,7 @@ import * as THREE from "three";
     node.classList.add("show");
   }
   function cellAt(x, z) {
-    return { c: Math.floor(x / TILE), r: Math.floor(z / TILE) };
+    return { c: Math.floor(x / NAV), r: Math.floor(z / NAV) };
   }
   function walkAt(c, r) {
     return c >= 0 && r >= 0 && c < CW && r < CH && tileWalk[r * CW + c] === 1;
@@ -644,6 +682,27 @@ import * as THREE from "three";
     return Math.sqrt(dx * dx + dz * dz);
   }
 
+  function npcReachable(npc) {
+    var distance = dist(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z);
+    if (distance >= 1.55) return false;
+    var steps = Math.max(1, Math.ceil(distance / (NAV / 2)));
+    for (var index = 1; index <= steps; index++) {
+      var fraction = index / steps;
+      if (!canStand(player.x + (npc.mesh.position.x - player.x) * fraction,
+          player.z + (npc.mesh.position.z - player.z) * fraction)) return false;
+    }
+    return true;
+  }
+
+  function npcMessage(npc) {
+    if (npc.id === "nurse1") return quest === "code" ? "我會留喺病人身邊。請帶急救車返嚟。" : "你好，我喺病房協助照顧病人。";
+    if (npc.id === "nurse2") return "需要記錄或處理文件，可以返護士站。";
+    if (npc.id === "nurse3") return "照顧病人時，記得核對身份同留意私隱。";
+    if (npc.id === "codePatient") return "病人暫時沒有回應，同事正留在旁邊。";
+    if (npc.id === "admitPatient") return step === "goBed" ? "多謝，我會等候收症安排。" : "你好，我同護送喺度等候收症。";
+    return "我有啲緊張，可以先同我解釋嗎？";
+  }
+
   function tryInteract() {
     if (!active || paused || menuOpen || mapOpen) return;
     if (battle) { confirmChoice(); return; }
@@ -680,6 +739,16 @@ import * as THREE from "three";
     }
     if (quest === "rest" && step === "goNurse" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
       say(["已喺護士站記錄約束原因、時間同循環檢查（虛構）。事件完結。"], function () { clearQuest(); });
+      return;
+    }
+    var nearby = Object.keys(npcs).map(function (id) { return npcs[id]; }).filter(function (npc) {
+      return npc.mesh.visible && npcReachable(npc);
+    }).sort(function (left, right) {
+      return dist(player.x, player.z, left.mesh.position.x, left.mesh.position.z) -
+        dist(player.x, player.z, right.mesh.position.x, right.mesh.position.z);
+    });
+    if (nearby.length) {
+      say([npcMessage(nearby[0])]);
       return;
     }
     say([roomNameAt(player.x, player.z) + "。撳 B 可以睇任務目標。"]);
@@ -725,6 +794,84 @@ import * as THREE from "three";
     parent.add(shadow);
   }
 
+  function addFloor(polygon, color, height) {
+    var shape = new THREE.Shape();
+    polygon.forEach(function (point, index) {
+      if (index) shape.lineTo(point[0], -point[1]);
+      else shape.moveTo(point[0], -point[1]);
+    });
+    shape.closePath();
+    var mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat(color));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = height;
+    mesh.userData.kind = "floor";
+    scene.add(mesh);
+  }
+
+  function addWall(segment, color, height, thickness) {
+    var dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+    var wall = addBox(scene, Math.hypot(dx, dz), height, thickness, color,
+      (segment.a[0] + segment.b[0]) / 2, height / 2, (segment.a[1] + segment.b[1]) / 2);
+    wall.rotation.y = -Math.atan2(dz, dx);
+    wall.userData.kind = "wall";
+    return wall;
+  }
+
+  function roomWorldPoint(id, x, z) {
+    var origin = roomPolygons[id][0], angle = LAY.rooms[id].angle || 0;
+    return { x: origin[0] + (x * Math.cos(angle) + z * Math.sin(angle)) * TILE,
+      z: origin[1] + (-x * Math.sin(angle) + z * Math.cos(angle)) * TILE };
+  }
+
+  function addNPC(id, role, color, skin, name) {
+    var mesh = new THREE.Group(), body = new THREE.Group();
+    addShadow(mesh, 0, 0, 0.75, 0.55);
+    addBox(body, 0.18, 0.35, 0.24, 0x52646b, -0.12, 0.18, 0);
+    addBox(body, 0.18, 0.35, 0.24, 0x52646b, 0.12, 0.18, 0);
+    addBox(body, 0.46, 0.47, 0.32, color, 0, 0.48, 0);
+    addBox(body, 0.14, 0.34, 0.18, color, -0.29, 0.47, 0);
+    addBox(body, 0.14, 0.34, 0.18, color, 0.29, 0.47, 0);
+    addBox(body, 0.12, 0.12, 0.16, skin, -0.29, 0.27, 0);
+    addBox(body, 0.12, 0.12, 0.16, skin, 0.29, 0.27, 0);
+    addBox(body, 0.34, 0.3, 0.3, skin, 0, 0.86, 0);
+    addBox(body, 0.36, 0.1, 0.32, 0x554943, 0, 1.02, 0);
+    addBox(body, 0.04, 0.04, 0.04, 0x293832, -0.08, 0.87, 0.16);
+    addBox(body, 0.04, 0.04, 0.04, 0x293832, 0.08, 0.87, 0.16);
+    if (role === "nurse") {
+      addBox(body, 0.36, 0.09, 0.34, 0xffffff, 0, 1.08, 0);
+      addBox(body, 0.12, 0.04, 0.02, 0xe75d5a, 0, 0.54, 0.17);
+      addBox(body, 0.04, 0.12, 0.02, 0xe75d5a, 0, 0.54, 0.17);
+    }
+    mesh.add(body);
+    var tag = labelSprite(name);
+    tag.scale.set(1.15, 0.22, 1);
+    tag.position.y = role === "nurse" ? 1.35 : 1.18;
+    mesh.add(tag);
+    mesh.userData.kind = "npc";
+    mesh.userData.id = id;
+    scene.add(mesh);
+    npcs[id] = { id: id, role: role, mesh: mesh, body: body, tag: tag };
+  }
+
+  function placeNPC(npc, anchor) {
+    var position = LAY.npcs[anchor];
+    npc.mesh.position.set(position[0] * TILE, 0, position[1] * TILE);
+  }
+
+  function updateNPCs() {
+    if (!npcs.nurse1) return;
+    ["nurse1", "nurse2", "nurse3"].forEach(function (id) {
+      placeNPC(npcs[id], id);
+      npcs[id].mesh.visible = true;
+    });
+    placeNPC(npcs.codePatient, "codePatient");
+    npcs.codePatient.mesh.visible = quest === "code";
+    placeNPC(npcs.admitPatient, step === "goBed" && quest === "admit" ? "admitIntake" : "admitLift");
+    npcs.admitPatient.mesh.visible = quest === "admit";
+    placeNPC(npcs.restPatient, "restPatient");
+    npcs.restPatient.mesh.visible = quest === "rest";
+  }
+
   function buildScene() {
     var canvas = el("wardCanvas");
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
@@ -739,46 +886,17 @@ import * as THREE from "three";
     sun.position.set(8, 16, 6);
     scene.add(sun);
 
-    var floorN = 0;
-    var r, c, id, col;
-    for (r = 0; r < CH; r++) for (c = 0; c < CW; c++) if (tileWalk[r * CW + c]) floorN += 1;
-    var floors = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(TILE * 0.997, 0.18, TILE * 0.997),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }),
-      Math.max(1, floorN)
-    );
+    corridorPolygons.forEach(function (polygon, index) { addFloor(polygon, 0xe7efe1, -0.035 + index * 0.001); });
+    SHELL.rooms.forEach(function (room) { addFloor(roomPolygons[room.id], room.color, -0.01); });
+    wallSegments.forEach(function (segment) { addWall(segment, 0xf0f2ec, 1.15, 0.18); });
     var dummy = new THREE.Object3D();
-    var color = new THREE.Color();
-    var fi = 0;
-    var floorColors = { bed: 0xe5e8e4, single: 0xe5e8e4, nurse: 0xe0e7e4, treat: 0xe6eae7, intake: 0xece8e1, secl: 0xe8e5e0, living: 0xe9e0d6, dine: 0xe9e2d8, train: 0xe4e8e2, consult: 0xe7eae5, med: 0xe2e9e7, elev: 0xdde3e1, bath: 0xdce9e7, garden: 0x9caf91 };
-    for (r = 0; r < CH; r++) {
-      for (c = 0; c < CW; c++) {
-        if (!tileWalk[r * CW + c]) continue;
-        id = tileRoom[r * CW + c];
-        var room = id >= 2 ? SHELL.rooms[id - 2] : null;
-        col = room ? (floorColors[room.kind] || 0xe6e9e5) : 0xd8dfdc;
-        if (room && room.kind === "garden" && r >= 22 && r <= 24) col = 0xd5d9cd;
-        dummy.position.set((c + 0.5) * TILE, -0.09, (r + 0.5) * TILE);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        floors.setMatrixAt(fi, dummy.matrix);
-        floors.setColorAt(fi, color.setHex(col));
-        fi += 1;
-      }
-    }
-    floors.instanceMatrix.needsUpdate = true;
-    if (floors.instanceColor) floors.instanceColor.needsUpdate = true;
-    floors.userData.kind = "floor";
-    scene.add(floors);
-
     var walls = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(0.98, 1.15, 0.98),
-      mat(0xe7ebe6),
+      new THREE.BoxGeometry(NAV * 1.04, 1.15, NAV * 1.04),
+      mat(0xf0f2ec),
       Math.max(1, wallSpots.length)
     );
     wallSpots.forEach(function (s, idx) {
-      dummy.position.set((s[0] + 0.5) * TILE, 0.57, (s[1] + 0.5) * TILE);
+      dummy.position.set((s[0] + 0.5) * NAV, 0.575, (s[1] + 0.5) * NAV);
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
@@ -796,26 +914,14 @@ import * as THREE from "three";
     addCorridorDetails();
 
     var drawnDoors = {};
-    SHELL.rooms.forEach(function (room) {
-      var def = LAY.rooms[room.id];
-      if (!def) return;
-      roomDoors(def).forEach(function (door) {
-        var dc = door[0], dr = door[1];
-        var key = dc + "," + dr;
-        if (drawnDoors[key]) return;
-        drawnDoors[key] = true;
-        var dx = (dc + 0.5) * TILE, dz = (dr + 0.5) * TILE;
-        var off = TILE / 2 - 0.09;
-        if (walkAt(dc, dr - 1) && walkAt(dc, dr + 1)) {
-          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx - off, 0.575, dz);
-          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx + off, 0.575, dz);
-          addBox(scene, TILE, 0.22, 0.18, 0x819591, dx, 1.26, dz);
-        } else {
-          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx, 0.575, dz - off);
-          addBox(scene, 0.18, 1.15, 0.18, 0x819591, dx, 0.575, dz + off);
-          addBox(scene, 0.18, 0.22, TILE, 0x819591, dx, 1.26, dz);
-        }
-      });
+    doorSegments.forEach(function (door) {
+      var key = [door.a, door.b].map(function (point) { return point[0].toFixed(3) + "," + point[1].toFixed(3); }).sort().join(":");
+      if (drawnDoors[key]) return;
+      drawnDoors[key] = true;
+      addBox(scene, 0.14, 1.15, 0.14, 0x769a92, door.a[0], 0.575, door.a[1]);
+      addBox(scene, 0.14, 1.15, 0.14, 0x769a92, door.b[0], 0.575, door.b[1]);
+      var header = addWall(door, 0x769a92, 0.16, 0.14);
+      header.position.y = 1.19;
     });
 
     SHELL.rooms.forEach(function (room) {
@@ -828,12 +934,7 @@ import * as THREE from "three";
     });
 
     (LAY.beds || []).forEach(function (bed) {
-      var prefer = roomById[bed.room] ? roomById[bed.room].index : 0;
-      var place = { x: (bed.c + 0.5) * TILE, z: (bed.r + 0.5) * TILE };
-      var bedCell = cellAt(place.x, place.z);
-      if (!walkAt(bedCell.c, bedCell.r) || tileRoom[bedCell.r * CW + bedCell.c] !== prefer) {
-        place = snapPoint(place.x, place.z, prefer);
-      }
+      var place = roomWorldPoint(bed.room, bed.x, bed.z);
       var group = new THREE.Group();
       group.userData.kind = "furniture";
       group.userData.room = bed.room;
@@ -848,13 +949,23 @@ import * as THREE from "three";
       addBox(group, 0.38, 0.48, 0.42, 0xd3dad4, 0.84, 0.24, -0.42);
       addBox(group, 0.32, 0.035, 0.36, 0x9faea6, 0.84, 0.49, -0.42);
       group.position.set(place.x, 0, place.z);
-      group.rotation.y = bed.ang || 0;
+      group.rotation.y = (LAY.rooms[bed.room].angle || 0) + (bed.ang || 0);
       scene.add(group);
     });
 
     addNurseStation();
     addTreatRoom();
     addOtherRoomFurniture();
+    addNPC("nurse1", "nurse", 0x318e86, 0xe9bd9a, "護士一");
+    addNPC("nurse2", "nurse", 0xd78086, 0xb8805d, "護士二");
+    addNPC("nurse3", "nurse", 0x628fbb, 0xf0c7a6, "護士三");
+    addNPC("codePatient", "patient", 0xe9bd82, 0xe5b690, "病人");
+    addNPC("admitPatient", "patient", 0x9ca9cf, 0xd4a17d, "病人");
+    addNPC("restPatient", "patient", 0xb2c996, 0xe8c09f, "病人");
+    npcs.codePatient.body.rotation.x = -Math.PI / 2;
+    npcs.codePatient.body.position.y = 0.2;
+    npcs.codePatient.tag.position.y = 0.65;
+    updateNPCs();
 
     playerMesh = new THREE.Group();
     addBox(playerMesh, 0.46, 0.48, 0.34, 0x2f6f9a, 0, 0.46, 0);
@@ -880,17 +991,14 @@ import * as THREE from "three";
 
   function addCorridorDetails() {
     var directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    var doors = Object.create(null);
-    SHELL.rooms.forEach(function (room) {
-      roomDoors(LAY.rooms[room.id]).forEach(function (door) { doors[door.join(",")] = true; });
-    });
     var rails = [];
-    wallSpots.forEach(function (wall) {
+    wallSpots.forEach(function (wall, index) {
+      if (index % 4) return;
       directions.forEach(function (direction) {
         var col = wall[0] + direction[0], row = wall[1] + direction[1];
-        if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1 || doors[col + "," + row]) return;
-        rails.push({ x: (wall[0] + 0.5) * TILE + direction[0] * (TILE / 2 + 0.02),
-          z: (wall[1] + 0.5) * TILE + direction[1] * (TILE / 2 + 0.02),
+        if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1) return;
+        rails.push({ x: (wall[0] + 0.5) * NAV + direction[0] * (NAV / 2 + 0.02),
+          z: (wall[1] + 0.5) * NAV + direction[1] * (NAV / 2 + 0.02),
           angle: direction[0] ? Math.PI / 2 : 0 });
       });
     });
@@ -919,9 +1027,10 @@ import * as THREE from "three";
   }
 
   function roomGroup(id) {
-    var rect = LAY.rooms[id].rect;
+    var origin = roomWorldPoint(id, 0, 0);
     var group = new THREE.Group();
-    group.position.set(rect[0] * TILE, 0, rect[1] * TILE);
+    group.position.set(origin.x, 0, origin.z);
+    group.rotation.y = LAY.rooms[id].angle || 0;
     group.userData.kind = "furniture";
     group.userData.room = id;
     scene.add(group);
@@ -983,8 +1092,9 @@ import * as THREE from "three";
   }
   function addNurseStation() {
     var room = roomGroup("nurse");
-    var faxX = MARK.fax.x - room.position.x, faxZ = MARK.fax.z - room.position.z;
-    var computerX = MARK.computer.x - room.position.x, computerZ = MARK.computer.z - room.position.z;
+    var fax = room.worldToLocal(new THREE.Vector3(MARK.fax.x, 0, MARK.fax.z));
+    var computer = room.worldToLocal(new THREE.Vector3(MARK.computer.x, 0, MARK.computer.z));
+    var faxX = fax.x, faxZ = fax.z, computerX = computer.x, computerZ = computer.z;
     addTable(room, faxX, faxZ, 1.15, 0.7);
     addTable(room, computerX, computerZ, 1.15, 0.7);
     addBox(room, 0.55, 0.25, 0.4, 0x687a79, faxX, 0.94, faxZ);
@@ -998,18 +1108,18 @@ import * as THREE from "three";
   function addTreatRoom() {
     var room = roomGroup("treat");
     addCabinet(room, 3.05, 0.4, 0.78, 0.5, 1.25);
-    addShadow(room, 2.95, 4.25, 1.15, 2.0);
-    addBox(room, 0.95, 0.16, 1.8, 0xa3b1ab, 2.95, 0.38, 4.25);
-    addBox(room, 0.86, 0.18, 1.68, 0xf4f7f3, 2.95, 0.55, 4.25);
-    addBox(room, 0.55, 0.1, 0.3, 0xd3e3da, 2.95, 0.69, 3.65);
+    addShadow(room, 2.95, 3.65, 1.15, 2.0);
+    addBox(room, 0.95, 0.16, 1.8, 0xa3b1ab, 2.95, 0.38, 3.65);
+    addBox(room, 0.86, 0.18, 1.68, 0xf4f7f3, 2.95, 0.55, 3.65);
+    addBox(room, 0.55, 0.1, 0.3, 0xd3e3da, 2.95, 0.69, 3.05);
   }
   function addOtherRoomFurniture() {
     ["b1", "b2"].forEach(function (id) {
       var ward = roomGroup(id), rect = LAY.rooms[id].rect;
       var northBeds = LAY.beds.filter(function (bed) { return bed.room === id && bed.ang === 0; });
-      northBeds.sort(function (left, right) { return left.c - right.c; });
+      northBeds.sort(function (left, right) { return left.x - right.x; });
       for (var index = 0; index < northBeds.length - 1; index++) {
-        var x = ((northBeds[index].c + northBeds[index + 1].c) / 2 + 0.5 - rect[0]) * TILE;
+        var x = (northBeds[index].x + northBeds[index + 1].x) / 2 * TILE;
         [0.75, rect[3] * TILE - 0.75].forEach(function (z) {
           var partition = new THREE.Group();
           partition.userData.kind = "partition";
@@ -1022,19 +1132,19 @@ import * as THREE from "three";
       }
     });
     var room = roomGroup("iso1");
-    addScreen(room, 4.5, 1.0, 1.1);
-    addCabinet(room, 0.45, 4.7, 0.65, 0.6, 1.1);
+    addScreen(room, 2.5, 1.0, 1.1);
+    addCabinet(room, 0.45, 3.5, 0.65, 0.6, 1.1);
 
     room = roomGroup("intake");
-    addTable(room, 2.8, 4.15, 1.4, 0.7);
-    addChair(room, 2.8, 4.95, Math.PI);
-    addScreen(room, 0.9, 2.9, 1.15);
+    addTable(room, 2.3, 2.95, 1.4, 0.7);
+    addChair(room, 2.3, 3.65, Math.PI);
+    addScreen(room, 0.9, 2.5, 1.15);
     addCabinet(room, 0.45, 0.45, 0.7, 0.6, 1.1);
 
     room = roomGroup("secl");
-    addSofa(room, 2.4, 0.55, 1.6);
+    addSofa(room, 1.8, 0.55, 1.6);
     addBox(room, 1.1, 0.1, 0.85, 0xc3cfc5, 0.95, 0.08, 3.2);
-    addPlant(room, 4.05, 0.55, 0.7, false);
+    addPlant(room, 2.8, 0.55, 0.7, false);
 
     room = roomGroup("vis1");
     addSofa(room, 3.15, 0.55, 1.55);
@@ -1055,16 +1165,16 @@ import * as THREE from "three";
     addCabinet(room, 0.45, 3.9, 0.7, 0.55, 1.15);
 
     room = roomGroup("con1");
-    addTable(room, 3.2, 0.85, 1.35, 0.65);
-    addChair(room, 3.25, 1.75, Math.PI);
+    addTable(room, 2.8, 0.85, 1.35, 0.65);
+    addChair(room, 2.8, 1.75, Math.PI);
     addBox(room, 0.95, 0.2, 1.75, 0xf3f6f1, 0.8, 0.53, 2.45);
     addBox(room, 0.9, 0.18, 1.8, 0xa9b8b2, 0.8, 0.34, 2.45);
     addScreen(room, 1.0, 3.65, 1.15);
 
     room = roomGroup("med");
-    addCabinet(room, 3.35, 2.3, 0.55, 1.9, 1.35);
-    addTable(room, 1.2, 3.8, 1.55, 0.6);
-    addBox(room, 0.32, 0.22, 0.25, 0xb7cfc2, 1.2, 0.93, 3.8);
+    addCabinet(room, 0.45, 1.1, 0.55, 1.9, 1.35);
+    addTable(room, 2.25, 0.5, 1.2, 0.6);
+    addBox(room, 0.32, 0.22, 0.25, 0xb7cfc2, 2.25, 0.93, 0.5);
 
     room = roomGroup("lift");
     addBox(room, 0.12, 1.45, 1.65, 0x98aaa7, 0.12, 0.725, 2.35);
@@ -1074,14 +1184,16 @@ import * as THREE from "three";
     addSofa(room, 2.8, 0.55, 1.35);
 
     room = roomGroup("bath");
-    addShadow(room, 0.85, 3.35, 1.25, 2.0);
-    addBox(room, 1.08, 0.48, 1.85, 0xd7e3de, 0.85, 0.29, 3.35);
-    addBox(room, 0.86, 0.12, 1.62, 0xf4f8f6, 0.85, 0.57, 3.35);
-    addCabinet(room, 3.1, 0.4, 0.9, 0.55, 0.7);
-    addBox(room, 0.65, 0.12, 0.45, 0xf8faf8, 3.1, 0.77, 0.4);
-    addBox(room, 0.07, 0.08, 1.5, 0x9aaca7, 0.16, 0.98, 3.35);
+    addShadow(room, 0.65, 1.05, 1.25, 2.0);
+    addBox(room, 1.08, 0.48, 1.85, 0xd7e3de, 0.65, 0.29, 1.05);
+    addBox(room, 0.86, 0.12, 1.62, 0xf4f8f6, 0.65, 0.57, 1.05);
+    addCabinet(room, 2.35, 0.4, 0.9, 0.55, 0.7);
+    addBox(room, 0.65, 0.12, 0.45, 0xf8faf8, 2.35, 0.77, 0.4);
+    addBox(room, 0.07, 0.08, 1.5, 0x9aaca7, 0.16, 0.98, 1.05);
 
     room = roomGroup("garden");
+    addBox(room, 1.1, 0.025, 14.4, 0xe3dcc5, 9.7, 0.005, 8.0);
+    addBox(room, 1.8, 0.025, 1.1, 0xe3dcc5, 10.4, 0.006, 1.9);
     addBox(room, 4.5, 0.22, 0.65, 0xa9937e, 4.45, 0.11, 1.0);
     addBox(room, 3.2, 0.22, 0.65, 0xa9937e, 2.6, 0.11, 11.8);
     [[1.0, 1.1, 0.85, true], [2.8, 1.0, 0.95, false], [4.6, 1.0, 0.8, true],
@@ -1113,6 +1225,7 @@ import * as THREE from "three";
 
   var mapCache = null;
   var mapBox = null;
+  var mapLabelPositions = [];
   function ensureMapCache() {
     if (mapCache) return;
     var minC = CW, minR = CH, maxC = 0, maxR = 0, r, c, seenWall = {};
@@ -1160,27 +1273,64 @@ import * as THREE from "three";
     var b = mapBox;
     ctx.fillStyle = "#10242c";
     ctx.fillRect(0, 0, w, h);
-    var scale = Math.min((w - 16) / b.bw, (h - 16) / b.bh);
+    var padding = labels ? 16 : Math.min(w, h) * 0.36;
+    var scale = Math.min((w - padding) / b.bw, (h - padding) / b.bh);
     var ox = (w - b.bw * scale) / 2;
     var oy = (h - b.bh * scale) / 2;
-    function mx(x) { return ox + (x / TILE - b.minC) * scale; }
-    function mz(z) { return oy + (z / TILE - b.minR) * scale; }
+    function mx(x) { return ox + (x / NAV - b.minC) * scale; }
+    function mz(z) { return oy + (z / NAV - b.minR) * scale; }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mapCache, ox, oy, b.bw * scale, b.bh * scale);
     if (labels) {
-      ctx.fillStyle = "#142226";
+      var labelScale = Math.max(1, w / Math.max(1, ctx.canvas.clientWidth));
+      var radius = Math.max(12, 7.5 * labelScale);
+      var separation = radius * 2 + labelScale;
       ctx.textAlign = "center";
-      ctx.font = "bold 12px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
-      SHELL.rooms.forEach(function (room) {
-        if (room.kind === "wc" || room.kind === "store") return;
+      ctx.textBaseline = "middle";
+      ctx.font = "bold " + Math.max(16, 10 * labelScale) + "px PingFang TC, Microsoft JhengHei, Noto Sans TC, sans-serif";
+      mapLabelPositions = SHELL.rooms.map(function (room, index) {
         var center = roomCenter(room.id);
-        if (!center) return;
-        ctx.fillText(room.name, mx(center.x), mz(center.z));
+        return { id: room.id, number: index + 1, x: mx(center.x), y: mz(center.z),
+          anchorX: mx(center.x), anchorY: mz(center.z), radius: radius };
+      });
+      for (var pass = 0; pass < 160; pass++) {
+        mapLabelPositions.forEach(function (left, index) {
+          for (var next = index + 1; next < mapLabelPositions.length; next++) {
+            var right = mapLabelPositions[next], dx = right.x - left.x, dy = right.y - left.y;
+            var distance = Math.hypot(dx, dy);
+            if (distance >= separation) continue;
+            if (distance < 0.001) { dx = 1; dy = 0; distance = 1; }
+            var shift = (separation - distance) / 2;
+            left.x -= dx / distance * shift; left.y -= dy / distance * shift;
+            right.x += dx / distance * shift; right.y += dy / distance * shift;
+          }
+        });
+        mapLabelPositions.forEach(function (label) {
+          label.x = Math.max(radius, Math.min(w - radius, label.x));
+          label.y = Math.max(radius, Math.min(h - radius, label.y));
+        });
+      }
+      ctx.strokeStyle = "#284a45";
+      ctx.lineWidth = Math.max(1, labelScale);
+      mapLabelPositions.forEach(function (label) {
+        if (Math.hypot(label.x - label.anchorX, label.y - label.anchorY) <= radius) return;
+        ctx.beginPath();
+        ctx.moveTo(label.anchorX, label.anchorY);
+        ctx.lineTo(label.x, label.y);
+        ctx.stroke();
+      });
+      mapLabelPositions.forEach(function (label) {
+        ctx.fillStyle = "#203e3c";
+        ctx.beginPath();
+        ctx.arc(label.x, label.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(String(label.number), label.x, label.y);
       });
     }
     ctx.fillStyle = "#e23b32";
     ctx.beginPath();
-    ctx.arc(mx(player.x), mz(player.z), Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
+    ctx.arc(mx(player.x), mz(player.z), labels ? Math.max(4, 4 * labelScale) : Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
     ctx.fill();
   }
   function drawMinimap() {
@@ -1204,6 +1354,14 @@ import * as THREE from "three";
     var map = el("wardMapBig");
     if (!map) return;
     paintMap(map.getContext("2d"), map.width, map.height, true);
+    var legend = el("wardMapLegend");
+    if (legend && !legend.children.length) {
+      SHELL.rooms.forEach(function (room, index) {
+        var item = document.createElement("li");
+        item.textContent = (index + 1) + ". " + room.name;
+        legend.appendChild(item);
+      });
+    }
   }
 
   function frame(ts) {
@@ -1225,6 +1383,7 @@ import * as THREE from "three";
     }
     if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
     if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
+    updateNPCs();
     drawMinimap();
     if (camera && renderer && !glFailed) {
       try {
@@ -1279,6 +1438,7 @@ import * as THREE from "three";
     show("wardMenu", false);
     show("wardMapOverlay", false);
     if (incidentMesh) incidentMesh.visible = false;
+    updateNPCs();
     setQuestLabel();
   }
 
@@ -1353,7 +1513,9 @@ import * as THREE from "three";
       toggleMap();
     });
     var overlay = el("wardMapOverlay");
-    if (overlay) overlay.addEventListener("pointerdown", function () { if (mapOpen) toggleMap(); });
+    if (overlay) overlay.addEventListener("pointerdown", function (ev) {
+      if (mapOpen && !ev.target.closest("#wardMapLegend")) toggleMap();
+    });
     window.addEventListener("keydown", function (e) {
       if (!active) return;
       var dir = dirOfKey(e);
@@ -1393,7 +1555,7 @@ import * as THREE from "three";
     var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (i = 0; i < q.length; i++) {
       cur = q[i];
-      if (cur[0] === b.c && cur[1] === b.r) return cur[2] * TILE;
+      if (cur[0] === b.c && cur[1] === b.r) return cur[2] * NAV;
       for (k = 0; k < 4; k++) {
         nx = cur[0] + nbs[k][0];
         ny = cur[1] + nbs[k][1];
@@ -1460,18 +1622,27 @@ import * as THREE from "three";
     slide: function (dx, dz) { var m = slide(dx, dz); if (m) onTravel(m); return m; },
     audit: function () {
       var beds = {}, bedPositions = [], partitions = [], furniture = {}, plants = 0;
+      updateNPCs();
+      if (scene) scene.updateMatrixWorld(true);
       if (scene) scene.traverse(function (obj) {
         if (!obj.userData) return;
         if (obj.userData.kind === "bed") {
           beds[obj.userData.room] = (beds[obj.userData.room] || 0) + 1;
           bedPositions.push({ room: obj.userData.room, x: obj.parent.position.x, z: obj.parent.position.z, rotation: obj.parent.rotation.y });
         } else if (obj.userData.kind === "partition") {
-          partitions.push({ room: obj.userData.room, x: obj.parent.position.x + obj.position.x, z: obj.parent.position.z + obj.position.z });
+          var point = obj.getWorldPosition(new THREE.Vector3());
+          partitions.push({ room: obj.userData.room, x: point.x, z: point.z });
         } else if (obj.userData.kind === "furniture") {
           furniture[obj.userData.room] = (furniture[obj.userData.room] || 0) + 1;
         } else if (obj.userData.kind === "plant") plants++;
       });
-      return { beds: beds, bedPositions: bedPositions, partitions: partitions, furniture: furniture, plants: plants, rooms: SHELL.rooms.map(function (r) { return r.id; }), problems: layoutProblems.slice() };
+      return { beds: beds, bedPositions: bedPositions, partitions: partitions, furniture: furniture, plants: plants,
+        npcs: Object.keys(npcs).map(function (id) {
+          var npc = npcs[id];
+          return { id: id, role: npc.role, x: npc.mesh.position.x, z: npc.mesh.position.z, visible: npc.mesh.visible };
+        }), mapLabels: mapLabelPositions.map(function (label) {
+          return { id: label.id, x: label.x, y: label.y, radius: label.radius };
+        }), rooms: SHELL.rooms.map(function (r) { return r.id; }), problems: layoutProblems.slice() };
     }
   };
 })();
