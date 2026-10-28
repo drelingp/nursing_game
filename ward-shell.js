@@ -72,7 +72,7 @@
         incident: wingPoint(8.8, 27.3),
         lift: roomPoint(rooms.lift, 1.4, 3.7),
         intake: roomPoint(rooms.intake, 2, 2.2),
-        secl: roomPoint(rooms.secl, 2.4, 2.25),
+        secl: roomPoint(rooms.secl, 1.5, 1.5),
         treat: roomPoint(rooms.treat, 2.2, 2),
         nurse: roomPoint(rooms.nurse, 2.5, 3.6)
       },

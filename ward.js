@@ -138,6 +138,8 @@ import * as THREE from "three";
   var roomPolygons = Object.create(null);
   var corridorPolygons = [];
   var wallSegments = [];
+  var corridorWalls = [];
+  var renderedWalls = [];
   var doorSegments = [];
   var wallSpots = [];
   var roomStat = {};
@@ -242,6 +244,74 @@ import * as THREE from "three";
     }
   }
 
+  function mergeWallSegments(segments) {
+    var merged = [], tolerance = 0.00001;
+    segments.forEach(function (source) {
+      var segment = { a: source.a.slice(), b: source.b.slice(), nx: source.nx, nz: source.nz };
+      for (var index = 0; index < merged.length; index++) {
+        var other = merged[index], dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+        var length = Math.hypot(dx, dz), ux = dx / length, uz = dz / length;
+        var from = (other.a[0] - segment.a[0]) * ux + (other.a[1] - segment.a[1]) * uz;
+        var to = (other.b[0] - segment.a[0]) * ux + (other.b[1] - segment.a[1]) * uz;
+        if (Math.abs((other.a[0] - segment.a[0]) * uz - (other.a[1] - segment.a[1]) * ux) > tolerance ||
+            Math.abs((other.b[0] - segment.a[0]) * uz - (other.b[1] - segment.a[1]) * ux) > tolerance ||
+            Math.max(from, to) < -tolerance || Math.min(from, to) > length + tolerance) continue;
+        var low = Math.min(0, from, to), high = Math.max(length, from, to);
+        segment.b = [segment.a[0] + ux * high, segment.a[1] + uz * high];
+        segment.a = [segment.a[0] + ux * low, segment.a[1] + uz * low];
+        merged.splice(index, 1);
+        index = -1;
+      }
+      if (Math.hypot(segment.b[0] - segment.a[0], segment.b[1] - segment.a[1]) > tolerance) merged.push(segment);
+    });
+    return merged;
+  }
+
+  function buildCorridorWalls() {
+    var polygons = corridorPolygons.concat(Object.keys(roomPolygons).map(function (id) { return roomPolygons[id]; }));
+    var edges = [], tolerance = 0.00001, segments = [];
+    polygons.forEach(function (polygon) {
+      polygon.forEach(function (point, index) { edges.push({ a: point, b: polygon[(index + 1) % polygon.length] }); });
+    });
+    function onFloor(x, z) {
+      return polygons.some(function (polygon) { return insidePolygon(x, z, polygon); });
+    }
+    corridorPolygons.forEach(function (polygon) {
+      polygon.forEach(function (start, index) {
+        var end = polygon[(index + 1) % polygon.length], dx = end[0] - start[0], dz = end[1] - start[1];
+        var length = Math.hypot(dx, dz), cuts = [0, 1];
+        edges.forEach(function (edge) {
+          var ex = edge.b[0] - edge.a[0], ez = edge.b[1] - edge.a[1];
+          var ax = edge.a[0] - start[0], az = edge.a[1] - start[1], cross = dx * ez - dz * ex;
+          if (Math.abs(cross) > tolerance) {
+            var along = (ax * ez - az * ex) / cross, across = (ax * dz - az * dx) / cross;
+            if (along > 0 && along < 1 && across >= -tolerance && across <= 1 + tolerance) cuts.push(along);
+          } else if (Math.abs(ax * dz - az * dx) < tolerance) {
+            [edge.a, edge.b].forEach(function (point) {
+              var along = ((point[0] - start[0]) * dx + (point[1] - start[1]) * dz) / (length * length);
+              if (along > 0 && along < 1) cuts.push(along);
+            });
+          }
+        });
+        cuts.sort(function (left, right) { return left - right; });
+        for (var cut = 1; cut < cuts.length; cut++) {
+          if ((cuts[cut] - cuts[cut - 1]) * length < tolerance) continue;
+          var middle = (cuts[cut - 1] + cuts[cut]) / 2;
+          var x = start[0] + dx * middle, z = start[1] + dz * middle;
+          var nx = -dz / length, nz = dx / length;
+          var left = onFloor(x + nx * 0.001, z + nz * 0.001), right = onFloor(x - nx * 0.001, z - nz * 0.001);
+          if (left === right || wallSegments.concat(doorSegments).some(function (wall) {
+            return distanceToSegment(x, z, wall) < tolerance;
+          })) continue;
+          segments.push({ a: [start[0] + dx * cuts[cut - 1], start[1] + dz * cuts[cut - 1]],
+            b: [start[0] + dx * cuts[cut], start[1] + dz * cuts[cut]], nx: left ? nx : -nx, nz: left ? nz : -nz });
+        }
+      });
+    });
+    corridorWalls = mergeWallSegments(segments);
+    renderedWalls = mergeWallSegments(wallSegments.concat(corridorWalls));
+  }
+
   function buildLayout() {
     var overlaps = Object.create(null);
     LAY.corridors.forEach(function (def) {
@@ -260,6 +330,7 @@ import * as THREE from "three";
     Object.keys(overlaps).forEach(function (names) { geometryProblems.push(names + " 房間重疊"); });
     wallSegments.forEach(blockWall);
     collectWalls();
+    buildCorridorWalls();
     auditLayout();
   }
 
@@ -387,7 +458,10 @@ import * as THREE from "three";
   var quest = "";
   var step = "idle";
   var travel = 0;
-  var seen = { code: false, admit: false, rest: false };
+  var taskBag = [];
+  var lastQuest = "";
+  var taskProps = Object.create(null);
+  var scenarioProps = { code: ["trolley", "incident", "fax"], admit: ["lift", "intake", "admitPatient"], rest: ["secl", "computer"] };
   var active = false;
   var paused = false;
   var built = false;
@@ -456,7 +530,7 @@ import * as THREE from "three";
     } else if (quest === "rest") {
       if (step === "intro" || step === "goRoom") text = "任務：去冷靜房，撳 A 處理躁動。";
       else if (step === "battle") text = "任務：約束問答。A 確認，B 取消選擇。";
-      else if (step === "goNurse") text = "任務：去護士站，撳 A 記錄約束。";
+      else if (step === "goNurse") text = "任務：去護士站電腦，撳 A 記錄約束。";
     }
     var node = el("wardQuestLabel");
     if (node) node.textContent = text;
@@ -564,7 +638,7 @@ import * as THREE from "three";
       say(["身份同安檢問答完。去收症房，撳 A 完成呢位虛構病人嘅安排。"], function () { setQuestLabel(); });
     } else if (quest === "rest") {
       step = "goNurse";
-      say(["問答完。去護士站撳 A，記錄約束原因、時間同循環檢查。"], function () { setQuestLabel(); });
+      say(["問答完。去護士站電腦撳 A，記錄約束原因、時間同循環檢查。"], function () { setQuestLabel(); });
     }
     if (incidentMesh) incidentMesh.visible = false;
   }
@@ -574,13 +648,18 @@ import * as THREE from "three";
     pushing = false;
     triggeredPush = false;
     travel = 0;
+    updateNPCs();
     setQuestLabel();
   }
   function beginCode() {
     quest = "code";
     step = "intro";
-    seen.code = true;
+    trolley.x = MARK.trolley.x;
+    trolley.z = MARK.trolley.z;
+    trolleyMesh.position.set(trolley.x, 0, trolley.z);
+    pushing = false;
     triggeredPush = false;
+    updateNPCs();
     say([
       "突然：走廊有人呼叫！虛構病人「陳先生」情況危急。",
       "先去治療室，撳 A 攞急救車，沿走廊推返事發位置。",
@@ -590,7 +669,7 @@ import * as THREE from "three";
   function beginAdmit() {
     quest = "admit";
     step = "intro";
-    seen.admit = true;
+    updateNPCs();
     say([
       "收症：虛構病人「林先生」同護送喺升降機大堂等候。",
       "先去升降機大堂，撳 A 核對身份，再答收症問題，最後去收症房。"
@@ -599,14 +678,15 @@ import * as THREE from "three";
   function beginRest() {
     quest = "rest";
     step = "intro";
-    seen.rest = true;
+    updateNPCs();
     say([
       "冷靜房：虛構病人躁動，同事想即刻綁起嚟。",
-      "去冷靜房撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站記錄。"
+      "去冷靜房病人身邊撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站電腦記錄。"
     ], function () { step = "goRoom"; setQuestLabel(); });
   }
   function onTravel(meters) {
-    if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
+    if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z) &&
+      propStatus("incident").problems.length === 0 && clearPath(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
       triggeredPush = true;
       step = "battle";
       say(["急救車趕到事發位置。進入急救認識。"], function () { openBattle("急救認識", CODE_QS); });
@@ -614,13 +694,30 @@ import * as THREE from "three";
     }
     if (quest) return;
     travel += meters;
-    if (!seen.code && travel >= 7) { beginCode(); return; }
-    if (travel < 16) return;
+    if (travel < (lastQuest ? 16 : 7)) return;
     travel = 0;
-    if (!seen.admit) beginAdmit();
-    else if (!seen.rest) beginRest();
-    else if (Math.random() < 0.5) beginAdmit();
-    else beginRest();
+    var ready = Object.keys(scenarioProps).filter(function (id) { return scenarioProblems(id).length === 0; });
+    if (ready.length === 1 && ready[0] === lastQuest) ready = [];
+    taskBag = taskBag.filter(function (id) { return ready.indexOf(id) !== -1; });
+    if (!ready.length) {
+      say(["任務設備暫時未準備好，請返回主畫面後重新進入病房。"]);
+      return;
+    }
+    if (!taskBag.length) {
+      taskBag = ready.slice();
+      for (var index = taskBag.length - 1; index > 0; index--) {
+        var target = Math.floor(Math.random() * (index + 1)), item = taskBag[index];
+        taskBag[index] = taskBag[target];
+        taskBag[target] = item;
+      }
+      if (taskBag.length > 1 && taskBag[0] === lastQuest) {
+        var first = taskBag[0];
+        taskBag[0] = taskBag[1];
+        taskBag[1] = first;
+      }
+    }
+    lastQuest = taskBag.shift();
+    ({ code: beginCode, admit: beginAdmit, rest: beginRest })[lastQuest]();
   }
 
   function screenAxes() {
@@ -675,6 +772,7 @@ import * as THREE from "three";
       if (!canStand(tx, tz)) return 0;
       trolley.x = tx;
       trolley.z = tz;
+      if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
     }
     player.x += dx;
     player.z += dz;
@@ -682,16 +780,70 @@ import * as THREE from "three";
     return Math.sqrt(dx * dx + dz * dz);
   }
 
-  function npcReachable(npc) {
-    var distance = dist(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z);
-    if (distance >= 1.55) return false;
+  function clearPath(ax, az, bx, bz) {
+    var distance = dist(ax, az, bx, bz);
     var steps = Math.max(1, Math.ceil(distance / (NAV / 2)));
-    for (var index = 1; index <= steps; index++) {
+    for (var index = 0; index <= steps; index++) {
       var fraction = index / steps;
-      if (!canStand(player.x + (npc.mesh.position.x - player.x) * fraction,
-          player.z + (npc.mesh.position.z - player.z) * fraction)) return false;
+      if (!canStand(ax + (bx - ax) * fraction, az + (bz - az) * fraction)) return false;
     }
     return true;
+  }
+
+  function npcReachable(npc) {
+    return near(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z) &&
+      clearPath(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z);
+  }
+
+  function registerProp(id, mesh, anchor, scenario) {
+    mesh.userData.prop = id;
+    taskProps[id] = { mesh: mesh, anchor: anchor, scenario: scenario || "" };
+    return mesh;
+  }
+
+  function propStatus(id, preparing) {
+    var prop = taskProps[id], problems = [];
+    if (!prop) return { id: id, problems: ["missing model"] };
+    var point = MARK[prop.anchor];
+    if (id === "trolley" && !preparing) point = trolley;
+    if (id === "admitPatient") {
+      var anchor = LAY.npcs[quest === "admit" && step === "goBed" ? "admitIntake" : "admitLift"];
+      point = { x: anchor[0] * TILE, z: anchor[1] * TILE };
+    }
+    var attached = false, visible = true;
+    for (var parent = prop.mesh; parent; parent = parent.parent) {
+      if (!parent.visible) visible = false;
+      if (parent === scene) attached = true;
+    }
+    var position = prop.mesh.getWorldPosition(new THREE.Vector3());
+    if (!attached) problems.push("missing model");
+    if (!visible && !(preparing && prop.scenario && quest !== prop.scenario)) problems.push("hidden model");
+    var approaches = [point];
+    if (id === "admitPatient" && preparing) {
+      ["admitLift", "admitIntake"].forEach(function (name) {
+        var anchor = LAY.npcs[name];
+        approaches.push(anchor && { x: anchor[0] * TILE, z: anchor[1] * TILE });
+      });
+    }
+    if (approaches.some(function (approach) {
+      return !approach || !Number.isFinite(approach.x) || !Number.isFinite(approach.z) || !canStand(approach.x, approach.z) ||
+        pathMeters(MARK.start.x, MARK.start.z, approach.x, approach.z) < 0;
+    })) problems.push("unreachable approach");
+    if (point && !(id === "trolley" && preparing) && !near(point.x, point.z, position.x, position.z)) problems.push("misplaced model");
+    return { id: id, x: position.x, z: position.z, anchor: point ? { x: point.x, z: point.z } : null,
+      visible: visible, problems: problems };
+  }
+
+  function scenarioProblems(id) {
+    return scenarioProps[id].flatMap(function (prop) {
+      return propStatus(prop, true).problems.map(function (problem) { return prop + ": " + problem; });
+    });
+  }
+
+  function canUseProp(id) {
+    var status = propStatus(id);
+    return !status.problems.length && near(player.x, player.z, status.anchor.x, status.anchor.z) &&
+      clearPath(player.x, player.z, status.anchor.x, status.anchor.z);
   }
 
   function npcMessage(npc) {
@@ -707,14 +859,14 @@ import * as THREE from "three";
     if (!active || paused || menuOpen || mapOpen) return;
     if (battle) { confirmChoice(); return; }
     if (dialog) { advanceDialog(); return; }
-    if (quest === "code" && step === "goTrolley" && near(player.x, player.z, trolley.x, trolley.z) && !pushing) {
+    if (quest === "code" && step === "goTrolley" && canUseProp("trolley") && !pushing) {
       pushing = true;
       step = "push";
       if (incidentMesh) incidentMesh.visible = true;
       say(["你推住急救車。沿走廊行去事發位置。"], function () { setQuestLabel(); });
       return;
     }
-    if (quest === "code" && (step === "goFax" || step === "docs") && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
+    if (quest === "code" && (step === "goFax" || step === "docs") && canUseProp("fax")) {
       if (step === "goFax") {
         step = "docs";
         say(["傳真機影印藥紙（虛構）。核對病人身份同藥單。"], function () { setQuestLabel(); });
@@ -723,21 +875,21 @@ import * as THREE from "three";
       say(["文件備好：時間、做過嘅事、邊個在場。今次急救事件完結。分數只係學習回饋。"], function () { clearQuest(); });
       return;
     }
-    if (quest === "admit" && step === "goElev" && near(player.x, player.z, MARK.lift.x, MARK.lift.z)) {
+    if (quest === "admit" && step === "goElev" && canUseProp("lift") && propStatus("admitPatient").problems.length === 0) {
       step = "battle";
       say(["核對「林先生」身份同護送文件（虛構）。接着答收症問題。"], function () { openBattle("收症", ADMIT_QS); });
       return;
     }
-    if (quest === "admit" && step === "goBed" && near(player.x, player.z, MARK.intake.x, MARK.intake.z)) {
+    if (quest === "admit" && step === "goBed" && canUseProp("intake") && propStatus("admitPatient").problems.length === 0) {
       say(["已喺收症房完成虛構安排。實際床位跟當更。"], function () { clearQuest(); });
       return;
     }
-    if (quest === "rest" && step === "goRoom" && near(player.x, player.z, MARK.secl.x, MARK.secl.z)) {
+    if (quest === "rest" && step === "goRoom" && canUseProp("secl")) {
       step = "battle";
       say(["先確保安全，唔好當懲罰。接着答約束問題。"], function () { openBattle("約束", REST_QS); });
       return;
     }
-    if (quest === "rest" && step === "goNurse" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
+    if (quest === "rest" && step === "goNurse" && canUseProp("computer")) {
       say(["已喺護士站記錄約束原因、時間同循環檢查（虛構）。事件完結。"], function () { clearQuest(); });
       return;
     }
@@ -888,26 +1040,16 @@ import * as THREE from "three";
 
     corridorPolygons.forEach(function (polygon, index) { addFloor(polygon, 0xe7efe1, -0.035 + index * 0.001); });
     SHELL.rooms.forEach(function (room) { addFloor(roomPolygons[room.id], room.color, -0.01); });
-    wallSegments.forEach(function (segment) { addWall(segment, 0xf0f2ec, 1.15, 0.18); });
+    var walls = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.15, 0.18), mat(0xf0f2ec), renderedWalls.length);
     var dummy = new THREE.Object3D();
-    var walls = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(NAV * 1.04, 1.15, NAV * 1.04),
-      mat(0xf0f2ec),
-      Math.max(1, wallSpots.length)
-    );
-    wallSpots.forEach(function (s, idx) {
-      dummy.position.set((s[0] + 0.5) * NAV, 0.575, (s[1] + 0.5) * NAV);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.set(1, 1, 1);
+    renderedWalls.forEach(function (segment, index) {
+      var dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+      dummy.position.set((segment.a[0] + segment.b[0]) / 2, 0.575, (segment.a[1] + segment.b[1]) / 2);
+      dummy.rotation.set(0, -Math.atan2(dz, dx), 0);
+      dummy.scale.set(Math.hypot(dx, dz), 1, 1);
       dummy.updateMatrix();
-      walls.setMatrixAt(idx, dummy.matrix);
+      walls.setMatrixAt(index, dummy.matrix);
     });
-    if (!wallSpots.length) {
-      dummy.position.set(0, -20, 0);
-      dummy.scale.set(0, 0, 0);
-      dummy.updateMatrix();
-      walls.setMatrixAt(0, dummy.matrix);
-    }
     walls.instanceMatrix.needsUpdate = true;
     walls.userData.kind = "wall";
     scene.add(walls);
@@ -965,6 +1107,9 @@ import * as THREE from "three";
     npcs.codePatient.body.rotation.x = -Math.PI / 2;
     npcs.codePatient.body.position.y = 0.2;
     npcs.codePatient.tag.position.y = 0.65;
+    registerProp("incident", npcs.codePatient.mesh, "incident", "code");
+    registerProp("admitPatient", npcs.admitPatient.mesh, "lift", "admit");
+    registerProp("secl", npcs.restPatient.mesh, "secl", "rest");
     updateNPCs();
 
     playerMesh = new THREE.Group();
@@ -980,6 +1125,7 @@ import * as THREE from "three";
     addBox(trolleyMesh, 0.08, 0.22, 0.08, 0xfff8ee, 0, 0.5, 0);
     addBox(trolleyMesh, 0.12, 0.12, 0.12, 0x222222, -0.22, 0.16, 0.14);
     addBox(trolleyMesh, 0.12, 0.12, 0.12, 0x222222, 0.22, 0.16, 0.14);
+    registerProp("trolley", trolleyMesh, "trolley");
     scene.add(trolleyMesh);
 
     incidentMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.08, 0.8), mat(0xe23b32));
@@ -990,17 +1136,13 @@ import * as THREE from "three";
   }
 
   function addCorridorDetails() {
-    var directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     var rails = [];
-    wallSpots.forEach(function (wall, index) {
-      if (index % 4) return;
-      directions.forEach(function (direction) {
-        var col = wall[0] + direction[0], row = wall[1] + direction[1];
-        if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1) return;
-        rails.push({ x: (wall[0] + 0.5) * NAV + direction[0] * (NAV / 2 + 0.02),
-          z: (wall[1] + 0.5) * NAV + direction[1] * (NAV / 2 + 0.02),
-          angle: direction[0] ? Math.PI / 2 : 0 });
-      });
+    corridorWalls.forEach(function (wall) {
+      var dx = wall.b[0] - wall.a[0], dz = wall.b[1] - wall.a[1], length = Math.hypot(dx, dz);
+      for (var along = 0.55; along < length - 0.55; along += 0.85) {
+        rails.push({ x: wall.a[0] + dx * along / length + wall.nx * 0.13,
+          z: wall.a[1] + dz * along / length + wall.nz * 0.13, angle: -Math.atan2(dz, dx) });
+      }
     });
     if (!rails.length) return;
     var mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.07, 0.08), mat(0xa6b8b0), rails.length);
@@ -1097,9 +1239,9 @@ import * as THREE from "three";
     var faxX = fax.x, faxZ = fax.z, computerX = computer.x, computerZ = computer.z;
     addTable(room, faxX, faxZ, 1.15, 0.7);
     addTable(room, computerX, computerZ, 1.15, 0.7);
-    addBox(room, 0.55, 0.25, 0.4, 0x687a79, faxX, 0.94, faxZ);
+    registerProp("fax", addBox(room, 0.55, 0.25, 0.4, 0x687a79, faxX, 0.94, faxZ), "fax");
     addBox(room, 0.28, 0.035, 0.22, 0xf8faf8, faxX, 1.08, faxZ - 0.08);
-    addBox(room, 0.45, 0.3, 0.07, 0x485c5d, computerX, 1.05, computerZ - 0.08);
+    registerProp("computer", addBox(room, 0.45, 0.3, 0.07, 0x485c5d, computerX, 1.05, computerZ - 0.08), "computer");
     addBox(room, 0.36, 0.21, 0.01, 0x99c3bb, computerX, 1.05, computerZ - 0.035);
     addChair(room, faxX, faxZ + 0.85, Math.PI);
     addChair(room, computerX, computerZ + 0.85, Math.PI);
@@ -1137,6 +1279,8 @@ import * as THREE from "three";
 
     room = roomGroup("intake");
     addTable(room, 2.3, 2.95, 1.4, 0.7);
+    registerProp("intake", addBox(room, 0.32, 0.025, 0.42, 0x667e79, 2.3, 0.83, 2.95), "intake");
+    addBox(room, 0.26, 0.012, 0.32, 0xf8faf8, 2.3, 0.85, 2.95);
     addChair(room, 2.3, 3.65, Math.PI);
     addScreen(room, 0.9, 2.5, 1.15);
     addCabinet(room, 0.45, 0.45, 0.7, 0.6, 1.1);
@@ -1180,7 +1324,7 @@ import * as THREE from "three";
     addBox(room, 0.12, 1.45, 1.65, 0x98aaa7, 0.12, 0.725, 2.35);
     addBox(room, 0.14, 1.15, 0.74, 0xcbd6d1, 0.2, 0.62, 1.94);
     addBox(room, 0.14, 1.15, 0.74, 0xcbd6d1, 0.2, 0.62, 2.76);
-    addBox(room, 0.16, 0.18, 0.2, 0x52766d, 0.2, 1.2, 3.45);
+    registerProp("lift", addBox(room, 0.16, 0.18, 0.2, 0x52766d, 0.2, 1.2, 3.45), "lift");
     addSofa(room, 2.8, 0.55, 1.35);
 
     room = roomGroup("bath");
@@ -1425,7 +1569,8 @@ import * as THREE from "three";
     quest = "";
     step = "idle";
     travel = 0;
-    seen = { code: false, admit: false, rest: false };
+    taskBag = [];
+    lastQuest = "";
     dialog = null;
     battle = null;
     menuOpen = false;
@@ -1438,6 +1583,7 @@ import * as THREE from "three";
     show("wardMenu", false);
     show("wardMapOverlay", false);
     if (incidentMesh) incidentMesh.visible = false;
+    if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
     updateNPCs();
     setQuestLabel();
   }
@@ -1637,6 +1783,12 @@ import * as THREE from "three";
         } else if (obj.userData.kind === "plant") plants++;
       });
       return { beds: beds, bedPositions: bedPositions, partitions: partitions, furniture: furniture, plants: plants,
+        wallGeometry: { corridors: corridorWalls, rendered: renderedWalls, doors: doorSegments,
+          corridorPolygons: corridorPolygons, roomPolygons: roomPolygons },
+        props: Object.keys(taskProps).map(function (id) { return propStatus(id); }),
+        scenarios: built ? Object.keys(scenarioProps).map(function (id) {
+          return { id: id, props: scenarioProps[id].slice(), problems: scenarioProblems(id) };
+        }) : [],
         npcs: Object.keys(npcs).map(function (id) {
           var npc = npcs[id];
           return { id: id, role: npc.role, x: npc.mesh.position.x, z: npc.mesh.position.z, visible: npc.mesh.visible };

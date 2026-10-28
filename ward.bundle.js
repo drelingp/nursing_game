@@ -21312,6 +21312,8 @@
     var roomPolygons = /* @__PURE__ */ Object.create(null);
     var corridorPolygons = [];
     var wallSegments = [];
+    var corridorWalls = [];
+    var renderedWalls = [];
     var doorSegments = [];
     var wallSpots = [];
     var roomStat = {};
@@ -21425,6 +21427,82 @@
         }
       }
     }
+    function mergeWallSegments(segments) {
+      var merged = [], tolerance = 1e-5;
+      segments.forEach(function(source) {
+        var segment = { a: source.a.slice(), b: source.b.slice(), nx: source.nx, nz: source.nz };
+        for (var index = 0; index < merged.length; index++) {
+          var other = merged[index], dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+          var length = Math.hypot(dx, dz), ux = dx / length, uz = dz / length;
+          var from = (other.a[0] - segment.a[0]) * ux + (other.a[1] - segment.a[1]) * uz;
+          var to = (other.b[0] - segment.a[0]) * ux + (other.b[1] - segment.a[1]) * uz;
+          if (Math.abs((other.a[0] - segment.a[0]) * uz - (other.a[1] - segment.a[1]) * ux) > tolerance || Math.abs((other.b[0] - segment.a[0]) * uz - (other.b[1] - segment.a[1]) * ux) > tolerance || Math.max(from, to) < -tolerance || Math.min(from, to) > length + tolerance) continue;
+          var low = Math.min(0, from, to), high = Math.max(length, from, to);
+          segment.b = [segment.a[0] + ux * high, segment.a[1] + uz * high];
+          segment.a = [segment.a[0] + ux * low, segment.a[1] + uz * low];
+          merged.splice(index, 1);
+          index = -1;
+        }
+        if (Math.hypot(segment.b[0] - segment.a[0], segment.b[1] - segment.a[1]) > tolerance) merged.push(segment);
+      });
+      return merged;
+    }
+    function buildCorridorWalls() {
+      var polygons = corridorPolygons.concat(Object.keys(roomPolygons).map(function(id) {
+        return roomPolygons[id];
+      }));
+      var edges = [], tolerance = 1e-5, segments = [];
+      polygons.forEach(function(polygon) {
+        polygon.forEach(function(point, index) {
+          edges.push({ a: point, b: polygon[(index + 1) % polygon.length] });
+        });
+      });
+      function onFloor(x, z) {
+        return polygons.some(function(polygon) {
+          return insidePolygon(x, z, polygon);
+        });
+      }
+      corridorPolygons.forEach(function(polygon) {
+        polygon.forEach(function(start2, index) {
+          var end = polygon[(index + 1) % polygon.length], dx = end[0] - start2[0], dz = end[1] - start2[1];
+          var length = Math.hypot(dx, dz), cuts = [0, 1];
+          edges.forEach(function(edge) {
+            var ex = edge.b[0] - edge.a[0], ez = edge.b[1] - edge.a[1];
+            var ax = edge.a[0] - start2[0], az = edge.a[1] - start2[1], cross = dx * ez - dz * ex;
+            if (Math.abs(cross) > tolerance) {
+              var along = (ax * ez - az * ex) / cross, across = (ax * dz - az * dx) / cross;
+              if (along > 0 && along < 1 && across >= -tolerance && across <= 1 + tolerance) cuts.push(along);
+            } else if (Math.abs(ax * dz - az * dx) < tolerance) {
+              [edge.a, edge.b].forEach(function(point) {
+                var along2 = ((point[0] - start2[0]) * dx + (point[1] - start2[1]) * dz) / (length * length);
+                if (along2 > 0 && along2 < 1) cuts.push(along2);
+              });
+            }
+          });
+          cuts.sort(function(left2, right2) {
+            return left2 - right2;
+          });
+          for (var cut = 1; cut < cuts.length; cut++) {
+            if ((cuts[cut] - cuts[cut - 1]) * length < tolerance) continue;
+            var middle = (cuts[cut - 1] + cuts[cut]) / 2;
+            var x = start2[0] + dx * middle, z = start2[1] + dz * middle;
+            var nx = -dz / length, nz = dx / length;
+            var left = onFloor(x + nx * 1e-3, z + nz * 1e-3), right = onFloor(x - nx * 1e-3, z - nz * 1e-3);
+            if (left === right || wallSegments.concat(doorSegments).some(function(wall) {
+              return distanceToSegment(x, z, wall) < tolerance;
+            })) continue;
+            segments.push({
+              a: [start2[0] + dx * cuts[cut - 1], start2[1] + dz * cuts[cut - 1]],
+              b: [start2[0] + dx * cuts[cut], start2[1] + dz * cuts[cut]],
+              nx: left ? nx : -nx,
+              nz: left ? nz : -nz
+            });
+          }
+        });
+      });
+      corridorWalls = mergeWallSegments(segments);
+      renderedWalls = mergeWallSegments(wallSegments.concat(corridorWalls));
+    }
     function buildLayout() {
       var overlaps = /* @__PURE__ */ Object.create(null);
       LAY.corridors.forEach(function(def) {
@@ -21448,6 +21526,7 @@
       });
       wallSegments.forEach(blockWall);
       collectWalls();
+      buildCorridorWalls();
       auditLayout();
     }
     function collectWalls() {
@@ -21485,24 +21564,24 @@
       var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       var start2 = cellAt(LAY.marks.start[0] * TILE, LAY.marks.start[1] * TILE);
       function flood(blocked2) {
-        var seen3 = new Uint8Array(CW * CH), queue = [];
+        var seen2 = new Uint8Array(CW * CH), queue = [];
         if (walkAt(start2.c, start2.r) && (!blocked2 || !blocked2(start2.c, start2.r))) {
-          seen3[start2.r * CW + start2.c] = 1;
+          seen2[start2.r * CW + start2.c] = 1;
           queue.push(start2.r * CW + start2.c);
         }
         for (var index2 = 0; index2 < queue.length; index2++) {
           var current = queue[index2], col2 = current % CW, row2 = Math.floor(current / CW);
           nbs.forEach(function(offset) {
             var x = col2 + offset[0], z = row2 + offset[1], next = z * CW + x;
-            if (!walkAt(x, z) || seen3[next] || blocked2 && blocked2(x, z)) return;
-            seen3[next] = 1;
+            if (!walkAt(x, z) || seen2[next] || blocked2 && blocked2(x, z)) return;
+            seen2[next] = 1;
             queue.push(next);
           });
         }
-        return seen3;
+        return seen2;
       }
-      var seen2 = flood(null), sealed = 0;
-      for (var index = 0; index < tileWalk.length; index++) if (tileWalk[index] && !seen2[index]) sealed++;
+      var seen = flood(null), sealed = 0;
+      for (var index = 0; index < tileWalk.length; index++) if (tileWalk[index] && !seen[index]) sealed++;
       if (sealed) problems.push(sealed + " \u683C\u884C\u5514\u5230");
       SHELL.rooms.forEach(function(room) {
         if (!roomStat[room.id] || !roomStat[room.id].n) problems.push(room.id + " \u9762\u7A4D\u4E0D\u6B63\u78BA");
@@ -21532,11 +21611,11 @@
       });
       Object.keys(LAY.marks).forEach(function(name) {
         var mark = LAY.marks[name], x = mark[0] * TILE, z = mark[1] * TILE, cell = cellAt(x, z);
-        if (!canStand(x, z) || !seen2[cell.r * CW + cell.c]) problems.push(name + " \u6A19\u8A18\u884C\u5514\u5230");
+        if (!canStand(x, z) || !seen[cell.r * CW + cell.c]) problems.push(name + " \u6A19\u8A18\u884C\u5514\u5230");
       });
       Object.keys(LAY.npcs).forEach(function(name) {
         var point = LAY.npcs[name], x = point[0] * TILE, z = point[1] * TILE, cell = cellAt(x, z);
-        if (!canStand(x, z) || !seen2[cell.r * CW + cell.c]) problems.push(name + " \u89D2\u8272\u4F4D\u7F6E\u884C\u5514\u5230");
+        if (!canStand(x, z) || !seen[cell.r * CW + cell.c]) problems.push(name + " \u89D2\u8272\u4F4D\u7F6E\u884C\u5514\u5230");
       });
       var visit = roomById.vis1, lift = LAY.marks.lift;
       if (visit && lift) {
@@ -21584,7 +21663,10 @@
     var quest = "";
     var step = "idle";
     var travel = 0;
-    var seen = { code: false, admit: false, rest: false };
+    var taskBag = [];
+    var lastQuest = "";
+    var taskProps = /* @__PURE__ */ Object.create(null);
+    var scenarioProps = { code: ["trolley", "incident", "fax"], admit: ["lift", "intake", "admitPatient"], rest: ["secl", "computer"] };
     var active = false;
     var paused = false;
     var built = false;
@@ -21655,7 +21737,7 @@
       } else if (quest === "rest") {
         if (step === "intro" || step === "goRoom") text = "\u4EFB\u52D9\uFF1A\u53BB\u51B7\u975C\u623F\uFF0C\u64B3 A \u8655\u7406\u8E81\u52D5\u3002";
         else if (step === "battle") text = "\u4EFB\u52D9\uFF1A\u7D04\u675F\u554F\u7B54\u3002A \u78BA\u8A8D\uFF0CB \u53D6\u6D88\u9078\u64C7\u3002";
-        else if (step === "goNurse") text = "\u4EFB\u52D9\uFF1A\u53BB\u8B77\u58EB\u7AD9\uFF0C\u64B3 A \u8A18\u9304\u7D04\u675F\u3002";
+        else if (step === "goNurse") text = "\u4EFB\u52D9\uFF1A\u53BB\u8B77\u58EB\u7AD9\u96FB\u8166\uFF0C\u64B3 A \u8A18\u9304\u7D04\u675F\u3002";
       }
       var node = el("wardQuestLabel");
       if (node) node.textContent = text;
@@ -21771,7 +21853,7 @@
         });
       } else if (quest === "rest") {
         step = "goNurse";
-        say(["\u554F\u7B54\u5B8C\u3002\u53BB\u8B77\u58EB\u7AD9\u64B3 A\uFF0C\u8A18\u9304\u7D04\u675F\u539F\u56E0\u3001\u6642\u9593\u540C\u5FAA\u74B0\u6AA2\u67E5\u3002"], function() {
+        say(["\u554F\u7B54\u5B8C\u3002\u53BB\u8B77\u58EB\u7AD9\u96FB\u8166\u64B3 A\uFF0C\u8A18\u9304\u7D04\u675F\u539F\u56E0\u3001\u6642\u9593\u540C\u5FAA\u74B0\u6AA2\u67E5\u3002"], function() {
           setQuestLabel();
         });
       }
@@ -21783,13 +21865,18 @@
       pushing = false;
       triggeredPush = false;
       travel = 0;
+      updateNPCs();
       setQuestLabel();
     }
     function beginCode() {
       quest = "code";
       step = "intro";
-      seen.code = true;
+      trolley.x = MARK.trolley.x;
+      trolley.z = MARK.trolley.z;
+      trolleyMesh.position.set(trolley.x, 0, trolley.z);
+      pushing = false;
       triggeredPush = false;
+      updateNPCs();
       say([
         "\u7A81\u7136\uFF1A\u8D70\u5ECA\u6709\u4EBA\u547C\u53EB\uFF01\u865B\u69CB\u75C5\u4EBA\u300C\u9673\u5148\u751F\u300D\u60C5\u6CC1\u5371\u6025\u3002",
         "\u5148\u53BB\u6CBB\u7642\u5BA4\uFF0C\u64B3 A \u651E\u6025\u6551\u8ECA\uFF0C\u6CBF\u8D70\u5ECA\u63A8\u8FD4\u4E8B\u767C\u4F4D\u7F6E\u3002",
@@ -21802,7 +21889,7 @@
     function beginAdmit() {
       quest = "admit";
       step = "intro";
-      seen.admit = true;
+      updateNPCs();
       say([
         "\u6536\u75C7\uFF1A\u865B\u69CB\u75C5\u4EBA\u300C\u6797\u5148\u751F\u300D\u540C\u8B77\u9001\u55BA\u5347\u964D\u6A5F\u5927\u5802\u7B49\u5019\u3002",
         "\u5148\u53BB\u5347\u964D\u6A5F\u5927\u5802\uFF0C\u64B3 A \u6838\u5C0D\u8EAB\u4EFD\uFF0C\u518D\u7B54\u6536\u75C7\u554F\u984C\uFF0C\u6700\u5F8C\u53BB\u6536\u75C7\u623F\u3002"
@@ -21814,17 +21901,17 @@
     function beginRest() {
       quest = "rest";
       step = "intro";
-      seen.rest = true;
+      updateNPCs();
       say([
         "\u51B7\u975C\u623F\uFF1A\u865B\u69CB\u75C5\u4EBA\u8E81\u52D5\uFF0C\u540C\u4E8B\u60F3\u5373\u523B\u7D81\u8D77\u569F\u3002",
-        "\u53BB\u51B7\u975C\u623F\u64B3 A\u3002\u7D04\u675F\u5514\u4FC2\u61F2\u7F70\uFF0C\u8DDF\u6307\u5F15\u5148\u8A55\u4F30\u518D\u7B54\u984C\uFF0C\u4E4B\u5F8C\u8FD4\u8B77\u58EB\u7AD9\u8A18\u9304\u3002"
+        "\u53BB\u51B7\u975C\u623F\u75C5\u4EBA\u8EAB\u908A\u64B3 A\u3002\u7D04\u675F\u5514\u4FC2\u61F2\u7F70\uFF0C\u8DDF\u6307\u5F15\u5148\u8A55\u4F30\u518D\u7B54\u984C\uFF0C\u4E4B\u5F8C\u8FD4\u8B77\u58EB\u7AD9\u96FB\u8166\u8A18\u9304\u3002"
       ], function() {
         step = "goRoom";
         setQuestLabel();
       });
     }
     function onTravel(meters) {
-      if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
+      if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z) && propStatus("incident").problems.length === 0 && clearPath(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
         triggeredPush = true;
         step = "battle";
         say(["\u6025\u6551\u8ECA\u8D95\u5230\u4E8B\u767C\u4F4D\u7F6E\u3002\u9032\u5165\u6025\u6551\u8A8D\u8B58\u3002"], function() {
@@ -21834,16 +21921,34 @@
       }
       if (quest) return;
       travel += meters;
-      if (!seen.code && travel >= 7) {
-        beginCode();
+      if (travel < (lastQuest ? 16 : 7)) return;
+      travel = 0;
+      var ready = Object.keys(scenarioProps).filter(function(id) {
+        return scenarioProblems(id).length === 0;
+      });
+      if (ready.length === 1 && ready[0] === lastQuest) ready = [];
+      taskBag = taskBag.filter(function(id) {
+        return ready.indexOf(id) !== -1;
+      });
+      if (!ready.length) {
+        say(["\u4EFB\u52D9\u8A2D\u5099\u66AB\u6642\u672A\u6E96\u5099\u597D\uFF0C\u8ACB\u8FD4\u56DE\u4E3B\u756B\u9762\u5F8C\u91CD\u65B0\u9032\u5165\u75C5\u623F\u3002"]);
         return;
       }
-      if (travel < 16) return;
-      travel = 0;
-      if (!seen.admit) beginAdmit();
-      else if (!seen.rest) beginRest();
-      else if (Math.random() < 0.5) beginAdmit();
-      else beginRest();
+      if (!taskBag.length) {
+        taskBag = ready.slice();
+        for (var index = taskBag.length - 1; index > 0; index--) {
+          var target = Math.floor(Math.random() * (index + 1)), item = taskBag[index];
+          taskBag[index] = taskBag[target];
+          taskBag[target] = item;
+        }
+        if (taskBag.length > 1 && taskBag[0] === lastQuest) {
+          var first = taskBag[0];
+          taskBag[0] = taskBag[1];
+          taskBag[1] = first;
+        }
+      }
+      lastQuest = taskBag.shift();
+      ({ code: beginCode, admit: beginAdmit, rest: beginRest })[lastQuest]();
     }
     function screenAxes() {
       if (!camera) {
@@ -21897,24 +22002,77 @@
         if (!canStand(tx, tz)) return 0;
         trolley.x = tx;
         trolley.z = tz;
+        if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
       }
       player.x += dx;
       player.z += dz;
       if (dx || dz) player.rot = Math.atan2(dx, dz);
       return Math.sqrt(dx * dx + dz * dz);
     }
-    function npcReachable(npc) {
-      var distance = dist(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z);
-      if (distance >= 1.55) return false;
+    function clearPath(ax, az, bx, bz) {
+      var distance = dist(ax, az, bx, bz);
       var steps = Math.max(1, Math.ceil(distance / (NAV / 2)));
-      for (var index = 1; index <= steps; index++) {
+      for (var index = 0; index <= steps; index++) {
         var fraction = index / steps;
-        if (!canStand(
-          player.x + (npc.mesh.position.x - player.x) * fraction,
-          player.z + (npc.mesh.position.z - player.z) * fraction
-        )) return false;
+        if (!canStand(ax + (bx - ax) * fraction, az + (bz - az) * fraction)) return false;
       }
       return true;
+    }
+    function npcReachable(npc) {
+      return near(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z) && clearPath(player.x, player.z, npc.mesh.position.x, npc.mesh.position.z);
+    }
+    function registerProp(id, mesh, anchor, scenario) {
+      mesh.userData.prop = id;
+      taskProps[id] = { mesh, anchor, scenario: scenario || "" };
+      return mesh;
+    }
+    function propStatus(id, preparing) {
+      var prop = taskProps[id], problems = [];
+      if (!prop) return { id, problems: ["missing model"] };
+      var point = MARK[prop.anchor];
+      if (id === "trolley" && !preparing) point = trolley;
+      if (id === "admitPatient") {
+        var anchor = LAY.npcs[quest === "admit" && step === "goBed" ? "admitIntake" : "admitLift"];
+        point = { x: anchor[0] * TILE, z: anchor[1] * TILE };
+      }
+      var attached = false, visible = true;
+      for (var parent = prop.mesh; parent; parent = parent.parent) {
+        if (!parent.visible) visible = false;
+        if (parent === scene) attached = true;
+      }
+      var position = prop.mesh.getWorldPosition(new Vector3());
+      if (!attached) problems.push("missing model");
+      if (!visible && !(preparing && prop.scenario && quest !== prop.scenario)) problems.push("hidden model");
+      var approaches = [point];
+      if (id === "admitPatient" && preparing) {
+        ["admitLift", "admitIntake"].forEach(function(name) {
+          var anchor2 = LAY.npcs[name];
+          approaches.push(anchor2 && { x: anchor2[0] * TILE, z: anchor2[1] * TILE });
+        });
+      }
+      if (approaches.some(function(approach) {
+        return !approach || !Number.isFinite(approach.x) || !Number.isFinite(approach.z) || !canStand(approach.x, approach.z) || pathMeters(MARK.start.x, MARK.start.z, approach.x, approach.z) < 0;
+      })) problems.push("unreachable approach");
+      if (point && !(id === "trolley" && preparing) && !near(point.x, point.z, position.x, position.z)) problems.push("misplaced model");
+      return {
+        id,
+        x: position.x,
+        z: position.z,
+        anchor: point ? { x: point.x, z: point.z } : null,
+        visible,
+        problems
+      };
+    }
+    function scenarioProblems(id) {
+      return scenarioProps[id].flatMap(function(prop) {
+        return propStatus(prop, true).problems.map(function(problem) {
+          return prop + ": " + problem;
+        });
+      });
+    }
+    function canUseProp(id) {
+      var status = propStatus(id);
+      return !status.problems.length && near(player.x, player.z, status.anchor.x, status.anchor.z) && clearPath(player.x, player.z, status.anchor.x, status.anchor.z);
     }
     function npcMessage(npc) {
       if (npc.id === "nurse1") return quest === "code" ? "\u6211\u6703\u7559\u55BA\u75C5\u4EBA\u8EAB\u908A\u3002\u8ACB\u5E36\u6025\u6551\u8ECA\u8FD4\u569F\u3002" : "\u4F60\u597D\uFF0C\u6211\u55BA\u75C5\u623F\u5354\u52A9\u7167\u9867\u75C5\u4EBA\u3002";
@@ -21934,7 +22092,7 @@
         advanceDialog();
         return;
       }
-      if (quest === "code" && step === "goTrolley" && near(player.x, player.z, trolley.x, trolley.z) && !pushing) {
+      if (quest === "code" && step === "goTrolley" && canUseProp("trolley") && !pushing) {
         pushing = true;
         step = "push";
         if (incidentMesh) incidentMesh.visible = true;
@@ -21943,7 +22101,7 @@
         });
         return;
       }
-      if (quest === "code" && (step === "goFax" || step === "docs") && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
+      if (quest === "code" && (step === "goFax" || step === "docs") && canUseProp("fax")) {
         if (step === "goFax") {
           step = "docs";
           say(["\u50B3\u771F\u6A5F\u5F71\u5370\u85E5\u7D19\uFF08\u865B\u69CB\uFF09\u3002\u6838\u5C0D\u75C5\u4EBA\u8EAB\u4EFD\u540C\u85E5\u55AE\u3002"], function() {
@@ -21956,27 +22114,27 @@
         });
         return;
       }
-      if (quest === "admit" && step === "goElev" && near(player.x, player.z, MARK.lift.x, MARK.lift.z)) {
+      if (quest === "admit" && step === "goElev" && canUseProp("lift") && propStatus("admitPatient").problems.length === 0) {
         step = "battle";
         say(["\u6838\u5C0D\u300C\u6797\u5148\u751F\u300D\u8EAB\u4EFD\u540C\u8B77\u9001\u6587\u4EF6\uFF08\u865B\u69CB\uFF09\u3002\u63A5\u7740\u7B54\u6536\u75C7\u554F\u984C\u3002"], function() {
           openBattle("\u6536\u75C7", ADMIT_QS);
         });
         return;
       }
-      if (quest === "admit" && step === "goBed" && near(player.x, player.z, MARK.intake.x, MARK.intake.z)) {
+      if (quest === "admit" && step === "goBed" && canUseProp("intake") && propStatus("admitPatient").problems.length === 0) {
         say(["\u5DF2\u55BA\u6536\u75C7\u623F\u5B8C\u6210\u865B\u69CB\u5B89\u6392\u3002\u5BE6\u969B\u5E8A\u4F4D\u8DDF\u7576\u66F4\u3002"], function() {
           clearQuest();
         });
         return;
       }
-      if (quest === "rest" && step === "goRoom" && near(player.x, player.z, MARK.secl.x, MARK.secl.z)) {
+      if (quest === "rest" && step === "goRoom" && canUseProp("secl")) {
         step = "battle";
         say(["\u5148\u78BA\u4FDD\u5B89\u5168\uFF0C\u5514\u597D\u7576\u61F2\u7F70\u3002\u63A5\u7740\u7B54\u7D04\u675F\u554F\u984C\u3002"], function() {
           openBattle("\u7D04\u675F", REST_QS);
         });
         return;
       }
-      if (quest === "rest" && step === "goNurse" && near(player.x, player.z, MARK.fax.x, MARK.fax.z)) {
+      if (quest === "rest" && step === "goNurse" && canUseProp("computer")) {
         say(["\u5DF2\u55BA\u8B77\u58EB\u7AD9\u8A18\u9304\u7D04\u675F\u539F\u56E0\u3001\u6642\u9593\u540C\u5FAA\u74B0\u6AA2\u67E5\uFF08\u865B\u69CB\uFF09\u3002\u4E8B\u4EF6\u5B8C\u7D50\u3002"], function() {
           clearQuest();
         });
@@ -22145,28 +22303,16 @@
       SHELL.rooms.forEach(function(room) {
         addFloor(roomPolygons[room.id], room.color, -0.01);
       });
-      wallSegments.forEach(function(segment) {
-        addWall(segment, 15790828, 1.15, 0.18);
-      });
+      var walls = new InstancedMesh(new BoxGeometry(1, 1.15, 0.18), mat(15790828), renderedWalls.length);
       var dummy = new Object3D();
-      var walls = new InstancedMesh(
-        new BoxGeometry(NAV * 1.04, 1.15, NAV * 1.04),
-        mat(15790828),
-        Math.max(1, wallSpots.length)
-      );
-      wallSpots.forEach(function(s, idx) {
-        dummy.position.set((s[0] + 0.5) * NAV, 0.575, (s[1] + 0.5) * NAV);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(1, 1, 1);
+      renderedWalls.forEach(function(segment, index) {
+        var dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1];
+        dummy.position.set((segment.a[0] + segment.b[0]) / 2, 0.575, (segment.a[1] + segment.b[1]) / 2);
+        dummy.rotation.set(0, -Math.atan2(dz, dx), 0);
+        dummy.scale.set(Math.hypot(dx, dz), 1, 1);
         dummy.updateMatrix();
-        walls.setMatrixAt(idx, dummy.matrix);
+        walls.setMatrixAt(index, dummy.matrix);
       });
-      if (!wallSpots.length) {
-        dummy.position.set(0, -20, 0);
-        dummy.scale.set(0, 0, 0);
-        dummy.updateMatrix();
-        walls.setMatrixAt(0, dummy.matrix);
-      }
       walls.instanceMatrix.needsUpdate = true;
       walls.userData.kind = "wall";
       scene.add(walls);
@@ -22222,6 +22368,9 @@
       npcs.codePatient.body.rotation.x = -Math.PI / 2;
       npcs.codePatient.body.position.y = 0.2;
       npcs.codePatient.tag.position.y = 0.65;
+      registerProp("incident", npcs.codePatient.mesh, "incident", "code");
+      registerProp("admitPatient", npcs.admitPatient.mesh, "lift", "admit");
+      registerProp("secl", npcs.restPatient.mesh, "secl", "rest");
       updateNPCs();
       playerMesh = new Group();
       addBox(playerMesh, 0.46, 0.48, 0.34, 3108762, 0, 0.46, 0);
@@ -22235,6 +22384,7 @@
       addBox(trolleyMesh, 0.08, 0.22, 0.08, 16775406, 0, 0.5, 0);
       addBox(trolleyMesh, 0.12, 0.12, 0.12, 2236962, -0.22, 0.16, 0.14);
       addBox(trolleyMesh, 0.12, 0.12, 0.12, 2236962, 0.22, 0.16, 0.14);
+      registerProp("trolley", trolleyMesh, "trolley");
       scene.add(trolleyMesh);
       incidentMesh = new Mesh(new BoxGeometry(0.8, 0.08, 0.8), mat(14826290));
       incidentMesh.position.set(MARK.incident.x, 0.08, MARK.incident.z);
@@ -22243,19 +22393,16 @@
       built = true;
     }
     function addCorridorDetails() {
-      var directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       var rails = [];
-      wallSpots.forEach(function(wall, index) {
-        if (index % 4) return;
-        directions.forEach(function(direction) {
-          var col = wall[0] + direction[0], row = wall[1] + direction[1];
-          if (!walkAt(col, row) || tileRoom[row * CW + col] !== 1) return;
+      corridorWalls.forEach(function(wall) {
+        var dx = wall.b[0] - wall.a[0], dz = wall.b[1] - wall.a[1], length = Math.hypot(dx, dz);
+        for (var along = 0.55; along < length - 0.55; along += 0.85) {
           rails.push({
-            x: (wall[0] + 0.5) * NAV + direction[0] * (NAV / 2 + 0.02),
-            z: (wall[1] + 0.5) * NAV + direction[1] * (NAV / 2 + 0.02),
-            angle: direction[0] ? Math.PI / 2 : 0
+            x: wall.a[0] + dx * along / length + wall.nx * 0.13,
+            z: wall.a[1] + dz * along / length + wall.nz * 0.13,
+            angle: -Math.atan2(dz, dx)
           });
-        });
+        }
       });
       if (!rails.length) return;
       var mesh = new InstancedMesh(new BoxGeometry(0.7, 0.07, 0.08), mat(10926256), rails.length);
@@ -22353,9 +22500,9 @@
       var faxX = fax.x, faxZ = fax.z, computerX = computer.x, computerZ = computer.z;
       addTable(room, faxX, faxZ, 1.15, 0.7);
       addTable(room, computerX, computerZ, 1.15, 0.7);
-      addBox(room, 0.55, 0.25, 0.4, 6847097, faxX, 0.94, faxZ);
+      registerProp("fax", addBox(room, 0.55, 0.25, 0.4, 6847097, faxX, 0.94, faxZ), "fax");
       addBox(room, 0.28, 0.035, 0.22, 16317176, faxX, 1.08, faxZ - 0.08);
-      addBox(room, 0.45, 0.3, 0.07, 4742237, computerX, 1.05, computerZ - 0.08);
+      registerProp("computer", addBox(room, 0.45, 0.3, 0.07, 4742237, computerX, 1.05, computerZ - 0.08), "computer");
       addBox(room, 0.36, 0.21, 0.01, 10077115, computerX, 1.05, computerZ - 0.035);
       addChair(room, faxX, faxZ + 0.85, Math.PI);
       addChair(room, computerX, computerZ + 0.85, Math.PI);
@@ -22396,6 +22543,8 @@
       addCabinet(room, 0.45, 3.5, 0.65, 0.6, 1.1);
       room = roomGroup("intake");
       addTable(room, 2.3, 2.95, 1.4, 0.7);
+      registerProp("intake", addBox(room, 0.32, 0.025, 0.42, 6717049, 2.3, 0.83, 2.95), "intake");
+      addBox(room, 0.26, 0.012, 0.32, 16317176, 2.3, 0.85, 2.95);
       addChair(room, 2.3, 3.65, Math.PI);
       addScreen(room, 0.9, 2.5, 1.15);
       addCabinet(room, 0.45, 0.45, 0.7, 0.6, 1.1);
@@ -22432,7 +22581,7 @@
       addBox(room, 0.12, 1.45, 1.65, 10005159, 0.12, 0.725, 2.35);
       addBox(room, 0.14, 1.15, 0.74, 13358801, 0.2, 0.62, 1.94);
       addBox(room, 0.14, 1.15, 0.74, 13358801, 0.2, 0.62, 2.76);
-      addBox(room, 0.16, 0.18, 0.2, 5404269, 0.2, 1.2, 3.45);
+      registerProp("lift", addBox(room, 0.16, 0.18, 0.2, 5404269, 0.2, 1.2, 3.45), "lift");
       addSofa(room, 2.8, 0.55, 1.35);
       room = roomGroup("bath");
       addShadow(room, 0.65, 1.05, 1.25, 2);
@@ -22697,7 +22846,8 @@
       quest = "";
       step = "idle";
       travel = 0;
-      seen = { code: false, admit: false, rest: false };
+      taskBag = [];
+      lastQuest = "";
       dialog = null;
       battle = null;
       menuOpen = false;
@@ -22711,6 +22861,7 @@
       show("wardMenu", false);
       show("wardMapOverlay", false);
       if (incidentMesh) incidentMesh.visible = false;
+      if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
       updateNPCs();
       setQuestLabel();
     }
@@ -22950,6 +23101,19 @@
           partitions,
           furniture,
           plants,
+          wallGeometry: {
+            corridors: corridorWalls,
+            rendered: renderedWalls,
+            doors: doorSegments,
+            corridorPolygons,
+            roomPolygons
+          },
+          props: Object.keys(taskProps).map(function(id) {
+            return propStatus(id);
+          }),
+          scenarios: built ? Object.keys(scenarioProps).map(function(id) {
+            return { id, props: scenarioProps[id].slice(), problems: scenarioProblems(id) };
+          }) : [],
           npcs: Object.keys(npcs).map(function(id) {
             var npc = npcs[id];
             return { id, role: npc.role, x: npc.mesh.position.x, z: npc.mesh.position.z, visible: npc.mesh.visible };

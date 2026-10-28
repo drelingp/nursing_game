@@ -33,10 +33,11 @@ async function openOffline(context, page) {
   return externalRequests;
 }
 
-async function enterWard(page) {
+async function enterWard(page, random = 0.999999) {
   await page.locator('#btnWard').click();
   await expect(page.locator('#wardFallback')).toBeHidden();
   await page.waitForFunction(() => window.WardMode && window.WardMode.state().camera === 'ortho');
+  if (random !== null) await page.evaluate(value => { Math.random = () => value; }, random);
 }
 
 async function attachScreenshot(page, testInfo, name) {
@@ -109,6 +110,51 @@ test('reference layout keeps all mission markers reachable', () => {
     expect(x, name + ' room x').toBeLessThan(width);
     expect(z, name + ' room z').toBeGreaterThan(0);
     expect(z, name + ' room z').toBeLessThan(depth);
+  }
+});
+
+test('wall geometry follows exposed polygon edges without duplicate walls or blocked doors', () => {
+  const sandbox = { console: { warn() {} } };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward-shell.js'), 'utf8'), sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward.bundle.js'), 'utf8'), sandbox);
+  const geometry = sandbox.WardMode.audit().wallGeometry;
+  const walls = Array.from(geometry.rendered);
+  const corridors = Array.from(geometry.corridors);
+  expect(corridors.length).toBeGreaterThan(5);
+  expect(corridors.some(wall => Math.abs(wall.b[0] - wall.a[0]) > 1 && Math.abs(wall.b[1] - wall.a[1]) > 1)).toBe(true);
+  expect(corridors.some(wall => Math.abs(wall.b[0] - wall.a[0]) < 0.00001)).toBe(true);
+  const inside = (x, z, polygon) => {
+    let contained = false;
+    for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+      const start = polygon[index], end = polygon[previous];
+      if ((start[1] > z) !== (end[1] > z) && x < (end[0] - start[0]) * (z - start[1]) / (end[1] - start[1]) + start[0]) contained = !contained;
+    }
+    return contained;
+  };
+  const polygons = [...geometry.corridorPolygons, ...Object.values(geometry.roomPolygons)];
+  for (const wall of corridors) {
+    for (const fraction of [0.1, 0.5, 0.9]) {
+      const x = wall.a[0] + (wall.b[0] - wall.a[0]) * fraction;
+      const z = wall.a[1] + (wall.b[1] - wall.a[1]) * fraction;
+      expect(polygons.some(polygon => inside(x + wall.nx * 0.001, z + wall.nz * 0.001, polygon))).toBe(true);
+      expect(polygons.some(polygon => inside(x - wall.nx * 0.001, z - wall.nz * 0.001, polygon))).toBe(false);
+    }
+  }
+  const overlaps = (wall, other) => {
+    const dx = wall.b[0] - wall.a[0], dz = wall.b[1] - wall.a[1], length = Math.hypot(dx, dz);
+    const projections = [other.a, other.b].map(point => ({
+      across: Math.abs((point[0] - wall.a[0]) * dz - (point[1] - wall.a[1]) * dx) / length,
+      along: ((point[0] - wall.a[0]) * dx + (point[1] - wall.a[1]) * dz) / length
+    }));
+    return projections.every(point => point.across < 0.00001) &&
+      Math.min(length, Math.max(...projections.map(point => point.along))) - Math.max(0, Math.min(...projections.map(point => point.along))) > 0.00001;
+  };
+  for (let index = 0; index < walls.length; index++) {
+    expect(Math.hypot(walls[index].b[0] - walls[index].a[0], walls[index].b[1] - walls[index].a[1])).toBeGreaterThan(0.00001);
+    for (const other of walls.slice(index + 1)) expect(overlaps(walls[index], other)).toBe(false);
+    for (const door of geometry.doors) expect(overlaps(walls[index], door)).toBe(false);
   }
 });
 
@@ -251,6 +297,18 @@ test('NPC nurses remain present while mission patients start hidden', async ({ c
   expect(result.walkable.every(Boolean)).toBe(true);
 });
 
+test('scenario props have visible models and reachable approach points before activation', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page);
+  const audit = await page.evaluate(() => window.WardMode.audit());
+  expect(audit.props.map(prop => prop.id).sort()).toEqual(['admitPatient', 'computer', 'fax', 'incident', 'intake', 'lift', 'secl', 'trolley']);
+  for (const scenario of audit.scenarios) expect(scenario.problems, scenario.id).toEqual([]);
+  for (const prop of audit.props.filter(prop => !['incident', 'admitPatient', 'secl'].includes(prop.id))) {
+    expect(prop.visible, prop.id).toBe(true);
+    expect(prop.problems, prop.id).toEqual([]);
+  }
+});
+
 async function moveToPoint(page, target) {
   const result = await page.evaluate(target => {
     const mode = window.WardMode, tile = window.WARD_SHELL.layout.navTile, state = mode.state();
@@ -339,6 +397,256 @@ async function answerQuestions(page, firstQuestion = 0) {
   }
   await dismissDialogs(page);
 }
+
+async function walkMeters(page, meters) {
+  return page.evaluate(meters => {
+    const mode = window.WardMode, start = mode.state();
+    const direction = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) =>
+      mode.walkable(start.x + dx * 0.06, start.z + dz * 0.06));
+    if (!direction) throw new Error('No safe patrol step');
+    let remaining = meters, forward = true;
+    while (remaining > 0.000001 && !mode.state().dialog) {
+      const step = Math.min(0.04, remaining) * (forward ? 1 : -1);
+      const moved = mode.slide(direction[0] * step, direction[1] * step);
+      if (!moved) throw new Error('Patrol step blocked');
+      remaining -= moved;
+      forward = !forward;
+    }
+    return mode.state();
+  }, meters);
+}
+
+async function completeCurrentQuest(page) {
+  const quest = (await state(page)).quest;
+  await dismissDialogs(page);
+  const visit = async name => {
+    expect((await moveToPoint(page, await marker(page, name))).kind).toBe('arrived');
+    await interact(page);
+    await dismissDialogs(page);
+  };
+  if (quest === 'code') {
+    const current = await state(page), home = await marker(page, 'trolley');
+    expect(current.tx).toBeCloseTo(home.x);
+    expect(current.tz).toBeCloseTo(home.z);
+    expect(current.pushing).toBe(false);
+    await visit('trolley');
+    expect((await state(page)).pushing).toBe(true);
+    expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('interrupted');
+    await dismissDialogs(page);
+    await answerQuestions(page);
+    await visit('fax');
+    expect((await state(page)).step).toBe('docs');
+    await interact(page);
+    await dismissDialogs(page);
+  } else if (quest === 'admit') {
+    await visit('lift');
+    await answerQuestions(page);
+    await visit('intake');
+  } else {
+    expect(quest).toBe('rest');
+    await visit('secl');
+    await answerQuestions(page);
+    await visit('computer');
+  }
+  expect((await state(page)).quest).toBe('');
+  expect((await state(page)).pushing).toBe(false);
+  expect(await visiblePatients(page)).toEqual([]);
+}
+
+test('random scenario bag covers all six permutations and repeats every task safely', async ({ context, page }) => {
+  test.setTimeout(240000);
+  await openOffline(context, page);
+  const observed = new Set();
+  for (const [first, second] of [[0, 0], [0, 0.99], [0.4, 0], [0.4, 0.99], [0.99, 0], [0.99, 0.99]]) {
+    await enterWard(page, null);
+    await page.evaluate(values => {
+      let index = 0;
+      Math.random = () => values[index++ % values.length];
+    }, first === 0 && second === 0 ? [0, 0, 0.99, 0.99] : [first, second]);
+    const order = [];
+    for (let index = 0; index < 3; index++) {
+      const active = await walkMeters(page, 17);
+      order.push(active.quest);
+      const before = await state(page);
+      await walkMeters(page, 1);
+      expect((await state(page)).quest).toBe(before.quest);
+      await completeCurrentQuest(page);
+    }
+    expect([...order].sort()).toEqual(['admit', 'code', 'rest']);
+    observed.add(order.join(','));
+    if (first === 0 && second === 0) {
+      const nextCycle = [];
+      for (let index = 0; index < 3; index++) {
+        nextCycle.push((await walkMeters(page, 17)).quest);
+        await completeCurrentQuest(page);
+      }
+      expect([...nextCycle].sort()).toEqual(['admit', 'code', 'rest']);
+      expect(nextCycle[0]).not.toBe(order[2]);
+      expect(order).toEqual(['admit', 'rest', 'code']);
+      expect(nextCycle).toEqual(['admit', 'code', 'rest']);
+    }
+    await page.locator('#btnHomeTop').click();
+  }
+  expect(observed.size).toBe(6);
+});
+
+test('random scenario triggers retain movement thresholds and restart clears the bag', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page, 0);
+  expect((await walkMeters(page, 6.9)).quest).toBe('');
+  expect((await walkMeters(page, 0.2)).quest).toBe('admit');
+  await completeCurrentQuest(page);
+  expect((await walkMeters(page, 15.9)).quest).toBe('');
+  expect((await walkMeters(page, 0.2)).quest).toBe('rest');
+  await page.locator('#btnHomeTop').click();
+  await enterWard(page, 0.99);
+  expect((await state(page)).quest).toBe('');
+  expect((await walkMeters(page, 6.9)).quest).toBe('');
+  expect((await walkMeters(page, 0.2)).quest).toBe('code');
+  const current = await state(page), trolley = await marker(page, 'trolley');
+  expect(current.tx).toBeCloseTo(trolley.x);
+  expect(current.tz).toBeCloseTo(trolley.z);
+});
+
+test('scenario props reject unreachable candidates without starting a broken task', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page);
+  await page.evaluate(() => {
+    const marks = window.WardMode.markers();
+    for (const name of ['fax', 'lift', 'computer']) {
+      marks[name].x = 0;
+      marks[name].z = 0;
+    }
+  });
+  const rejected = await walkMeters(page, 8);
+  expect(rejected.quest).toBe('');
+  expect(rejected.step).toBe('idle');
+  await expect(page.locator('#wardDialogText')).toContainText('任務設備暫時未準備好');
+  expect(await visiblePatients(page)).toEqual([]);
+  const audit = await page.evaluate(() => window.WardMode.audit());
+  for (const scenario of audit.scenarios) expect(scenario.problems.some(problem => problem.includes('unreachable approach'))).toBe(true);
+  await dismissDialogs(page);
+  expect((await state(page)).quest).toBe('');
+});
+
+async function exposeTestProps(page) {
+  const bundle = readFileSync(resolve(root, 'ward.bundle.js'), 'utf8');
+  const assignment = 'window.WardMode = {';
+  expect(bundle).toContain(assignment);
+  await page.route('**/ward.bundle.js', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: bundle.replace(assignment, 'window.__wardTestProps = taskProps;\n' + assignment)
+  }));
+}
+
+for (const failure of ['hidden model', 'missing model', 'misplaced model']) {
+  test('scenario props reject and recover from ' + failure, async ({ context, page }) => {
+    await exposeTestProps(page);
+    await openOffline(context, page);
+    await enterWard(page);
+    await page.evaluate(failure => {
+      const restores = [];
+      for (const id of ['fax', 'intake', 'computer']) {
+        const mesh = window.__wardTestProps[id].mesh, parent = mesh.parent;
+        const position = mesh.position.clone();
+        restores.push(() => { parent.add(mesh); mesh.visible = true; mesh.position.copy(position); });
+        if (failure === 'hidden model') mesh.visible = false;
+        else if (failure === 'missing model') parent.remove(mesh);
+        else mesh.position.x += 10;
+      }
+      window.__restoreWardProps = () => restores.forEach(restore => restore());
+    }, failure);
+    expect((await walkMeters(page, 8)).quest).toBe('');
+    await expect(page.locator('#wardDialogText')).toContainText('任務設備暫時未準備好');
+    const audit = await page.evaluate(() => window.WardMode.audit());
+    for (const scenario of audit.scenarios) expect(scenario.problems.some(problem => problem.includes(failure)), scenario.id).toBe(true);
+    await dismissDialogs(page);
+    await page.evaluate(() => window.__restoreWardProps());
+    expect((await walkMeters(page, 8)).quest).toBe('code');
+    await completeCurrentQuest(page);
+  });
+}
+
+test('scenario props validate later admission destinations before choosing the task', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page, 0);
+  await page.evaluate(() => { window.WARD_SHELL.layout.npcs.admitIntake = [0, 0]; });
+  const audit = await page.evaluate(() => window.WardMode.audit());
+  expect(audit.scenarios.find(scenario => scenario.id === 'admit').problems).toContain('admitPatient: unreachable approach');
+  expect((await walkMeters(page, 8)).quest).toBe('rest');
+  await completeCurrentQuest(page);
+});
+
+test('random scenario waits rather than repeating the only available task', async ({ context, page }) => {
+  await exposeTestProps(page);
+  await openOffline(context, page);
+  await enterWard(page);
+  await page.evaluate(() => {
+    window.__wardTestProps.fax.mesh.visible = false;
+    window.__wardTestProps.computer.mesh.visible = false;
+  });
+  expect((await walkMeters(page, 8)).quest).toBe('admit');
+  await completeCurrentQuest(page);
+  expect((await walkMeters(page, 17)).quest).toBe('');
+  await expect(page.locator('#wardDialogText')).toContainText('任務設備暫時未準備好');
+  await dismissDialogs(page);
+  await page.evaluate(() => { window.__wardTestProps.computer.mesh.visible = true; });
+  expect((await walkMeters(page, 17)).quest).toBe('rest');
+  await completeCurrentQuest(page);
+});
+
+test('scenario props cannot activate across walls, during pause, or at the wrong stage', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page);
+  await walkMeters(page, 8);
+  await dismissDialogs(page);
+  await moveToPoint(page, await marker(page, 'trolley'));
+  await interact(page);
+  await dismissDialogs(page);
+  await moveToPoint(page, await marker(page, 'incident'));
+  await dismissDialogs(page);
+  await answerQuestions(page);
+  expect((await state(page)).step).toBe('goFax');
+  await moveToPoint(page, await marker(page, 'computer'));
+  await interact(page);
+  await dismissDialogs(page);
+  expect((await state(page)).step).toBe('goFax');
+  const outside = await page.evaluate(() => {
+    const layout = window.WARD_SHELL.layout, rect = layout.rooms.nurse.rect, angle = layout.rooms.nurse.angle;
+    const point = (x, z) => {
+      const dx = x - rect[2] / 2, dz = z - rect[3] / 2;
+      return { x: (rect[0] + rect[2] / 2 + dx * Math.cos(angle) + dz * Math.sin(angle)) * layout.tile,
+        z: (rect[1] + rect[3] / 2 - dx * Math.sin(angle) + dz * Math.cos(angle)) * layout.tile };
+    };
+    Object.assign(window.WardMode.markers().fax, point(0.7, 1.4));
+    return point(-0.65, 1.4);
+  });
+  expect((await moveToPoint(page, outside)).kind).toBe('arrived');
+  const current = await state(page), fax = await marker(page, 'fax');
+  expect(Math.hypot(current.x - fax.x, current.z - fax.z)).toBeLessThan(1.55);
+  await interact(page);
+  expect((await state(page)).step).toBe('goFax');
+  await dismissDialogs(page);
+  await moveToPoint(page, fax);
+  await page.locator('#btnPause').click();
+  await page.keyboard.press('z');
+  expect((await state(page)).step).toBe('goFax');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('b');
+  await page.keyboard.press('z');
+  expect((await state(page)).step).toBe('goFax');
+  await page.keyboard.press('b');
+  await page.locator('#wardMinimap').click();
+  await page.keyboard.press('z');
+  expect((await state(page)).step).toBe('goFax');
+  await page.keyboard.press('Escape');
+  await interact(page);
+  expect((await state(page)).step).toBe('docs');
+  await dismissDialogs(page);
+  await interact(page);
+  await dismissDialogs(page);
+  expect((await state(page)).quest).toBe('');
+});
 
 test('NPC interactions respect walls, pause, and restart', async ({ context, page }) => {
   test.setTimeout(120000);
@@ -471,15 +779,14 @@ test('quests complete through real interactions and small-step trolley turns', a
   expect(await visiblePatients(page)).toEqual(['restPatient']);
   expect((await moveToPoint(page, await character(page, 'restPatient'))).kind).toBe('arrived');
   await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('先同我解釋');
-  await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goRoom');
-  expect((await moveToPoint(page, await marker(page, 'secl'))).kind).toBe('arrived');
-  await interact(page);
+  expect((await state(page)).step).toBe('battle');
   await dismissDialogs(page);
   await answerQuestions(page);
   expect((await state(page)).step).toBe('goNurse');
-  expect((await moveToPoint(page, await marker(page, 'fax'))).kind).toBe('arrived');
+  await interact(page);
+  await expect(page.locator('#wardDialogText')).toContainText('先同我解釋');
+  await dismissDialogs(page);
+  expect((await moveToPoint(page, await marker(page, 'computer'))).kind).toBe('arrived');
   await interact(page);
   await dismissDialogs(page);
   expect((await state(page)).quest).toBe('');
@@ -499,6 +806,37 @@ test('quests complete through real interactions and small-step trolley turns', a
   await attachScreenshot(page, testInfo, 'ward-garden');
   expect(requests).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test('wall geometry stays framed at the wing and corridor junction on desktop and mobile', async ({ browser }, testInfo) => {
+  test.setTimeout(120000);
+  for (const viewport of [
+    { width: 1440, height: 900 }, { width: 768, height: 1024 },
+    { width: 390, height: 844 }, { width: 568, height: 320 }
+  ]) {
+    const context = await browser.newContext({ viewport, isMobile: viewport.width < 1024, hasTouch: viewport.width < 1024 });
+    const page = await context.newPage();
+    const requests = await openOffline(context, page);
+    await enterWard(page);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const before = await page.locator('#wardCanvas').screenshot();
+    await attachScreenshot(page, testInfo, 'ward-smooth-wing-' + viewport.width + 'x' + viewport.height);
+    const junction = await page.evaluate(() => ({ x: 33.7 * window.WARD_SHELL.layout.tile, z: 36.5 * window.WARD_SHELL.layout.tile }));
+    let movement = await moveToPoint(page, junction);
+    if (movement.kind === 'interrupted') {
+      await dismissDialogs(page);
+      movement = await moveToPoint(page, junction);
+    }
+    expect(movement.kind).toBe('arrived');
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const after = await page.locator('#wardCanvas').screenshot();
+    const pixels = await canvasComparison(page, before, after);
+    expect(pixels.colors).toBeGreaterThan(20);
+    expect(pixels.changed).toBeGreaterThan(20);
+    await attachScreenshot(page, testInfo, 'ward-smooth-junction-' + viewport.width + 'x' + viewport.height);
+    expect(requests).toEqual([]);
+    await context.close();
+  }
 });
 
 async function openOtherGames(page) {
