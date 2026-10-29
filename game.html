@@ -868,6 +868,13 @@
       overflow: auto;
       touch-action: pan-y;
     }
+    .ward-menu {
+      max-height: calc(100% - 16px);
+      overflow-y: auto;
+      touch-action: pan-y;
+      white-space: normal;
+    }
+    #wardMenuText { white-space: pre-line; }
     .ward-battle.hidden, .ward-dialog.hidden, .ward-menu.hidden { display: none; }
     .battle-name {
       align-self: flex-start;
@@ -956,6 +963,14 @@
       padding: 0 12px;
       background: #1f9b7e;
     }
+    .ward-menu select {
+      font: inherit;
+      min-height: 44px;
+      max-width: 100%;
+      margin: 4px 0;
+    }
+    #wardProfileConfirm { margin-top: 8px; }
+    #wardProfileConfirm.hidden { display: none; }
     @media (max-width: 520px) {
       .ward-minimap { width: 84px; height: 84px; left: 8px; bottom: 8px; top: auto; }
       .ward-hud { right: 8px; top: 8px; }
@@ -1060,12 +1075,20 @@
           <canvas class="ward-minimap" id="wardMinimap" width="180" height="180" aria-label="小地圖，撳一下放大"></canvas>
           <div class="ward-flash hidden" id="wardFlash"></div>
           <div class="ward-map-overlay hidden" id="wardMapOverlay">
+            <p id="wardMapGoal" style="position:absolute;top:8px;left:8px;margin:0;font-size:13px;background:#102028;padding:4px;">巡房中</p>
             <canvas id="wardMapBig" width="480" height="680" aria-label="病房地圖"></canvas>
             <ul class="ward-map-legend" id="wardMapLegend" aria-label="病房位置"></ul>
           </div>
           <div class="ward-dialog hidden" id="wardDialog"><p id="wardDialogText"></p></div>
           <div class="ward-menu hidden" id="wardMenu">
             <p id="wardMenuText"></p>
+            <label for="wardProfile">病房</label>
+            <select id="wardProfile"><option value="C9">C9</option><option value="C7">C7</option></select>
+            <div class="hidden" id="wardProfileConfirm">
+              <p>轉換病房會重設目前任務。</p>
+              <button type="button" id="wardProfileCancel">取消</button>
+              <button type="button" id="wardProfileApply">確認轉換</button>
+            </div>
             <button type="button" id="wardMenuClose">關閉</button>
           </div>
           <div class="ward-battle hidden" id="wardBattle">
@@ -1377,13 +1400,13 @@
         q: "模擬轉 L1（虛構）：CMS Transfer 應該點選先有藥？",
         options: [
           "隨便選一個 paediatric 相關項",
-          "必須選 “CH: Child & Adolescent”，否則無藥；收回 L1 須醫生重開紙本 MAR",
+          "必須選 “CH: Child & Adolescent”，並核 IPMOE 電子藥單；L1 返回不用重開紙本 MAR",
           "唔使選，藥會自動跟",
           "只寫 nursing note 就有藥"
         ],
         answer: 1,
-        explain: "轉 L1（IPMOE）時 CMS Transfer 必須選 “CH: Child & Adolescent”，否則無藥。收回 L1 要醫生重開紙本 MAR。",
-        points: ["選 CH: Child & Adolescent。", "選錯就無藥。", "收回 L1 → 重開紙本 MAR。"]
+        explain: "轉 L1 時 CMS Transfer 選 “CH: Child & Adolescent”。按 2026-10-29 確認更新，L1 返回亦用 IPMOE 電子藥單，不用重開紙本 MAR。",
+        points: ["選 CH: Child & Adolescent。", "核對 IPMOE。", "L1 返回不用重開紙本 MAR。"]
       },
       {
         source: "現行指引",
@@ -1419,12 +1442,12 @@
         q: "模擬夜更（虛構）：e-Vital 晚間時序較適切的是？",
         options: [
           "下午 5 點先量 BP 再開餐",
-          "18:00 開餐 → 量 BP（官方 7pm，勿早於 6pm）→ 派藥",
+          "18:00 開餐 → 按處方量 BP（可由 18:00 開始）→ 派藥",
           "先派齊藥再隨便量",
           "夜間可以唔跟 frequency"
         ],
         answer: 1,
-        explain: "晚間時序：18:00 開餐 → BP → 派藥。BP 官方 7pm，唔好早於 6pm。e-Vital 仍要依處方 frequency。",
+        explain: "按 2026-10-29 確認更新，晚間時序：18:00 開餐 → BP → 派藥。BP 可由 18:00 開始，不用硬等 19:00；仍依處方 frequency。",
         points: ["開餐 → BP → 派藥。", "BP 勿早於 6pm。", "依處方 frequency；用後充電。"]
       },
       {
@@ -1677,7 +1700,7 @@
         ],
         answer: 1,
         explain: "綁紮餵食必須坐起，禁止瞓餵。餵唔餵係護士臨床決定，可以餵水。探病亦要留意家屬餵食同哽塞風險。",
-        points: ["坐起餵，禁止瞓餵。", "臨床決定；可餵水。", "≥65／MD 最低碎餐；堅持正餐轉介言語治療。"]
+        points: ["坐起餵，禁止瞓餵。", "臨床決定；可餵水。", "≥60／MD 最低碎餐；適用所有收症，不只 UE；堅持正餐轉介言語治療。"]
       },
       {
         source: "實用清單",

@@ -72,6 +72,12 @@
         incident: wingPoint(8.8, 27.3),
         lift: roomPoint(rooms.lift, 1.4, 3.7),
         intake: roomPoint(rooms.intake, 2, 2.2),
+        bedside: roomPoint(rooms.b1, 4, 3),
+        medication: roomPoint(rooms.med, 2.25, 1.15),
+        dining: roomPoint(rooms.dine, 3.75, 2.35),
+        visitor: roomPoint(rooms.vis1, 3.1, 1.55),
+        isolation: roomPoint(rooms.iso1, 2.4, 2.8),
+        handover: roomPoint(rooms.nurse, 0.9, 3.5),
         secl: roomPoint(rooms.secl, 1.5, 1.5),
         treat: roomPoint(rooms.treat, 2.2, 2),
         nurse: roomPoint(rooms.nurse, 2.5, 3.6)
@@ -83,6 +89,13 @@
         codePatient: wingPoint(8.8, 27.3),
         admitLift: roomPoint(rooms.lift, 4, 3.7),
         admitIntake: roomPoint(rooms.intake, 0.8, 0.8),
+        at_bedside: roomPoint(rooms.b1, 3.2, 3),
+        at_medication: roomPoint(rooms.med, 1.3, 1.5),
+        at_dining: roomPoint(rooms.dine, 5, 3.8),
+        at_visitor: roomPoint(rooms.vis1, 4.3, 2.1),
+        at_isolation: roomPoint(rooms.iso1, 1.2, 3.5),
+        at_handover: roomPoint(rooms.nurse, 1.4, 3.6),
+        at_computer: roomPoint(rooms.nurse, 1.6, 2.7),
         restPatient: roomPoint(rooms.secl, 0.8, 0.8)
       },
       beds: beds

@@ -85,6 +85,108 @@ test('reference layout retains the bedroom scale and diagonal wing', () => {
   expect(layout.rooms.garden.rect[0]).toBeLessThan(layout.rooms.dine.rect[0]);
 });
 
+test('M10 catalog scopes every scored rule and preserves confirmed overrides', () => {
+  const sandbox = { console: { warn() {} } };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward-shell.js'), 'utf8'), sandbox);
+  vm.runInContext(readFileSync(resolve(root, 'ward.bundle.js'), 'utf8'), sandbox);
+  const mode = sandbox.WardMode, catalog = mode.catalog();
+  expect(catalog).toHaveLength(12);
+  for (const family of catalog) {
+    expect(family.variants.length, family.id).toBeGreaterThanOrEqual(2);
+    expect(new Set(family.variants.map(variant => variant.id)).size).toBe(family.variants.length);
+    for (const variant of family.variants) for (const stage of variant.stages) {
+      expect(stage.source.section).toBeTruthy();
+      expect(existsSync(resolve(root, stage.source.file))).toBe(true);
+      expect(stage.options[stage.answer]).toBeTruthy();
+      expect(stage.explain).toBeTruthy();
+      expect(stage.recovery).toBeTruthy();
+    }
+    for (const ward of ['C9', 'C7']) for (const variant of mode.variants(family.id, ward)) {
+      expect(family.wards.includes(ward)).toBe(true);
+      expect(variant.stages.every(stage => ['shared', ward].includes(stage.source.scope))).toBe(true);
+    }
+  }
+  const policy = mode.policies;
+  expect(policy.dietRequired(59, false)).toBe(false);
+  expect(policy.dietRequired(60, false)).toBe(true);
+  expect(policy.dietRequired(59, true)).toBe(true);
+  expect(policy.eveningBPAllowed(17, 59)).toBe(false);
+  expect(policy.eveningBPAllowed(18, 0)).toBe(true);
+  expect(policy.collection(false)).toContain('不用 OPA');
+  expect(policy.collection(true)).toContain('先電話');
+  expect(policy.chart).toBe('IPMOE');
+  expect(policy.ue).toBe('入院無帶 HKID');
+  expect(mode.variants('bowel', 'C9')).toHaveLength(0);
+  expect(mode.variants('visit', 'C9').map(variant => variant.id)).toEqual(['c9food', 'c9privacy']);
+  expect(mode.variants('visit', 'C7').map(variant => variant.id)).toEqual(['c7booking', 'c7walkin']);
+});
+
+test('M10 catalog quiz wording agrees with the confirmed policy updates', async ({ context, page }) => {
+  await openOffline(context, page);
+  const questions = await page.evaluate(() => window.__TRAINING_GAME.questions);
+  const l1 = questions.find(question => question.category === '文件／法律／出院' && question.q.includes('轉 L1'));
+  expect(l1.options[l1.answer]).toContain('IPMOE');
+  expect(l1.explain).toContain('不用重開紙本 MAR');
+  const evening = questions.find(question => question.q.includes('晚間時序'));
+  expect(evening.options[evening.answer]).toContain('18:00');
+  expect(evening.explain).toContain('不用硬等 19:00');
+  expect(questions.flatMap(question => question.points).some(point => point.includes('≥60／MD'))).toBe(true);
+  expect(questions.flatMap(question => question.points).some(point => point.includes('≥65／MD'))).toBe(false);
+});
+
+test('M10 workflow requires correction before an ordered stage can advance', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page);
+  await walkMeters(page, 8);
+  await dismissDialogs(page);
+  expect((await state(page)).quest).toBe('admit');
+  await moveToPoint(page, await marker(page, 'computer'));
+  await interact(page);
+  await page.locator('.battle-opt').nth(0).click();
+  await expect(page.locator('#battleText')).toContainText('未係最適切');
+  await page.keyboard.press('z');
+  expect((await state(page)).stageIndex).toBe(0);
+  expect((await state(page)).battle).toBe('ask');
+  await page.locator('.battle-opt').nth(1).click();
+  await page.keyboard.press('z');
+  expect((await state(page)).target).toBe('lift');
+  expect((await state(page)).stageResults[0]).toMatchObject({ corrected: true, correctFirstAttempt: false, attempts: 2 });
+});
+
+test('M10 profile switches safely and M10 prop targets are visible and reachable', async ({ context, page }) => {
+  await openOffline(context, page);
+  await enterWard(page);
+  for (const ward of ['C9', 'C7']) {
+    if ((await state(page)).ward !== ward) {
+      await page.keyboard.press('b');
+      await page.selectOption('#wardProfile', ward);
+    }
+    const audit = await page.evaluate(() => window.WardMode.audit());
+    expect(audit.scenarios).toHaveLength(ward === 'C9' ? 11 : 12);
+    for (const scenario of audit.scenarios) expect(scenario.problems, ward + scenario.id).toEqual([]);
+    for (const id of ['bedside', 'medication', 'dining', 'visitor', 'isolation', 'handover']) {
+      expect(audit.props.find(prop => prop.id === id).problems, ward + id).toEqual([]);
+    }
+    await page.click('#wardMinimap');
+    await expect(page.locator('#wardMapGoal')).toContainText(ward);
+    await page.keyboard.press('Escape');
+  }
+  await walkMeters(page, 8);
+  await dismissDialogs(page);
+  const before = await state(page);
+  await page.keyboard.press('b');
+  await page.selectOption('#wardProfile', 'C9');
+  await expect(page.locator('#wardProfileConfirm')).toBeVisible();
+  await page.click('#wardProfileCancel');
+  expect((await state(page)).quest).toBe(before.quest);
+  expect((await state(page)).ward).toBe('C7');
+  await page.selectOption('#wardProfile', 'C9');
+  await page.click('#wardProfileApply');
+  expect(await state(page)).toMatchObject({ ward: 'C9', quest: '', travel: 0, stageIndex: 0 });
+});
+
 test('reference layout keeps all mission markers reachable', () => {
   const sandbox = { console: { warn() {} } };
   sandbox.window = sandbox;
@@ -301,7 +403,7 @@ test('scenario props have visible models and reachable approach points before ac
   await openOffline(context, page);
   await enterWard(page);
   const audit = await page.evaluate(() => window.WardMode.audit());
-  expect(audit.props.map(prop => prop.id).sort()).toEqual(['admitPatient', 'computer', 'fax', 'incident', 'intake', 'lift', 'secl', 'trolley']);
+  expect(audit.props.map(prop => prop.id).sort()).toEqual(['admitPatient', 'bedside', 'computer', 'dining', 'fax', 'handover', 'incident', 'intake', 'isolation', 'lift', 'medication', 'secl', 'trolley', 'visitor']);
   for (const scenario of audit.scenarios) expect(scenario.problems, scenario.id).toEqual([]);
   for (const prop of audit.props.filter(prop => !['incident', 'admitPatient', 'secl'].includes(prop.id))) {
     expect(prop.visible, prop.id).toBe(true);
@@ -387,14 +489,19 @@ async function interact(page) {
   await page.locator('#wardBtnA').click();
 }
 
-async function answerQuestions(page, firstQuestion = 0) {
-  for (let index = firstQuestion; index < 3; index++) {
-    expect((await state(page)).battle).toBe('ask');
-    await page.locator('.battle-opt').nth(index === 0 ? 0 : 1).click();
-    expect((await state(page)).battle).toBe('explain');
-    if (index === 0) await expect(page.locator('#battleText')).toContainText('未係最適切');
+async function answerQuestions(page, wrongFirst = true) {
+  expect((await state(page)).battle).toBe('ask');
+  if (wrongFirst) {
+    const before = await state(page);
+    await page.locator('.battle-opt').nth(0).click();
+    await expect(page.locator('#battleText')).toContainText('未係最適切');
     await page.keyboard.press('z');
+    expect((await state(page)).stageIndex).toBe(before.stageIndex);
+    expect((await state(page)).battle).toBe('ask');
   }
+  await page.locator('.battle-opt').nth(1).click();
+  await expect(page.locator('#battleText')).toContainText('來源');
+  await page.keyboard.press('z');
   await dismissDialogs(page);
 }
 
@@ -417,92 +524,82 @@ async function walkMeters(page, meters) {
 }
 
 async function completeCurrentQuest(page) {
-  const quest = (await state(page)).quest;
+  const initial = await state(page);
   await dismissDialogs(page);
-  const visit = async name => {
-    expect((await moveToPoint(page, await marker(page, name))).kind).toBe('arrived');
-    await interact(page);
-    await dismissDialogs(page);
-  };
-  if (quest === 'code') {
-    const current = await state(page), home = await marker(page, 'trolley');
-    expect(current.tx).toBeCloseTo(home.x);
-    expect(current.tz).toBeCloseTo(home.z);
-    expect(current.pushing).toBe(false);
-    await visit('trolley');
-    expect((await state(page)).pushing).toBe(true);
-    expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('interrupted');
-    await dismissDialogs(page);
-    await answerQuestions(page);
-    await visit('fax');
-    expect((await state(page)).step).toBe('docs');
-    await interact(page);
-    await dismissDialogs(page);
-  } else if (quest === 'admit') {
-    await visit('lift');
-    await answerQuestions(page);
-    await visit('intake');
-  } else {
-    expect(quest).toBe('rest');
-    await visit('secl');
-    await answerQuestions(page);
-    await visit('computer');
+  for (let index = (await state(page)).stageIndex; index < initial.stages; index++) {
+    const before = await state(page);
+    const characters = await page.evaluate(() => window.WardMode.audit().npcs.filter(npc => npc.visible));
+    for (const patient of characters.filter(npc => npc.role === 'patient')) {
+      for (const nurse of characters.filter(npc => npc.role === 'nurse')) {
+        expect(Math.hypot(patient.x - nurse.x, patient.z - nurse.z), patient.id + '/' + nurse.id).toBeGreaterThan(0.5);
+      }
+    }
+    const movement = await moveToPoint(page, await marker(page, before.target));
+    if (before.stageAction === 'deliver') {
+      expect(movement.kind).toBe('interrupted');
+      expect(before.pushing).toBe(true);
+    } else {
+      expect(movement.kind).toBe('arrived');
+      await interact(page);
+    }
+    await answerQuestions(page, index === 0);
   }
   expect((await state(page)).quest).toBe('');
   expect((await state(page)).pushing).toBe(false);
   expect(await visiblePatients(page)).toEqual([]);
+  const result = (await state(page)).lastResult;
+  expect(result.family).toBe(initial.quest);
+  expect(result.variant).toBe(initial.variant);
+  expect(result.stages).toHaveLength(initial.stages);
+  return result;
 }
 
-test('random scenario bag covers all six permutations and repeats every task safely', async ({ context, page }) => {
-  test.setTimeout(240000);
-  await openOffline(context, page);
-  const observed = new Set();
-  for (const [first, second] of [[0, 0], [0, 0.99], [0.4, 0], [0.4, 0.99], [0.99, 0], [0.99, 0.99]]) {
-    await enterWard(page, null);
-    await page.evaluate(values => {
-      let index = 0;
-      Math.random = () => values[index++ % values.length];
-    }, first === 0 && second === 0 ? [0, 0, 0.99, 0.99] : [first, second]);
-    const order = [];
-    for (let index = 0; index < 3; index++) {
-      const active = await walkMeters(page, 17);
-      order.push(active.quest);
-      const before = await state(page);
-      await walkMeters(page, 1);
-      expect((await state(page)).quest).toBe(before.quest);
-      await completeCurrentQuest(page);
+for (const ward of ['C9', 'C7']) {
+  test('M10 workflow bag completes every eligible variant in ' + ward, async ({ context, page }) => {
+    test.setTimeout(600000);
+    const requests = await openOffline(context, page), errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await enterWard(page);
+    if (ward === 'C7') {
+      await page.keyboard.press('b');
+      await page.selectOption('#wardProfile', ward);
     }
-    expect([...order].sort()).toEqual(['admit', 'code', 'rest']);
-    observed.add(order.join(','));
-    if (first === 0 && second === 0) {
-      const nextCycle = [];
-      for (let index = 0; index < 3; index++) {
-        nextCycle.push((await walkMeters(page, 17)).quest);
+    const expected = await page.evaluate(ward => window.WardMode.catalog().map(family => ({
+      id: family.id, variants: window.WardMode.variants(family.id, ward).map(variant => variant.id)
+    })).filter(family => family.variants.length), ward);
+    const seen = new Map(expected.map(family => [family.id, new Set()]));
+    let previous = '';
+    for (let cycle = 0; cycle < 3; cycle++) {
+      const bag = [];
+      for (let index = 0; index < expected.length; index++) {
+        const active = await walkMeters(page, 17);
+        expect(active.quest).not.toBe(previous);
+        previous = active.quest;
+        bag.push(active.quest);
+        seen.get(active.quest).add(active.variant);
         await completeCurrentQuest(page);
       }
-      expect([...nextCycle].sort()).toEqual(['admit', 'code', 'rest']);
-      expect(nextCycle[0]).not.toBe(order[2]);
-      expect(order).toEqual(['admit', 'rest', 'code']);
-      expect(nextCycle).toEqual(['admit', 'code', 'rest']);
+      expect([...bag].sort()).toEqual(expected.map(family => family.id).sort());
     }
-    await page.locator('#btnHomeTop').click();
-  }
-  expect(observed.size).toBe(6);
-});
+    for (const family of expected) expect([...seen.get(family.id)].sort(), family.id).toEqual([...family.variants].sort());
+    expect(errors).toEqual([]);
+    expect(requests).toEqual([]);
+  });
+}
 
-test('random scenario triggers retain movement thresholds and restart clears the bag', async ({ context, page }) => {
+test('M10 workflow triggers retain movement thresholds and restart clears the bag', async ({ context, page }) => {
   await openOffline(context, page);
-  await enterWard(page, 0);
+  await enterWard(page);
   expect((await walkMeters(page, 6.9)).quest).toBe('');
   expect((await walkMeters(page, 0.2)).quest).toBe('admit');
   await completeCurrentQuest(page);
   expect((await walkMeters(page, 15.9)).quest).toBe('');
-  expect((await walkMeters(page, 0.2)).quest).toBe('rest');
+  expect((await walkMeters(page, 0.2)).quest).toBe('arrival');
   await page.locator('#btnHomeTop').click();
   await enterWard(page, 0.99);
   expect((await state(page)).quest).toBe('');
   expect((await walkMeters(page, 6.9)).quest).toBe('');
-  expect((await walkMeters(page, 0.2)).quest).toBe('code');
+  expect((await walkMeters(page, 0.2)).quest).toBe('admit');
   const current = await state(page), trolley = await marker(page, 'trolley');
   expect(current.tx).toBeCloseTo(trolley.x);
   expect(current.tz).toBeCloseTo(trolley.z);
@@ -513,7 +610,7 @@ test('scenario props reject unreachable candidates without starting a broken tas
   await enterWard(page);
   await page.evaluate(() => {
     const marks = window.WardMode.markers();
-    for (const name of ['fax', 'lift', 'computer']) {
+    for (const name of Object.keys(marks).filter(name => name !== 'start')) {
       marks[name].x = 0;
       marks[name].z = 0;
     }
@@ -535,8 +632,17 @@ async function exposeTestProps(page) {
   expect(bundle).toContain(assignment);
   await page.route('**/ward.bundle.js', route => route.fulfill({
     contentType: 'application/javascript',
-    body: bundle.replace(assignment, 'window.__wardTestProps = taskProps;\n' + assignment)
+    body: bundle.replace(assignment, 'window.__wardTestProps = taskProps; window.__wardTestCatalog = catalog; window.__wardTestCatalogAll = catalog.slice();\n' + assignment)
   }));
+}
+
+async function isolateScenario(page, family, variant) {
+  await page.evaluate(({ family, variant }) => {
+    const catalog = window.__wardTestCatalog;
+    const original = window.__wardTestCatalogAll.find(entry => entry.id === family);
+    const entry = { ...original, variants: original.variants.filter(entry => !variant || entry.id === variant) };
+    catalog.splice(0, catalog.length, entry);
+  }, { family, variant });
 }
 
 for (const failure of ['hidden model', 'missing model', 'misplaced model']) {
@@ -546,7 +652,7 @@ for (const failure of ['hidden model', 'missing model', 'misplaced model']) {
     await enterWard(page);
     await page.evaluate(failure => {
       const restores = [];
-      for (const id of ['fax', 'intake', 'computer']) {
+      for (const id of ['bedside', 'medication', 'dining', 'visitor', 'isolation', 'handover', 'lift', 'intake', 'computer', 'trolley']) {
         const mesh = window.__wardTestProps[id].mesh, parent = mesh.parent;
         const position = mesh.position.clone();
         restores.push(() => { parent.add(mesh); mesh.visible = true; mesh.position.copy(position); });
@@ -562,7 +668,7 @@ for (const failure of ['hidden model', 'missing model', 'misplaced model']) {
     for (const scenario of audit.scenarios) expect(scenario.problems.some(problem => problem.includes(failure)), scenario.id).toBe(true);
     await dismissDialogs(page);
     await page.evaluate(() => window.__restoreWardProps());
-    expect((await walkMeters(page, 8)).quest).toBe('code');
+    expect((await walkMeters(page, 8)).quest).toBe('admit');
     await completeCurrentQuest(page);
   });
 }
@@ -570,11 +676,13 @@ for (const failure of ['hidden model', 'missing model', 'misplaced model']) {
 test('scenario props validate later admission destinations before choosing the task', async ({ context, page }) => {
   await openOffline(context, page);
   await enterWard(page, 0);
-  await page.evaluate(() => { window.WARD_SHELL.layout.npcs.admitIntake = [0, 0]; });
+  await page.evaluate(() => {
+    window.WARD_SHELL.layout.npcs.admitIntake = [0, 0];
+    window.WARD_SHELL.layout.npcs.at_computer = [0, 0];
+  });
   const audit = await page.evaluate(() => window.WardMode.audit());
-  expect(audit.scenarios.find(scenario => scenario.id === 'admit').problems).toContain('admitPatient: unreachable approach');
-  expect((await walkMeters(page, 8)).quest).toBe('rest');
-  await completeCurrentQuest(page);
+  expect(audit.scenarios.find(scenario => scenario.id === 'admit').problems).toContain('patient: unreachable approach');
+  expect((await walkMeters(page, 8)).quest).not.toBe('admit');
 });
 
 test('random scenario waits rather than repeating the only available task', async ({ context, page }) => {
@@ -582,35 +690,33 @@ test('random scenario waits rather than repeating the only available task', asyn
   await openOffline(context, page);
   await enterWard(page);
   await page.evaluate(() => {
-    window.__wardTestProps.fax.mesh.visible = false;
-    window.__wardTestProps.computer.mesh.visible = false;
+    for (const [id, prop] of Object.entries(window.__wardTestProps)) {
+      if (!['computer', 'intake', 'lift', 'admitPatient'].includes(id)) prop.mesh.visible = false;
+    }
+    window.WardMode.markers().secl.x = 0;
   });
   expect((await walkMeters(page, 8)).quest).toBe('admit');
   await completeCurrentQuest(page);
   expect((await walkMeters(page, 17)).quest).toBe('');
   await expect(page.locator('#wardDialogText')).toContainText('任務設備暫時未準備好');
   await dismissDialogs(page);
-  await page.evaluate(() => { window.__wardTestProps.computer.mesh.visible = true; });
-  expect((await walkMeters(page, 17)).quest).toBe('rest');
+  await page.evaluate(() => { window.__wardTestProps.handover.mesh.visible = true; });
+  expect((await walkMeters(page, 17)).quest).not.toBe('admit');
   await completeCurrentQuest(page);
 });
 
-test('scenario props cannot activate across walls, during pause, or at the wrong stage', async ({ context, page }) => {
+test('M10 prop interactions reject walls, pause, menus, maps and wrong stages', async ({ context, page }) => {
+  await exposeTestProps(page);
   await openOffline(context, page);
   await enterWard(page);
+  await isolateScenario(page, 'admit', 'booking');
   await walkMeters(page, 8);
   await dismissDialogs(page);
   await moveToPoint(page, await marker(page, 'trolley'));
   await interact(page);
   await dismissDialogs(page);
-  await moveToPoint(page, await marker(page, 'incident'));
-  await dismissDialogs(page);
-  await answerQuestions(page);
-  expect((await state(page)).step).toBe('goFax');
-  await moveToPoint(page, await marker(page, 'computer'));
-  await interact(page);
-  await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goFax');
+  expect((await state(page)).stageIndex).toBe(0);
+  expect((await state(page)).battle).toBe('');
   const outside = await page.evaluate(() => {
     const layout = window.WARD_SHELL.layout, rect = layout.rooms.nurse.rect, angle = layout.rooms.nurse.angle;
     const point = (x, z) => {
@@ -618,34 +724,34 @@ test('scenario props cannot activate across walls, during pause, or at the wrong
       return { x: (rect[0] + rect[2] / 2 + dx * Math.cos(angle) + dz * Math.sin(angle)) * layout.tile,
         z: (rect[1] + rect[3] / 2 - dx * Math.sin(angle) + dz * Math.cos(angle)) * layout.tile };
     };
-    Object.assign(window.WardMode.markers().fax, point(0.7, 1.4));
+    Object.assign(window.WardMode.markers().computer, point(0.7, 1.4));
+    window.__wardTestProps.computer.mesh.position.set(0.7 * layout.tile, 1.05, 1.4 * layout.tile);
     return point(-0.65, 1.4);
   });
   expect((await moveToPoint(page, outside)).kind).toBe('arrived');
-  const current = await state(page), fax = await marker(page, 'fax');
-  expect(Math.hypot(current.x - fax.x, current.z - fax.z)).toBeLessThan(1.55);
+  const current = await state(page), computer = await marker(page, 'computer');
+  expect(Math.hypot(current.x - computer.x, current.z - computer.z)).toBeLessThan(1.55);
+  expect(await page.evaluate(() => window.WardMode.audit().props.find(prop => prop.id === 'computer').problems)).toEqual([]);
   await interact(page);
-  expect((await state(page)).step).toBe('goFax');
+  expect((await state(page)).battle).toBe('');
   await dismissDialogs(page);
-  await moveToPoint(page, fax);
+  await moveToPoint(page, computer);
   await page.locator('#btnPause').click();
   await page.keyboard.press('z');
-  expect((await state(page)).step).toBe('goFax');
+  expect((await state(page)).battle).toBe('');
   await page.keyboard.press('Escape');
   await page.keyboard.press('b');
   await page.keyboard.press('z');
-  expect((await state(page)).step).toBe('goFax');
+  expect((await state(page)).battle).toBe('');
   await page.keyboard.press('b');
   await page.locator('#wardMinimap').click();
   await page.keyboard.press('z');
-  expect((await state(page)).step).toBe('goFax');
+  expect((await state(page)).battle).toBe('');
   await page.keyboard.press('Escape');
   await interact(page);
-  expect((await state(page)).step).toBe('docs');
-  await dismissDialogs(page);
-  await interact(page);
-  await dismissDialogs(page);
-  expect((await state(page)).quest).toBe('');
+  expect((await state(page)).battle).toBe('ask');
+  await answerQuestions(page);
+  expect((await state(page)).target).toBe('lift');
 });
 
 test('NPC interactions respect walls, pause, and restart', async ({ context, page }) => {
@@ -671,14 +777,9 @@ test('NPC interactions respect walls, pause, and restart', async ({ context, pag
   await page.keyboard.press('Escape');
   await expect(page.locator('#wardMapOverlay')).toBeHidden();
   await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('留喺病人身邊');
+  await expect(page.locator('#wardDialogText')).toContainText('協助照顧病人');
   await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goTrolley');
-
-  expect((await moveToPoint(page, await character(page, 'nurse2'))).kind).toBe('arrived');
-  await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('處理文件');
-  await dismissDialogs(page);
+  expect((await state(page)).target).toBe('computer');
   expect((await moveToPoint(page, await character(page, 'nurse3'))).kind).toBe('arrived');
   await interact(page);
   await expect(page.locator('#wardDialogText')).toContainText('核對身份');
@@ -696,7 +797,7 @@ test('NPC interactions respect walls, pause, and restart', async ({ context, pag
   await interact(page);
   await expect(page.locator('#wardDialogText')).not.toContainText('核對身份');
   await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goTrolley');
+  expect((await state(page)).target).toBe('computer');
 
   await page.locator('#btnHomeTop').click();
   await enterWard(page);
@@ -707,90 +808,64 @@ test('NPC interactions respect walls, pause, and restart', async ({ context, pag
 
 test('quests complete through real interactions and small-step trolley turns', async ({ context, page }, testInfo) => {
   test.setTimeout(120000);
+  await exposeTestProps(page);
   const requests = await openOffline(context, page);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await enterWard(page);
+  await isolateScenario(page, 'code', 'code000');
 
   expect((await moveToPoint(page, await marker(page, 'trolley'))).kind).toBe('interrupted');
   expect((await state(page)).quest).toBe('code');
   await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goTrolley');
+  expect((await state(page)).target).toBe('incident');
   expect(await visiblePatients(page)).toEqual(['codePatient']);
   const emergencyNurse = await character(page, 'nurse1'), emergencyPatient = await character(page, 'codePatient');
   expect(Math.hypot(emergencyNurse.x - emergencyPatient.x, emergencyNurse.z - emergencyPatient.z)).toBeLessThan(1.55);
-  expect((await moveToPoint(page, { x: emergencyPatient.x + 0.7, z: emergencyPatient.z })).kind).toBe('arrived');
+  expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('arrived');
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await attachScreenshot(page, testInfo, 'ward-emergency-characters');
   await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('病人暫時沒有回應');
-  await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goTrolley');
+  await expect(page.locator('#battleText')).toContainText('無反應');
+  await answerQuestions(page);
+  expect((await state(page)).target).toBe('trolley');
   expect((await moveToPoint(page, await marker(page, 'trolley'))).kind).toBe('arrived');
   await interact(page);
+  await answerQuestions(page, false);
   expect((await state(page)).pushing).toBe(true);
   await dismissDialogs(page);
   expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('interrupted');
   expect((await state(page)).step).toBe('battle');
   await dismissDialogs(page);
   await answerQuestions(page);
-  expect((await state(page)).step).toBe('goFax');
-  expect((await moveToPoint(page, await marker(page, 'fax'))).kind).toBe('arrived');
-  await interact(page);
-  expect((await state(page)).step).toBe('docs');
-  await dismissDialogs(page);
-  await interact(page);
-  await dismissDialogs(page);
-  expect((await state(page)).quest).toBe('');
+  expect((await state(page)).target).toBe('computer');
+  await completeCurrentQuest(page);
   expect(await visiblePatients(page)).toEqual([]);
 
-  expect((await moveToPoint(page, await marker(page, 'lift'))).kind).toBe('interrupted');
+  await isolateScenario(page, 'admit', 'booking');
+  await walkMeters(page, 17);
   expect((await state(page)).quest).toBe('admit');
   await dismissDialogs(page);
+  await moveToPoint(page, await marker(page, 'computer'));
+  await interact(page);
+  await answerQuestions(page);
   expect(await visiblePatients(page)).toEqual(['admitPatient']);
   const admissionAtLift = await character(page, 'admitPatient');
-  expect((await moveToPoint(page, { x: admissionAtLift.x - 0.7, z: admissionAtLift.z })).kind).toBe('arrived');
+  expect((await moveToPoint(page, await marker(page, 'lift'))).kind).toBe('arrived');
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await attachScreenshot(page, testInfo, 'ward-admission-character');
   await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('等候收症');
-  await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goElev');
-  expect((await moveToPoint(page, await marker(page, 'lift'))).kind).toBe('arrived');
-  await interact(page);
-  await dismissDialogs(page);
   await answerQuestions(page);
-  expect((await state(page)).step).toBe('goBed');
+  expect((await state(page)).target).toBe('intake');
   const admissionAtIntake = await character(page, 'admitPatient');
   expect(Math.hypot(admissionAtIntake.x - admissionAtLift.x, admissionAtIntake.z - admissionAtLift.z)).toBeGreaterThan(2);
-  expect((await moveToPoint(page, admissionAtIntake)).kind).toBe('arrived');
-  await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('等候收症安排');
-  await dismissDialogs(page);
-  expect((await state(page)).step).toBe('goBed');
-  expect((await moveToPoint(page, await marker(page, 'intake'))).kind).toBe('arrived');
-  await interact(page);
-  await dismissDialogs(page);
-  expect((await state(page)).quest).toBe('');
+  await completeCurrentQuest(page);
 
-  expect((await moveToPoint(page, await marker(page, 'secl'))).kind).toBe('interrupted');
+  await isolateScenario(page, 'rest', 'deescalation');
+  await walkMeters(page, 17);
   expect((await state(page)).quest).toBe('rest');
   await dismissDialogs(page);
   expect(await visiblePatients(page)).toEqual(['restPatient']);
-  expect((await moveToPoint(page, await character(page, 'restPatient'))).kind).toBe('arrived');
-  await interact(page);
-  expect((await state(page)).step).toBe('battle');
-  await dismissDialogs(page);
-  await answerQuestions(page);
-  expect((await state(page)).step).toBe('goNurse');
-  await interact(page);
-  await expect(page.locator('#wardDialogText')).toContainText('先同我解釋');
-  await dismissDialogs(page);
-  expect((await moveToPoint(page, await marker(page, 'computer'))).kind).toBe('arrived');
-  await interact(page);
-  await dismissDialogs(page);
-  expect((await state(page)).quest).toBe('');
-  expect(await visiblePatients(page)).toEqual([]);
   const gardenPoint = await page.evaluate(() => {
     const layout = window.WARD_SHELL.layout, rect = layout.rooms.garden.rect;
     return { x: (rect[0] + 4) * layout.tile, z: (rect[1] + 6) * layout.tile };
@@ -804,6 +879,7 @@ test('quests complete through real interactions and small-step trolley turns', a
   expect(garden.kind).toBe('arrived');
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await attachScreenshot(page, testInfo, 'ward-garden');
+  await completeCurrentQuest(page);
   expect(requests).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -1036,10 +1112,12 @@ test('mobile dialog and questions remain readable and actionable', async ({ brow
   test.setTimeout(120000);
   const context = await browser.newContext({ viewport: { width: 568, height: 320 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
+  await exposeTestProps(page);
   await openOffline(context, page);
   await enterWard(page);
+  await isolateScenario(page, 'code', 'code000');
   expect((await moveToPoint(page, await marker(page, 'trolley'))).kind).toBe('interrupted');
-  for (let index = 0; index < 3; index++) {
+  while ((await state(page)).dialog) {
     const rects = await page.evaluate(() => {
       const ids = ['wardView', 'wardQuestLabel', 'wardMinimap', 'wardDialog'];
       return Object.fromEntries(ids.map(id => {
@@ -1055,36 +1133,47 @@ test('mobile dialog and questions remain readable and actionable', async ({ brow
     expect(overlap(rects.wardDialog, rects.wardMinimap)).toBe(false);
     await page.keyboard.press('z');
   }
-  expect((await state(page)).step).toBe('goTrolley');
-  const nurse = await character(page, 'nurse1');
-  expect((await moveToPoint(page, { x: nurse.x - 0.7, z: nurse.z })).kind).toBe('arrived');
+  expect((await state(page)).target).toBe('incident');
+  expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('arrived');
   expect(await visiblePatients(page)).toEqual(['codePatient']);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await attachScreenshot(page, testInfo, 'ward-mobile-characters');
   await page.locator('#wardBtnA').tap();
-  await expect(page.locator('#wardDialogText')).toContainText('留喺病人身邊');
-  await page.locator('#wardBtnA').tap();
-  expect((await state(page)).dialog).toBe(false);
-  await moveToPoint(page, await marker(page, 'trolley'));
-  await page.locator('#wardBtnA').tap();
-  await dismissDialogs(page);
-  expect((await moveToPoint(page, await marker(page, 'incident'))).kind).toBe('interrupted');
-  await dismissDialogs(page);
   await expect(page.locator('#wardBattle')).toBeVisible();
   await expect(page.locator('#battleFoeName')).toHaveCSS('color', 'rgb(20, 34, 38)');
   await attachScreenshot(page, testInfo, 'ward-mobile-question');
-  const battle = page.locator('#wardBattle'), box = await battle.boundingBox();
-  const cdp = await context.newCDPSession(page);
-  const x = box.x + box.width / 2, startY = box.y + box.height - 25;
-  await cdp.send('Input.synthesizeScrollGesture', {
-    x, y: startY, xDistance: 0, yDistance: -150, speed: 500, gestureSourceType: 'touch'
-  });
-  await cdp.detach();
-  await expect.poll(() => battle.evaluate(node => node.scrollTop), { timeout: 5000 }).toBeGreaterThan(0);
-  await page.locator('.battle-opt').nth(3).tap();
+  const battle = page.locator('#wardBattle');
+  if (await battle.evaluate(node => node.scrollHeight > node.clientHeight + 1)) {
+    const box = await battle.boundingBox(), cdp = await context.newCDPSession(page);
+    await cdp.send('Input.synthesizeScrollGesture', {
+      x: box.x + box.width / 2, y: box.y + box.height - 25,
+      xDistance: 0, yDistance: -150, speed: 500, gestureSourceType: 'touch'
+    });
+    await cdp.detach();
+    await expect.poll(() => battle.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  } else {
+    for (const option of await page.locator('.battle-opt').all()) await expect(option).toBeInViewport();
+  }
+  await page.locator('.battle-opt').nth(0).tap();
   expect((await state(page)).battle).toBe('explain');
   await page.keyboard.press('z');
-  await answerQuestions(page, 1);
-  expect((await state(page)).step).toBe('goFax');
+  expect((await state(page)).battle).toBe('ask');
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('.battle-opt.on')).toHaveAttribute('data-i', '1');
+  await page.keyboard.press('z');
+  await expect(page.locator('#battleText')).toContainText('答啱');
+  await page.keyboard.press('z');
+  expect((await state(page)).target).toBe('trolley');
+  await page.locator('#wardBtnB').tap();
+  const menuBounds = await page.locator('#wardMenu').boundingBox();
+  const viewBounds = await page.locator('#wardView').boundingBox();
+  expect(menuBounds.y).toBeGreaterThanOrEqual(viewBounds.y);
+  expect(menuBounds.y + menuBounds.height).toBeLessThanOrEqual(viewBounds.y + viewBounds.height);
+  await page.selectOption('#wardProfile', 'C7');
+  await expect(page.locator('#wardProfileConfirm')).toBeVisible();
+  await page.locator('#wardProfileCancel').tap();
+  expect((await state(page)).ward).toBe('C9');
+  await page.locator('#wardMenu').evaluate(node => { node.scrollTop = 0; });
+  await attachScreenshot(page, testInfo, 'ward-mobile-profile');
   await context.close();
 });

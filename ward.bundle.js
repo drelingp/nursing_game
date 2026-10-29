@@ -21188,120 +21188,214 @@
     var CH = Math.ceil(LAY.rows * TILE / NAV);
     var SPEED = 2.55;
     var RADIUS = 0.28;
-    var CODE_QS = [
-      {
-        q: "\u6A21\u64EC\u6025\u6551\uFF08\u865B\u69CB\uFF09\uFF1AC\u5EA7\u8D70\u5ECA\u6709\u4EBA\u547C\u53EB\u3002\u8F03\u9069\u5207\u7684\u505A\u6CD5\u662F\uFF1F",
-        options: [
-          "\u81EA\u5DF1\u4E00\u500B\u505A\u5B8C\u5148\u518D\u53EB\u4EBA",
-          "\u547C\u53EB\u652F\u63F4\uFF0C\u53BB\u6CBB\u7642\u5BA4\u63A8\u6025\u6551\u8ECA\u8FD4\u4E8B\u767C\u4F4D\u7F6E\uFF0C\u671F\u9593\u5514\u597D\u7559\u75C5\u4EBA\u7121\u4EBA\u770B\u7BA1",
-          "\u5148\u53BB\u8B77\u58EB\u7AD9\u5F71\u5370\u85E5\u7D19",
-          "\u53EB\u75C5\u4EBA\u81EA\u5DF1\u884C\u53BB\u5347\u964D\u6A5F"
-        ],
-        answer: 1,
-        explain: "\u6025\u6551\u5148\u547C\u53EB\u652F\u63F4\uFF0C\u5E36 E-trolley \u8FD4\u4E8B\u767C\u9EDE\u3002\u5514\u597D\u7559\u4F4E\u5371\u6025\u75C5\u4EBA\u4E00\u500B\u4EBA\u3002\u5F71\u5370\u85E5\u7D19\u4FC2\u60C5\u6CC1\u7A69\u5B9A\u4E4B\u5F8C\u5148\u505A\u3002",
-        points: ["\u5148\u547C\u53EB\u652F\u63F4\u3002", "\u6CBB\u7642\u5BA4\u651E\u6025\u6551\u8ECA\u63A8\u8FD4\u4E8B\u767C\u4F4D\u7F6E\u3002", "\u5514\u597D\u7559\u75C5\u4EBA\u7121\u4EBA\u770B\u7BA1\u3002"]
+    var ruleSources = {
+      admission: { file: "m10-current-rules.md", section: "1. \u6536\u75C7\uFF0F\u5165\u9662\u7DE8\u914D", scope: "shared" },
+      safety: { file: "m10-practical-checklist.md", section: "\u75C5\u4EBA\u5B89\u5168\uFF0F\u5B89\u6AA2", scope: "shared" },
+      medication: { file: "m10-practical-checklist.md", section: "\u7528\u85E5\uFF0Fe-Vital", scope: "shared" },
+      infection: { file: "m10-current-rules.md", section: "4. \u611F\u67D3\u63A7\u5236\uFF0F\u7BE9\u67E5", scope: "shared" },
+      emergency: { file: "m10-current-rules.md", section: "5. \u4E8B\u6545\u901A\u5831\uFF0F\u7DCA\u6025", scope: "shared" },
+      transfer: { file: "m10-practical-checklist.md", section: "\u6587\u4EF6\uFF0F\u6CD5\u5F8B\uFF0F\u51FA\u9662\uFF0F\u904B\u9001", scope: "shared" },
+      logistics: { file: "m10-practical-checklist.md", section: "\u9396\u5319\uFF0F\u65E5\u5E38\uFF0F\u4EBA\u529B", scope: "shared" },
+      c7admit: { file: "m10-c7-checklist.md", section: "\u6536\u75C7\uFF0FRota", scope: "C7" },
+      c7visit: { file: "m10-c7-checklist.md", section: "\u63A2\u75C5\u9810\u7D04", scope: "C7" },
+      c7care: { file: "m10-c7-checklist.md", section: "C7 \u672C\u4F4D\u904B\u4F5C\u901F\u8A18", scope: "C7" },
+      c9visit: { file: "m10-practical-checklist.md", section: "\u63A2\u8A2A\uFF0F\u79C1\u96B1", scope: "C9" },
+      c9emergency: { file: "m10-current-rules.md", section: "6. \u75C5\u4EBA\u5B89\u5168\uFF0F\u5B89\u6AA2\uFF1AA34", scope: "C9" },
+      diet: { file: "m10-current-rules.md", section: "6. \u75C5\u4EBA\u5B89\u5168\uFF0F\u5B89\u6AA2", scope: "shared", override: "2026-10-29\uFF1A\u6240\u6709\u6536\u75C7 \u226560\uFF1B\u4FDD\u7559 MD \u689D\u4EF6\u3002UE\uFF1D\u5165\u9662\u7121\u5E36 HKID\uFF0C\u4E0D\u9650 UE\u3002" },
+      timing: { file: "m10-practical-checklist.md", section: "\u7528\u85E5\uFF0Fe-Vital", scope: "shared", override: "2026-10-29\uFF1A\u665A\u9593 BP \u53EF\u7531 18:00 \u958B\u59CB\uFF0C\u9910\u2192BP\u2192\u85E5\uFF1B\u4ECD\u4F9D\u8655\u65B9\u3002" },
+      collection: { file: "m10-current-rules.md", section: "2. \u8F49\u9662\uFF0F\u51FA\u9662\uFF0F\u6CD5\u5F8B\u8868\u683C", scope: "shared", override: "2026-10-29\uFF1AOPA \u53EA\u9650\u7DCA\u6025\u53D6\u85E5\uFF0C\u5148\u96FB\u8A71\u85E5\u623F\u3002" },
+      ipmoe: { file: "m10-current-rules.md", section: "2. \u8F49\u9662\uFF0F\u51FA\u9662\uFF0F\u6CD5\u5F8B\u8868\u683C", scope: "shared", override: "2026-10-29\uFF1A\u73FE\u7528 IPMOE\uFF1B\u6025\u6551\u6BCB\u9808\u5F71\u5370 MAR\uFF0CL1 \u8FD4\u56DE\u4EA6\u4E0D\u7528\u91CD\u958B\u7D19\u672C MAR\u3002" }
+    };
+    var policies = {
+      dietRequired: function(age, md) {
+        return age >= 60 || !!md;
       },
-      {
-        q: "\u6A21\u64EC\u6025\u6551\uFF08\u865B\u69CB\uFF09\uFF1A\u8981\u7528\u908A\u5957\u8A2D\u5099\uFF1F\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u908A\u5F35\u5E8A\u8FD1\u5C31\u7528\u908A\u5F35\uFF0C\u5514\u4F7F\u6307\u5B9A\u8ECA",
-          "\u7528\u6CBB\u7642\u5BA4\u6025\u6551\u8ECA\uFF08E-trolley\uFF09\uFF0C\u6C27\u6C23\u540C\u5438\u5F15\u8DDF\u90E8\u9580\u73FE\u5834\u6307\u5F15",
-          "\u53EA\u7528\u5927\u5EF3\u68B3\u5316",
-          "\u4E00\u5B9A\u8981\u5148\u63A8\u53BB\u53E6\u4E00\u5EA7\u75C5\u623F\u5148\u53EF\u4EE5\u505A"
-        ],
-        answer: 1,
-        explain: "\u8A13\u7DF4\u60C5\u5883\u7528\u6CBB\u7642\u5BA4\u5605\u6025\u6551\u8ECA\u3002\u6C27\u6C23\u3001\u5438\u5F15\u540C\u6307\u5B9A\u6025\u6551\u4F4D\u4EE5\u90E8\u9580\u73FE\u5834\u70BA\u6E96\uFF0C\u5514\u597D\u96A8\u4FBF\u7528\u68B3\u5316\u4EE3\u66FF\u3002",
-        points: ["\u7528 E-trolley\u3002", "\u6C27\u6C23\uFF0F\u5438\u5F15\u8DDF\u73FE\u5834\u6307\u5F15\u3002", "\u5BE6\u969B\u4F4D\u7F6E\u4EE5\u90E8\u9580\u70BA\u6E96\u3002"]
+      eveningBPAllowed: function(hour, minute) {
+        return hour * 60 + minute >= 1080;
       },
-      {
-        q: "\u6A21\u64EC\u6025\u6551\uFF08\u865B\u69CB\uFF09\uFF1A\u60C5\u6CC1\u66AB\u6642\u7A69\u5B9A\u4E4B\u5F8C\u3002\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u5514\u4F7F\u5BEB\uFF0C\u8A18\u5F97\u5C31\u5F97",
-          "\u8FD4\u8B77\u58EB\u7AD9\u7528\u50B3\u771F\u6A5F\u5F71\u5370\u85E5\u7D19\uFF0C\u4E26\u5BEB\u4F4E\u6642\u9593\u3001\u505A\u904E\u5605\u4E8B\u540C\u5728\u5834\u8077\u54E1",
-          "\u53EA\u540C\u670B\u53CB\u8B1B",
-          "\u7B49\u4E00\u500B\u661F\u671F\u518D\u88DC"
-        ],
+      collection: function(urgent) {
+        return urgent ? "\u5148\u96FB\u8A71\u85E5\u623F\uFF0C\u518D\u5B89\u6392 OPA" : "ADS\uFF0F\u7372\u6388\u6B0A\u8077\u54E1\u6216\u75C5\u4EBA\u5B89\u6392\uFF1B\u4E0D\u7528 OPA";
+      },
+      chart: "IPMOE",
+      ue: "\u5165\u9662\u7121\u5E36 HKID",
+      precedence: "\u660E\u78BA\u5168\u9662\u5171\u7528\u9805\u6709\u885D\u7A81\u7528 C7\uFF1B\u672C\u4F4D\u898F\u5247\u4E0D\u8DE8\u75C5\u623F\u5957\u7528"
+    };
+    function stage(target, rule, prompt, correct, wrong, detail, action) {
+      return {
+        target,
+        source: ruleSources[rule],
+        action: action || "choice",
+        q: prompt,
+        options: [wrong, correct],
         answer: 1,
-        explain: "\u7A69\u5B9A\u4E4B\u5F8C\u8FD4\u8B77\u58EB\u7AD9\u5F71\u5370\u85E5\u7D19\uFF0C\u4E26\u6E96\u5099\u7D00\u9304\u3002\u5206\u6578\u53EA\u4FC2\u5B78\u7FD2\u56DE\u994B\uFF0C\u5514\u4FC2\u8A55\u6838\u3002\u5BE6\u969B\u5DE5\u4F5C\u8DDF\u90E8\u9580\u6307\u5F15\u3002",
-        points: ["\u8B77\u58EB\u7AD9\u50B3\u771F\u6A5F\u5F71\u5370\u85E5\u7D19\u3002", "\u5BEB\u6642\u9593\u3001\u505A\u6CD5\u3001\u5728\u5834\u4EBA\u3002", "\u8DDF\u90E8\u9580\u6307\u5F15\u4EA4\u6587\u4EF6\u3002"]
-      }
+        explain: detail || correct,
+        points: [correct],
+        recovery: "\u91CD\u65B0\u9078\u64C7\u5B89\u5168\u505A\u6CD5\uFF0C\u518D\u5B8C\u6210\u5462\u4E00\u6B65\u3002"
+      };
+    }
+    function variant(id, title, stages) {
+      return { id, title, stages };
+    }
+    function family(id, title, variants, wards) {
+      return { id, title, wards: wards || ["C9", "C7"], variants };
+    }
+    var catalog = [
+      family("admit", "\u6536\u75C7\u898F\u5283", [
+        variant("booking", "AED \u50AC\u8ECA\uFF1BCMO \u672A\u5B8C\u6210", [
+          stage("computer", "admission", "\u672A confirm \u672C team 1:1\uFF0CAED \u50AC book \u8ECA\u3002", "\u5148\u78BA\u8A8D 1:1\uFF0C\u586B\u7576\u671F rota \u5F8C reload \u78BA\u8A8D\u5DF2 save\uFF0C\u624D\u901A\u77E5 book \u8ECA", "\u5148\u53EB\u8ECA\uFF0C\u4E4B\u5F8C\u88DC rota"),
+          stage("lift", "admission", "\u865B\u69CB\u75C5\u4EBA\u53CA escort \u5230\u9054\u3002", "\u6838\u5C0D\u8EAB\u4EFD\u53CA\u6587\u4EF6\uFF0C\u8DDF\u7576\u66F4\u6536\u75C7\u5B89\u6392", "\u8ACB\u75C5\u4EBA\u81EA\u5DF1\u6435\u5E8A"),
+          stage("intake", "admission", "DMO \u7747\u5B8C\uFF0C\u4F46 CMO \u672A\u5B8C\u6210 admission\u3002", "\u4FDD\u7559 cover sheet\uFF0C\u7B49 CMO \u5B8C\u6210\u624D\u62BD\u8D77", "DMO \u7747\u904E\u5373\u53EF\u62BD\u8D77")
+        ]),
+        variant("rota", "\u5206\u9801\u53CA\u8986\u6838", [
+          stage("computer", "admission", "\u7576\u671F\u865B\u69CB rota \u6307\u5B9A LD\uFF0FPULD \u5206\u9801\u3002", "\u7528\u6307\u5B9A\u5206\u9801\u4E26 reload \u78BA\u8A8D\uFF1B\u4E00\u661F\u671F AL \u540C\u4E8B\u4E0D\u7DE8\u65B0 primary case", "\u5168\u90E8\u653E general\uFF0C\u4EA6\u6D3E\u7540\u653E AL \u540C\u4E8B"),
+          stage("intake", "admission", "TTO \u6587\u4EF6\u5230\uFF0CCMO \u5DF2\u5B8C\u6210 admission procedure\u3002", "\u6838\u5BE6 CMO \u5DF2\u5B8C\u6210\u5F8C\u624D\u62BD\u8D77 cover sheet", "\u53EA\u7747 DMO \u7C3D\u540D\u5C31\u7576\u5B8C\u6210")
+        ]),
+        variant("c7rota", "C7\uFF1ALD\uFF0Fdual \u5206\u75C7", [
+          stage("computer", "c7admit", "\u865B\u69CB\u7576\u671F\u8868\uFF1ACSD Diagnosis\uFF1DLD\uFF1B\u53E6\u4E00\u5B97 LD+SA dual\u3002", "LD \u8DDF C7 \u6D41\u7A0B\uFF1Bdual \u4F9D\u7576\u671F\u8868\u8F49 B7 \u7B49\uFF0C\u52FF\u4E00\u5F8B\u7576 LD \u6536", "\u898B\u5230 LD \u5B57\u773C\u5168\u90E8\u6536 C7"),
+          stage("intake", "c7admit", "C7 \u6574\u7406\u6536\u75C7 rota \u540C file\u3002", "\u5927 rota \u6D3E\u91AB\u751F\u3001move-in rota \u6D3E\u75C5\u623F\uFF1BLD \u6A59\uFF0F\u5176\u4ED6\u767D\uFF0FAC \u7DA0\uFF1B\u77ED AL \u4FDD\u7559 SKIP", "\u5169\u5957 rota \u5408\u4E00\uFF1B\u77ED AL \u76F4\u63A5\u8DF3\u904E SKIP")
+        ])
+      ]),
+      family("arrival", "\u5230\u9662\u5B89\u6AA2\u53CA\u8CA1\u7269", [
+        variant("ue60", "60 \u6B72 UE\uFF0C\u7121\u79C1\u4EBA\u7269\u54C1", [
+          stage("lift", "diet", "\u865B\u69CB 60 \u6B72 UE \u5165\u9662\uFF1BUE \u662F\u751A\u9EBC\uFF1F", "UE\uFF1D\u5165\u9662\u7121\u5E36 HKID\uFF1B\u226560 \u4ECD\u9700\u6838\u788E\u9910\uFF0C\u5514\u4FC2\u53EA\u9650 UE", "UE \u4EE3\u8868\u53EF\u7565\u904E\u8EAB\u4EFD\u53CA\u98F2\u98DF\u6838\u5C0D"),
+          stage("intake", "safety", "\u6536\u75C7\u91D1\u5C6C\u63A2\u6E2C\u53CA\u7121\u7269\u54C1\u8A18\u9304\u3002", "\u5C4F\u98A8\u3001\u89E3\u91CB\u3001\u96D9\u4EBA\u898B\u8B49\uFF1B\u6709\u7121\u7269\u54C1\u5747\u8B77\u58EB\u53CA\u75C5\u4EBA\u7C3D\u540D", "\u4E00\u4EBA\u516C\u958B\u63A2\u6E2C\uFF1B\u7121\u7269\u54C1\u5C31\u4E0D\u7528\u7C3D"),
+          stage("bedside", "diet", "60 \u6B72\u75C5\u4EBA\u8981\u6C42\u6B63\u9910\u3002", "\u6309 \u226560 \u898F\u5247\u6838\u6700\u4F4E\u788E\u9910\uFF1B\u5805\u6301\u6B63\u9910\u8F49\u4ECB\u8A00\u8A9E\u6CBB\u7642\u4E26\u6838\u8655\u65B9", "\u53EA\u6709 \u226565 \u624D\u9700\u8981\u6838\u788E\u9910")
+        ]),
+        variant("property59", "59 \u6B72\u3001\u7121 MD\uFF0C\u6709\u5371\u96AA\u54C1", [
+          stage("intake", "safety", "\u865B\u69CB 59 \u6B72\u7121 MD \u75C5\u4EBA\u5E36\u5371\u96AA\u54C1\u3002", "\u79C1\u96B1\u4E0B\u89E3\u91CB\u53CA\u96D9\u4EBA\u63A2\u6E2C\uFF0C\u5371\u96AA\u54C1\u4EA4\u5BB6\u4EBA\u4E26\u5BEB nursing note", "\u66AB\u653E\u5E8A\u982D\u6AC3\u4E0D\u4F5C\u8A18\u9304"),
+          stage("bedside", "diet", "59 \u6B72\u7121 MD\uFF0C\u5DF2\u63D0\u4F9B\u865B\u69CB\u9910\u55AE\u8655\u65B9\u3002", "\u6838\u5C0D\u8655\u65B9\uFF1B\u4E0D\u56E0\u5E74\u9F61\u672A\u6EFF 60 \u81EA\u884C\u6539\u9910\uFF0CMD \u4ECD\u53E6\u6709\u788E\u9910\u689D\u4EF6", "\u628A \u226560 \u898F\u5247\u932F\u5957\u6240\u6709 59 \u6B72\u75C5\u4EBA"),
+          stage("intake", "safety", "\u79C1\u5BB6\u886B\u53CA\u500B\u4EBA\u7269\u54C1\u9700\u8981\u5C01\u5B58\u3002", "\u7279\u539A\u900F\u660E\u888B\u5C01\u79C1\u5BB6\u886B\uFF0C\u8B77\u58EB\u53CA\u75C5\u4EBA\u7C3D\u8A18\u9304\uFF0C\u5C01\u5B58\u81F3\u51FA\u9662\uFF0C\u8F49\u623F\u7C3D\u6536", "\u4E0D\u7528\u7C3D\u540D\uFF0C\u888B\u53EF\u96A8\u4FBF\u53D6\u51FA")
+        ])
+      ]),
+      family("medication", "\u6D3E\u85E5\u53CA e-Vital", [
+        variant("evening", "\u665A\u9910\u53CA BP", [
+          stage("dining", "timing", "\u865B\u69CB\u91AB\u56D1\u665A\u9910\u5F8C\u91CF BP \u518D\u6D3E\u85E5\uFF1B\u73FE\u70BA 17:59\u3002", "\u5148\u7B49\u81F3 18:00 \u958B\u9910\u5F8C\u6309\u8655\u65B9\u91CF BP\uFF1B\u4E0D\u63D0\u65E9\u6D3E\u85E5", "17:59 \u5148\u91CF\u7576\u4F5C\u665A\u9593 BP"),
+          stage("medication", "timing", "\u865B\u69CB\u6642\u9593\u5DF2\u5230 18:00\uFF0C\u9910\u5DF2\u958B\u3002", "\u6309\u8655\u65B9 BP \u5F8C\u624D\u6D3E\u85E5\uFF0C\u4E0D\u7528\u786C\u7B49 19:00", "\u4E00\u5B9A\u7B49\u5230 19:00\uFF0C\u5FFD\u7565\u8655\u65B9"),
+          stage("bedside", "medication", "\u5927\u5EF3\u53CA\u623F\u5167\u90FD\u6709\u75C5\u4EBA\u7B49\u85E5\u3002", "\u5148\u5927\u5EF3\u518D\u63A8\u85E5\u8ECA\u5165\u623F\uFF1B\u540C\u4E00\u4EBA\u57F7\u6D3E\u7C3D\uFF0CDDA\uFF0F\u6307\u5B9A\u91DD\u5291\u96D9\u6838\u96D9\u7C3D", "\u53EB PCA \u9001\u85E5\uFF0C\u53E6\u4E00\u4EBA\u4EE3\u7C3D")
+        ]),
+        variant("downtime", "\u7570\u5E38\u503C\u53CA downtime", [
+          stage("medication", "medication", "e-Vital \u6709\u91D1\u8272\u672A\u91CF\u53CA\u7570\u5E38\u8B80\u6578\u3002", "\u8DDF\u9032\u672A\u91CF\uFF0C\u5148\u6838\u7570\u5E38\uFF0C\u52FF\u4E82\u78BA\u8A8D upload\uFF1BH'stix \u9078 A", "\u5148\u5168\u90E8\u78BA\u8A8D upload \u518D\u7B97"),
+          stage("computer", "medication", "\u7CFB\u7D71 downtime\uFF1B\u865B\u69CB Inderal order \u8981\u6838 HR\uFF0C\u73FE HR 58\u3002", "\u7528\u6307\u5B9A downtime \u4FE1\u5C01\u6D41\u7A0B\u53CA retrospective\uFF1BHR \u672A\u9054 \uFF1E60\uFF0C\u5148\u8A55\u4F30\u4F9D\u91AB\u56D1\u8655\u7406", "downtime \u4E0D\u8A18\u9304\uFF0CHR 58 \u4ECD\u7167\u6D3E"),
+          stage("medication", "medication", "\u75C5\u4EBA\u8CEA\u7591\u85E5\u888B\u8207 Omnicell \u986F\u793A\u4E0D\u540C\u3002", "\u4EE5\u85E5\u888B\u6838\u5C0D\u518D double check\uFF1BHigh Alert independent checking", "\u4EE5\u87A2\u5E55\u70BA\u6E96\u5FFD\u7565\u75C5\u4EBA")
+        ])
+      ]),
+      family("infection", "\u9694\u96E2\u53CA\u6A23\u672C", [
+        variant("screen", "\u7BE9\u67E5\u540D\u55AE\u53CA CPE", [
+          stage("computer", "infection", "\u865B\u69CB ICN \u6700\u65B0\u6307\u793A\uFF1A\u6B64\u9662\u820D\u7206\u767C\u9808 C. auris PCR\u3002", "\u6838\u6700\u65B0 ICN \u6307\u793A\u5B89\u6392 PCR\uFF0C\u4E0D\u6191\u820A\u540D\u55AE", "\u6191\u8A18\u61B6\u4E5D\u897F\u5168\u90E8\u8C41\u514D"),
+          stage("isolation", "infection", "\u865B\u69CB\u75C5\u4EBA CPE\uFF0C\u5DF2\u63D0\u4F9B\u9694\u96E2\u6307\u793A\u3002", "side\uFF0Fsingle \u914D contact precaution\uFF0C\u6307\u5B9A\u8A2D\u5099\u53CA\u624B\u885B\u751F", "\u5B89\u6392\u5927\u623F\u5171\u7528\u8A2D\u5099")
+        ]),
+        variant("sample", "\u53D6\u6A23\u672C\u53CA\u7591 TB", [
+          stage("isolation", "infection", "\u865B\u69CB\u65B0\u75C7\u7591 TB\uFF1B\u5DF2\u63D0\u4F9B\u7576\u671F ICN \u6307\u793A\u3002", "\u55AE\u4EBA\u623F\u53CA N95\uFF0C\u8DDF\u7576\u671F\u9694\u96E2\u6307\u793A", "\u53EA\u6234\u666E\u901A\u53E3\u7F69\u7559\u5927\u623F"),
+          stage("handover", "infection", "\u5230\u78A7\u7464\u6536\u6A23\u672C\uFF0C\u624B\u4E0A\u7121\u81A0\u7BB1\u3002", "\u5148\u53D6\u81A0\u7BB1\uFF1B\u7121\u81A0\u7BB1\u4E0D\u6536\u6A23\u672C", "\u7528\u886B\u888B\u5E36\u8FD4\u75C5\u623F"),
+          stage("computer", "infection", "\u75C5\u4EBA\u767C\u71D2\uFF0C\u9700\u8981\u901A\u5831\u3002", "\u4F9D\u96FB\u5B50\u8868\u6D41\u7A0B email ICN\uFF0C\u6E05\u6F54\uFF0F\u6D88\u6BD2\u53D6\u6A23\u5668\u76BF", "\u53EA\u53E3\u982D\u8B1B\uFF0C\u5514\u4F7F\u901A\u5831")
+        ])
+      ]),
+      family("visit", "\u63A2\u8A2A\u53CA\u79C1\u96B1", [
+        variant("c9food", "C9\uFF1A\u5BB6\u5C6C\u5E36\u98DF\u7269", [
+          stage("visitor", "c9visit", "C9 \u7576\u66F4 IC \u78BA\u8A8D 6 \u6AAF\uFF0B1 buffer\u3002", "\u4F9D IC \u78BA\u8A8D\u540D\u984D\u9810\u7D04\uFF0C\u5BB6\u5C6C\u9762\u524D\u6AA2\u67E5\u98DF\u7269\uFF0C\u6838\u54FD\u585E\u98A8\u96AA", "\u7167\u6284 C7 \u6642\u6BB5\u4E26\u7121\u9650\u52A0\u6AAF"),
+          stage("intake", "safety", "\u63A2\u75C5\u5F8C\u75C5\u4EBA\u6E96\u5099\u56DE\u623F\u3002", "\u56DE\u623F\u524D\u79C1\u96B1\u4E0B\u89E3\u91CB\u53CA\u96D9\u4EBA\u91D1\u5C6C\u63A2\u6E2C", "\u6BCF\u65E5\u5DF2\u505A\u904E\uFF0C\u6240\u4EE5\u4E0D\u7528\u518D\u6AA2")
+        ]),
+        variant("c9privacy", "C9\uFF1A\u62CD\u651D\u53CA\u500B\u6848\u7981\u63A2", [
+          stage("visitor", "c9visit", "\u6709\u4EBA\u62CD\u651D\uFF0C\u53E6\u6709\u500B\u6848 CMO \u7981\u63A2\u6307\u793A\u3002", "\u5236\u6B62\u64C5\u81EA\u62CD\u651D\uFF1B\u500B\u6848\u9650\u5236\u6309 CMO order\uFF0C\u52FF\u7576\u5168 ward SOP", "\u53EF\u81EA\u62CD\u4E0A\u50B3\uFF0C\u500B\u6848\u7981\u63A2\u5957\u7528\u5168 ward"),
+          stage("computer", "c9visit", "\u4F86\u96FB\u8005\u67E5\u75C5\u4EBA\u8CC7\u6599\u4E26\u60F3\u7D04\u898B\u91AB\u751F\u3002", "\u4FDD\u969C\u79C1\u96B1\uFF0C\u4E0D\u6D29\u8CC7\u6599\uFF1B\u7D04\u898B\u7528 N96", "\u516C\u958B\u4EA4\u4EE3\u75C5\u4EBA\u53CA VIP \u7D30\u7BC0")
+        ]),
+        variant("c7booking", "C7\uFF1A\u540C Party \u9023\u7E8C\u9810\u7D04", [
+          stage("computer", "c7visit", "C7 \u5BB6\u5C6C\u60F3\u9023\u7D04\u4E0B\u9031\u5169\u7BC0\u3002", "\u53EA\u7D04\u4E0B\u9031\u4E00\u7BC0\uFF1B\u540C Party \u4E0D\u9023\u7E8C\u5169\u7BC0\uFF0C\u8A72\u7BC0\u958B\u59CB\u5F8C\u624D\u53EF\u518D\u7D04", "\u7167\u7528 C9 6\uFF0B1 \u6AAF\u898F\u5247\u6279\u51C6\u9023\u7E8C\u5169\u7BC0"),
+          stage("visitor", "c7visit", "\u865B\u69CB\u63A2\u75C5\u9810\u7D04\u9072\u5230 10 \u5206\u9418\u3002", "15:30\u201316:30\uFF0F16:30\u201317:30\uFF1B\u4FDD\u7559 15 \u5206\u9418\u624D\u91CB\u653E walk-in\uFF0C\u5099\u9910\u7D19 master list", "10 \u5206\u9418\u5373\u653E\u4F4D\uFF0C\u4E0D\u7528\u9910\u7D19")
+        ]),
+        variant("c7walkin", "C7\uFF1Awalk-in \u53CA\u5BB6\u5C6C\u9935\u98DF", [
+          stage("visitor", "c7visit", "C7 \u9810\u7D04\u5DF2\u9072\u5230 16 \u5206\u9418\u3002", "\u5DF2\u904E 15 \u5206\u9418\u624D\u4F9D\u5B89\u6392\u91CB\u653E walk-in\uFF1B\u5169\u7BC0\u4E2D\u9593\u6E05\u6F54", "\u6C38\u9060\u7559\u4F4D\u6216\u9023\u7E8C\u5169\u7BC0\u5168\u7D66\u540C Party"),
+          stage("dining", "safety", "\u5BB6\u5C6C\u60F3\u7528\u672A\u6838\u9910\u55AE\u98DF\u7269\u9935\u75C5\u4EBA\u3002", "\u5148\u6838\u9910\u7D19\u53CA\u54FD\u585E\u98A8\u96AA\uFF0C\u9762\u524D\u6AA2\u67E5\u98DF\u7269\uFF0C\u62D2\u7D55\u4E0D\u7576\u7269\u54C1", "\u5BB6\u5C6C\u81EA\u884C\u6C7A\u5B9A\uFF0C\u4E0D\u7528\u6AA2\u67E5")
+        ])
+      ]),
+      family("code", "\u7DCA\u6025\u652F\u63F4", [
+        variant("code000", "\u771F\u6B63 000", [
+          stage("incident", "emergency", "\u8D70\u5ECA\u865B\u69CB\u75C5\u4EBA\u7121\u53CD\u61C9\uFF1B\u540C\u4E8B\u7559\u5728\u65C1\u908A\u3002", "\u5148 3999 \u8B1B\u660E 000\uFF0F\u7DCA\u6025\uFF0F\u6551\u547D\uFF0C\u771F\u6B63 000 \u76F4\u63A5 Ambulance control", "\u5148\u53BB\u5F71\u5370 MAR\uFF0C\u4E4B\u5F8C\u624D\u53EB\u652F\u63F4"),
+          stage("trolley", "emergency", "\u540C\u4E8B\u7E7C\u7E8C\u7559\u5B88\u75C5\u4EBA\uFF0C\u4F60\u8CA0\u8CAC\u8A2D\u5099\u3002", "\u53D6 E-trolley \u63A8\u8FD4\u4E8B\u767C\u4F4D\u7F6E\uFF0C\u75C5\u4EBA\u4E0D\u53EF\u7121\u4EBA\u770B\u7BA1", "\u53EB\u540C\u4E8B\u540C\u53BB\u53D6\u8ECA\uFF0C\u75C5\u4EBA\u7368\u7559", null, "collect"),
+          stage("incident", "emergency", "\u6025\u6551\u8ECA\u5230\u5834\uFF1B\u60C5\u6CC1\u66AB\u6642\u7A69\u5B9A\u3002", "\u914D\u5408\u73FE\u5834\u652F\u63F4\u53CA\u8A2D\u5099\uFF0C\u4E0D\u7B49\u6587\u66F8\u624D\u63F4\u52A9", "\u5148\u505A\u5B8C\u6240\u6709\u6587\u4EF6\u624D\u8655\u7406\u75C5\u4EBA", null, "deliver"),
+          stage("computer", "ipmoe", "\u7A69\u5B9A\u5F8C\u8655\u7406\u85E5\u55AE\u53CA\u4E8B\u4EF6\u8A18\u9304\u3002", "\u7528 IPMOE \u96FB\u5B50\u85E5\u55AE\uFF1B\u8A18\u9304\u53CA\u4F9D AIRS\uFF0FRisk Alert \u6D41\u7A0B\uFF0C\u4E0D\u8981\u6C42\u5F71\u5370 MAR", "\u5F37\u5236\u53BB\u50B3\u771F\u6A5F\u5F71\u5370\u7D19\u672C MAR")
+        ]),
+        variant("p1delay", "CMS P1 \u7B49\u5019\u8D85\u6642", [
+          stage("computer", "emergency", "\u865B\u69CB CMS book P1 \u5DF2\u904E 5 \u5206\u9418\u7121\u56DE\u8986\u3002", "\u806F\u7D61 Ambulance control\uFF0C\u6838 location\u3001\u75C5\u623F\u96FB\u8A71\u53CA psychiatric patient", "\u7E7C\u7E8C\u7B49\uFF0C\u7121\u6642\u9593\u9650\u5236"),
+          stage("handover", "emergency", "\u6E96\u5099\u652F\u63F4\u53CA\u4EA4\u66F4\uFF1B\u4E0D\u662F\u5DF2\u78BA\u8A8D 000\u3002", "\u6E05\u695A\u4EA4\u4EE3\u60C5\u6CC1\uFF0C\u771F\u6B63\u6551\u547D\u7528 3999\uFF0F000\uFF0C\u52FF\u53EA\u4F9D\u8CF4\u672A\u56DE\u8986 booking", "\u6240\u6709 booking \u90FD\u7576\u5B8C\u6210\uFF0C\u4E0D\u7528\u4EA4\u66F4"),
+          stage("computer", "ipmoe", "\u8655\u7406\u7DCA\u6025\u8F49\u9001\u85E5\u7269\u8A18\u9304\u3002", "\u4F7F\u7528 IPMOE \u6838\u5C0D\uFF0C\u5B8C\u6210\u4E8B\u4EF6\u53CA\u4EA4\u63A5\u7D00\u9304", "\u5148\u5370\u7D19\u672C MAR \u624D\u51C6\u6C42\u63F4")
+        ])
+      ]),
+      family("rest", "\u8E81\u52D5\u53CA\u7D04\u675F\u7167\u9867", [
+        variant("deescalation", "\u5148\u8A55\u4F30\uFF0C\u975E\u61F2\u7F70", [
+          stage("secl", "safety", "\u865B\u69CB\u75C5\u4EBA\u7DCA\u5F35\uFF1B\u540C\u4E8B\u60F3\u7528\u7D04\u675F\u61F2\u7F70\u3002", "\u5148\u78BA\u4FDD\u5B89\u5168\u3001\u8A55\u4F30\u53CA\u89E3\u91CB\uFF0C\u4F9D\u6307\u5F15\u5617\u8A66 de-escalation\uFF0C\u7D04\u675F\u4E0D\u662F\u61F2\u7F70", "\u7ACB\u5373\u7D04\u675F\u7576\u61F2\u7F70"),
+          stage("computer", "safety", "CO for unpredictable behaviour \u5DF2\u6709\u500B\u6848\u6307\u793A\u3002", "Nurse notes \u9802\u90E8 remark\uFF0C\u8A18\u9304\u8A55\u4F30\u53CA\u7167\u9867\uFF1B\u4F9D\u8655\u65B9\u89C0\u5BDF", "\u53EA tick\uFF0C\u6BCB\u9808\u6587\u5B57\u7D00\u9304")
+        ]),
+        variant("feeding", "\u5DF2\u6309\u91AB\u56D1\u7D04\u675F\uFF0C\u5BB6\u5C6C\u9935\u98DF", [
+          stage("secl", "safety", "\u865B\u69CB\u500B\u6848\u5DF2\u6309\u91AB\u56D1\u7D04\u675F\uFF0C\u5BB6\u5C6C\u60F3\u7793\u9935\u3002", "\u5148\u81E8\u5E8A\u8A55\u4F30\uFF0C\u5FC5\u9808\u5750\u8D77\u9935\uFF1B\u4E0D\u51C6\u7793\u9935\uFF0C\u662F\u5426\u9935\u98DF\u7531\u8B77\u58EB\u6C7A\u5B9A", "\u8EBA\u7740\u9935\u5FEB\u5572\uFF0C\u53EF\u4EA4\u5BB6\u5C6C\u6C7A\u5B9A"),
+          stage("bedside", "safety", "\u6E96\u5099\u4F9D\u73FE\u884C\u6307\u793A\u89E3\u9664\u7D04\u675F\u3002", "\u4F9D\u6307\u5F15\u8A55\u4F30\u53CA\u89C0\u5BDF\uFF0C\u6536\u56DE\u7D81\u5E36\u53CA\u7D05\u5E36\uFF0C\u8A18\u9304\u7167\u9867", "\u628A\u7D81\u5E36\u7559\u5E8A\u908A\uFF0C\u4E0D\u4F5C\u8A18\u9304"),
+          stage("computer", "safety", "\u8A18\u9304\u7D04\u675F\u671F\u9593\u7167\u9867\u3002", "\u8A18\u9304\u539F\u56E0\u3001\u6642\u9593\u53CA\u4F9D\u91AB\u56D1\u7684\u5FAA\u74B0\uFF0F\u76AE\u819A\u89C0\u5BDF\uFF0C\u4E0D\u81EA\u884C\u767C\u660E\u983B\u7387", "\u6240\u6709\u75C5\u4EBA\u7D71\u4E00\u81EA\u884C\u5B9A\u6642\u9650")
+        ])
+      ]),
+      family("incidentReport", "\u4E8B\u6545\u901A\u5831", [
+        variant("uncertain", "\u672A\u78BA\u5B9A AIRS", [
+          stage("handover", "emergency", "\u865B\u69CB near miss\uFF1B\u672A\u5B9A\u662F\u5426 AIRS\u3002", "\u5148\u901A\u77E5\u7D93\u7406\uFF0C\u6309 KCH Risk Alert \u6D41\u7A0B", "\u5514\u80AF\u5B9A\u5C31\u5514\u5831"),
+          stage("computer", "emergency", "\u4ECA\u6B21\u5165\u9662\u66FE\u6709 Risk Alert\uFF0C\u6E96\u5099\u4EA4\u51FA\u9662\u6458\u8981\u3002", "Discharge Summary remarks \u53CA ePAF affirmative history \u90FD\u4EA4\u4EE3", "\u53EA\u5728\u81EA\u5DF1\u7B46\u8A18\u5BEB")
+        ]),
+        variant("submitted", "\u5DF2 submit AIRS", [
+          stage("computer", "emergency", "\u865B\u69CB AIRS \u5DF2 submit\u3002", "FU email \u4E26 cc KCH Risk Alert\uFF0Cbrief history\uFF0FDASA score \u5BEB\u6E05", "Submit \u5F8C\u4E0D\u7528\u518D\u8DDF\u9032"),
+          stage("handover", "emergency", "\u56B4\u91CD\u4E8B\u4EF6\u9700\u8981 handover\u3002", "Immediate management \u540C\u6B65 Brief description\uFF0C\u51FA\u9662 summary \u53CA ePAF \u5E36\u9F4A\u98A8\u96AA", "\u53EA\u586B\u5206\u6578\uFF0C\u4E0D\u4EA4\u4EE3\u8655\u7406")
+        ])
+      ]),
+      family("discharge", "\u8F49\u9662\u53CA\u51FA\u9662", [
+        variant("planned", "\u8A08\u5283\u51FA\u9662\uFF0C\u975E\u7DCA\u6025\u53D6\u85E5", [
+          stage("computer", "transfer", "\u865B\u69CB\u8A08\u5283\u51FA\u9662\uFF0CCPS referral \u5C1A\u672A\u505A\u3002", "\u5B89\u6392\u6700\u5C11 3 \u500B\u5DE5\u4F5C\u5929 referral\uFF1B\u6838\u966A\u540C\u8005\u3001\u98A8\u96AA\u3001\u8986\u8A3A\u3001\u85E5\u53CA\u901A\u77E5\u5BB6\u4EBA", "\u51FA\u9662\u7576\u523B\u624D\u5168\u90E8\u88DC\u505A"),
+          stage("medication", "collection", "\u975E\u7DCA\u6025\u51FA\u9662\u85E5\uFF0CPharmacy 2/F BC\u3002", policies.collection(false), "\u7167\u53EB OPA \u4F5C\u5E38\u898F\u53D6\u85E5"),
+          stage("intake", "transfer", "\u6E96\u5099\u51FA\u9662\u4EA4\u6536\u3002", "\u6838\u8CA1\u7269\uFF0FDeposit\uFF0F\u500B\u4EBA\u7269\u54C1\u7C3D\u6536\uFF0C\u5E36\u9F4A\u8986\u8A3A\u53CA\u7528\u85E5\u7D00\u9304", "\u85E5\u53CA\u8CA1\u7269\u4E0B\u6B21\u5148\u4EA4")
+        ]),
+        variant("dama", "DAMA\uFF0C\u7DCA\u6025\u85E5\u7269", [
+          stage("computer", "transfer", "\u865B\u69CB\u75C5\u4EBA DAMA\u3002", "CMS code \u7528 DAMA \u4E26 Telecare\uFF1B\u4E0D\u80FD\u5957\u8A08\u5283\u51FA\u9662 CPS \u4E09\u5DE5\u4F5C\u5929\u6642\u9650", "Code \u7528 HOME WITH FU"),
+          stage("medication", "collection", "\u7DCA\u6025\u51FA\u9662\u85E5\u9700\u8981\u8077\u54E1\u53D6\u3002", policies.collection(true), "\u672A\u96FB\u8A71\u85E5\u623F\u5C31\u53EB OPA"),
+          stage("lift", "transfer", "\u4F4F\u9662\u75C5\u4EBA NEATS \u53F8\u6A5F\u8981\u6C42\u5730\u9762\u4E0A\u8ECA\u3002", "LGM\uFF0FF \u4E0A\u8ECA\uFF0C\u8981\u6C42\u8FD4 LG\uFF1B\u4EA4\u63A5\u904E\u5F80 risks \u53CA\u85E5\u6B04\uFF0F\u9801\u78BC\u5B8C\u6574", "\u7167\u53BB\u5730\u9762\uFF0C\u98A8\u96AA\u7559\u63A5\u6536\u65B9\u518D\u554F")
+        ]),
+        variant("l1", "L1 \u8F49\u9001\u53CA\u8FD4\u56DE", [
+          stage("computer", "transfer", "\u865B\u69CB\u8F49 L1\uFF0CCMS Transfer \u9078\u9805\u3002", "\u9078 CH: Child & Adolescent\uFF0Ctransfer slip \u85E5\u6B04\uFF0FMAR\u53CANN\u9801\u78BC\uFF0F\u904E\u5F80risks\u5BEB\u9F4A", "\u96A8\u4FBF\u9078\u5152\u79D1\u9805\u76EE"),
+          stage("medication", "ipmoe", "\u865B\u69CB\u75C5\u4EBA\u5F9E L1 \u8FD4\u56DE\u3002", "\u7528 IPMOE \u96FB\u5B50\u85E5\u55AE\u6838\u5C0D\uFF1B\u4E0D\u7528\u91CD\u958B\u7D19\u672C MAR", "\u4E00\u5B9A\u5148\u91CD\u958B\u7D19\u672C MAR")
+        ])
+      ]),
+      family("legal", "\u6CD5\u5F8B\u63D0\u9192", [
+        variant("dual", "F123\uFF0F4 due", [
+          stage("computer", "transfer", "\u865B\u69CB F123\uFF0F4\uFF0C\u5DF2\u7531\u7576\u671F\u6CD5\u5F8B\u653B\u7565\u6838\u5BE6 due \u65E5\u671F\u3002", "\u628A\u5DF2\u6838 due \u540C\u6642\u5165 Dashboard \u53CA PCHOS", "\u53EA\u9760\u6C34\u724C"),
+          stage("handover", "transfer", "\u5411 IC \u4EA4\u66F4\u6CD5\u5F8B due\u3002", "due \u5165 IC list\uFF1B\u4F9D\u5DF2\u6838\u65E5\u671F\u53CA\u7576\u671F\u653B\u7565\u4EA4\u4EE3\uFF0C\u52FF\u81EA\u5DF1\u4F30\u751F\u6548\u7B97\u6CD5", "\u81EA\u884C\u731C\u6CD5\u5F8B\u6709\u6548\u671F")
+        ]),
+        variant("reminder", "F4\uFF0F7 \u4E09\u65E5\u524D\u63D0\u9192", [
+          stage("handover", "transfer", "\u865B\u69CB\u5DF2\u6838 F4\uFF0F7 due\uFF1B\u4ECA\u5929\u525B\u662F due \u524D\u4E09\u65E5\u3002", "PCHOS \u63D0\u9192\u53CA IC list\uFF0C\u65E5\u66C6\u9010\u65E5\u6838\u5C0D\u7576\u671F\u653B\u7565", "\u7B49 due \u904E\u5F8C\u624D\u88DC"),
+          stage("computer", "transfer", "\u53E6\u6709 DASA\uFF0FSO \u9700\u8981\u8A18\u9304\u3002", "DASA\uFF0FSO \u53EF\u53EA\u5165 Dashboard\uFF1B\u6CD5\u5F8B F123\uFF0F4 \u4ECD\u96D9\u5165", "\u6240\u6709\u8CC7\u6599\u90FD\u53EA\u5165 Dashboard")
+        ])
+      ]),
+      family("shift", "\u4EA4\u66F4\u5B89\u5168", [
+        variant("keys", "\u9396\u5319\u53CA access card", [
+          stage("handover", "logistics", "\u672A\u8FD4\u5230 ward\uFF0C\u540C\u4E8B\u60F3\u9810\u5148\u53D6 key\u3002", "\u8FD4\u5230 ward \u624D\u53D6\uFF1B\u9084 key \u53EA\u4EA4 IC\uFF0F2nd IC\uFF0CLearner Access Card \u6BCF\u66F4\u9EDE\u7B97", "\u5148\u5927\u5802\u53D6\u5319\u518D\u4EA4\u4EFB\u4F55\u540C\u4E8B"),
+          stage("bedside", "safety", "\u661F\u671F\u65E5\u671D\u65E9\u4F8B\u884C\u6AA2\u67E5\u3002", "\u6BCF\u65E5\u74B0\u5883\u53CA\u75C5\u4EBA\u5B89\u6AA2\u5916\uFF0C\u52A0 weekly \u5E8A\u982D\u6AC3\uFF0F\u5E8A\uFF0F\u55AE\u4EBA\u623F\u5B89\u6AA2", "\u505A\u904E\u6BCF\u65E5\u5C31\u4E0D\u7528 weekly")
+        ]),
+        variant("alarm", "\u591C\u66F4\u96FB\u9580\u6545\u969C", [
+          stage("handover", "emergency", "\u591C\u66F4\u96E2\u958B\u8B77\u58EB\u7AD9\u5DE5\u4F5C\u3002", "\u96A8\u8EAB personal security alarm \u53CA walkie talkie", "\u53EA\u5E36\u79C1\u4EBA\u624B\u6A5F\u5C31\u8DB3\u5920"),
+          stage("lift", "emergency", "\u865B\u69CB\u96FB\u9580\u6545\u969C\uFF0C\u9700\u8981\u9003\u751F\u3002", "\u6309\u6307\u5F15\u7528 Break Glass\uFF1B\u5831\u544A\u6545\u969C\uFF0C\u4E0D\u81EA\u884C\u767C\u660E\u64A4\u96E2\u9806\u5E8F", "\u7B49\u7B2C\u4E8C\u671D\u5DE5\u7A0B\u5148\u7B97")
+        ])
+      ]),
+      family("bowel", "C7 \u8178\u9053\u53CA\u66AB\u505C\u85E5", [
+        variant("clozapine", "C7\uFF1Aclozapine\uFF0FLD \u8178\u585E\u98A8\u96AA", [
+          stage("bedside", "c7care", "C7 \u865B\u69CB clozapine\uFF0FLD \u500B\u6848\uFF0C\u6E96\u5099\u6C96\u6DBC\u3002", "\u5148\u89C0\u5BDF\u4E26\u5728 BO chart \u8A18\u9304\u8178\u585E\u98A8\u96AA\uFF0C\u4F9D\u7576\u671F\u91AB\u56D1\u8655\u7406", "\u6C96\u5B8C\u6DBC\u5148\u7B97\uFF0C\u7121\u9700 BO chart"),
+          stage("dining", "c7care", "\u6709\u5DF2\u8655\u65B9 laxative\u3002", "\u6309\u91AB\u56D1\u7D66\u85E5\u53CA\u78BA\u4FDD\u8DB3\u5920\u98F2\u6C34\uFF0C\u89C0\u5BDF\u4E26\u8A18\u9304\uFF0C\u4E0D\u81EA\u884C\u52A0\u5291\u91CF", "\u4E0D\u554F\u91AB\u56D1\u81EA\u884C\u52A0\u91CF\uFF0C\u6BCB\u9808\u98F2\u6C34")
+        ]),
+        variant("withheld", "C7\uFF1Awithhold \u85E5\u4EA4\u63A5", [
+          stage("medication", "c7care", "C7 \u865B\u69CB\u75C5\u4EBA\u5DF2\u6709 withhold \u6307\u793A\u3002", "TPR \u7368\u7ACB\u653E\u85E5\u7D19\u7C43\uFF0C\u63D0\u9192\u540C\u4E8B\uFF0C\u6838\u7576\u671F\u91AB\u56D1", "TPR \u6DF7\u5165\u666E\u901A\u6587\u4EF6\uFF0C\u4E0D\u63D0 withhold"),
+          stage("handover", "c7care", "\u4E0B\u4E00\u66F4\u63A5\u624B\u3002", "\u6E05\u695A\u4EA4\u63A5 withhold \u6307\u793A\u53CA\u89C0\u5BDF\uFF0C\u4F9D\u8655\u65B9\u8DDF\u9032\uFF1B\u52FF\u81EA\u884C\u6062\u5FA9\u85E5\u7269", "\u81EA\u884C\u6062\u5FA9\u539F\u5291\u91CF")
+        ])
+      ], ["C7"])
     ];
-    var ADMIT_QS = [
-      {
-        q: "\u6A21\u64EC\u6536\u75C7\uFF08\u865B\u69CB\uFF09\uFF1A\u8B77\u9001\u300C\u6797\u5148\u751F\u300D\u540C\u5BB6\u5C6C\u5230\u5347\u964D\u6A5F\u53E3\u3002\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u5514\u6838\u5C0D\u8EAB\u4EFD\uFF0C\u5FEB\u5572\u63FE\u5F35\u5E8A",
-          "\u5148\u6838\u5C0D\u8EAB\u4EFD\u540C\u6587\u4EF6\uFF0C\u518D\u6309\u90E8\u9580\u6307\u5F15\u5B89\u6392\u5E8A\u4F4D",
-          "\u53EB\u75C5\u4EBA\u81EA\u5DF1\u55BA\u8D70\u5ECA\u6435\u623F",
-          "\u898B\u5230\u8B77\u9001\u5C31\u4E00\u5F8B\u62D2\u6536"
-        ],
-        answer: 1,
-        explain: "\u6536\u75C7\u5148\u6838\u5C0D\u8EAB\u4EFD\u540C\u6587\u4EF6\uFF0C\u518D\u5B89\u6392\u5E8A\u4F4D\u3002\u5462\u500B\u4FC2\u865B\u69CB\u500B\u6848\uFF0C\u5E8A\u4F4D\u540C rota \u4EE5\u7576\u66F4\u70BA\u6E96\u3002",
-        points: ["\u5148\u6838\u5C0D\u8EAB\u4EFD\u540C\u6587\u4EF6\u3002", "\u518D\u5B89\u6392\u5E8A\u4F4D\u3002", "\u7576\u66F4\u5B89\u6392\u8DDF\u90E8\u9580\u3002"]
-      },
-      {
-        q: "\u6A21\u64EC\u6536\u75C7\uFF08\u865B\u69CB\uFF09\uFF1A\u8981\u505A\u91D1\u5C6C\u63A2\u6E2C\u3002\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u4E00\u500B\u4EBA\u55BA\u8D70\u5ECA\u516C\u958B\u6383\u5C31\u5F97",
-          "\u5C4F\u98A8\u3001\u89E3\u91CB\u3001\u96D9\u4EBA\uFF08\u4E00\u63A2\u6E2C\u4E00\u898B\u8B49\uFF09\uFF0C\u5371\u96AA\u54C1\u4EA4\u5BB6\u4EBA\u4E26\u8A18 note",
-          "\u5514\u89E3\u91CB\uFF0C\u4EE5\u514D\u75C5\u4EBA\u62D2\u7D55",
-          "\u51FA\u9662\u5148\u505A\u4E00\u6B21"
-        ],
-        answer: 1,
-        explain: "\u91D1\u5C6C\u63A2\u6E2C\u8981\u6709\u79C1\u96B1\u3001\u89E3\u91CB\u540C\u96D9\u4EBA\u898B\u8B49\u3002\u5371\u96AA\u54C1\u4EA4\u5BB6\u4EBA\u4E26\u8A18\u4F4E\u3002",
-        points: ["\u5C4F\u98A8\u540C\u89E3\u91CB\u3002", "\u96D9\u4EBA\uFF1A\u4E00\u63A2\u6E2C\u4E00\u898B\u8B49\u3002", "\u5371\u96AA\u54C1\u4EA4\u5BB6\u4EBA\u4E26\u8A18 note\u3002"]
-      },
-      {
-        q: "\u6A21\u64EC\u6536\u75C7\uFF08\u865B\u69CB\uFF09\uFF1A\u672A confirm \u672C team 1:1\uFF0C\u5C0D\u65B9\u50AC\u4F4F book \u8ECA\u3002\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u5148 book \u8ECA\uFF0C1:1 \u4E4B\u5F8C\u518D\u7B97",
-          "1:1 \u5B89\u6392\u78BA\u8A8D\u5148\uFF0C\u8ECA\u5F8C",
-          "1:1 \u540C\u8ECA\u90FD\u5514\u4F7F\u7406",
-          "\u53EB\u5BB6\u5C6C\u81EA\u5DF1\u53EB\u7684\u58EB\u4EE3\u66FF"
-        ],
-        answer: 1,
-        explain: "\u672A\u78BA\u8A8D 1:1 \u5514\u597D\u56E0\u70BA\u50AC\u800C\u5148 book \u8ECA\u3002\u78BA\u8A8D\u4EBA\u624B\u5B89\u6392\u5148\uFF0C\u4EA4\u901A\u5176\u5F8C\u3002",
-        points: ["1:1 \u5148\uFF0C\u8ECA\u5F8C\u3002", "\u5514\u597D\u88AB\u50AC\u6253\u4E82\u6B21\u5E8F\u3002", "\u5BE6\u969B\u8ABF\u52D5\u8DDF\u7576\u66F4 IC\u3002"]
-      }
-    ];
-    var REST_QS = [
-      {
-        q: "\u6A21\u64EC\u8E81\u52D5\uFF08\u865B\u69CB\uFF09\uFF1A\u540C\u4E8B\u8A71\u300C\u7D81\u8D77\u4F62\u569F\u61F2\u7F70\u300D\u3002\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u8E81\u52D5\u5C31\u53EF\u4EE5\u7576\u61F2\u7F70\u7D81",
-          "\u7D04\u675F\u4FC2\u6700\u5F8C\u624B\u6BB5\uFF0C\u8981\u6709\u91AB\u56D1\u540C\u90E8\u9580\u6307\u5F15\uFF0C\u5148\u8A66\u5176\u4ED6\u65B9\u6CD5\uFF0C\u4E26\u5411\u75C5\u4EBA\u89E3\u91CB",
-          "\u5514\u4F7F\u8A55\u4F30\uFF0C\u8D8A\u5FEB\u8D8A\u597D",
-          "\u4EA4\u4FFE\u5BB6\u5C6C\u5168\u6B0A\u6C7A\u5B9A\u9EDE\u7D81"
-        ],
-        answer: 1,
-        explain: "\u7D04\u675F\u5514\u4FC2\u61F2\u7F70\u3002\u4FC2\u6700\u5F8C\u624B\u6BB5\uFF0C\u8981\u6709\u91AB\u56D1\u540C\u90E8\u9580\u6307\u5F15\uFF0C\u5148\u8A66\u5176\u4ED6\u65B9\u6CD5\uFF0C\u4E26\u89E3\u91CB\u3002",
-        points: ["\u6700\u5F8C\u624B\u6BB5\uFF0C\u5514\u4FC2\u61F2\u7F70\u3002", "\u8981\u6709\u91AB\u56D1\uFF0F\u90E8\u9580\u6307\u5F15\u3002", "\u5148\u8A66\u5176\u4ED6\u65B9\u6CD5\u4E26\u89E3\u91CB\u3002"]
-      },
-      {
-        q: "\u6A21\u64EC\u7D04\u675F\uFF08\u865B\u69CB\uFF09\uFF1A\u5DF2\u7D93\u6309\u6307\u5F15\u7528\u7D04\u675F\u3002\u8F03\u9069\u5207\u7684\u89C0\u5BDF\u662F\uFF1F",
-        options: [
-          "\u7D81\u5B8C\u5C31\u53EF\u4EE5\u5514\u518D\u7747",
-          "\u5B9A\u6642\u6AA2\u67E5\u8840\u6DB2\u5FAA\u74B0\u3001\u76AE\u819A\u540C\u677E\u7DCA\uFF0C\u4E26\u8A18\u9304",
-          "\u7D81\u5F97\u8D8A\u7DCA\u8D8A\u5B89\u5168",
-          "\u6536\u8D77\u547C\u53EB\u9418\u4EE5\u514D\u5608"
-        ],
-        answer: 1,
-        explain: "\u7528\u7D04\u675F\u4E4B\u5F8C\u8981\u5B9A\u6642\u7747\u5FAA\u74B0\u3001\u76AE\u819A\u540C\u677E\u7DCA\uFF0C\u4E26\u4E14\u5BEB\u4F4E\u3002\u547C\u53EB\u9418\u5514\u597D\u6536\u8D77\u3002",
-        points: ["\u5B9A\u6642\u6AA2\u67E5\u5FAA\u74B0\u540C\u76AE\u819A\u3002", "\u6AA2\u67E5\u677E\u7DCA\u3002", "\u8981\u8A18\u9304\u3002"]
-      },
-      {
-        q: "\u6A21\u64EC\u9935\u98DF\uFF08\u865B\u69CB\uFF09\uFF1A\u7D04\u675F\u4E2D\u7684\u75C5\u4EBA\u8EBA\u4F4F\uFF0C\u5BB6\u5C6C\u60F3\u7793\u9935\u3002\u8F03\u9069\u5207\u7684\u662F\uFF1F",
-        options: [
-          "\u7793\u9935\u5FEB\u5572\uFF0C\u53EF\u4EE5",
-          "\u5FC5\u9808\u5750\u8D77\u9935\uFF0C\u7981\u6B62\u7793\u9935\uFF1B\u9935\u5514\u9935\u4FC2\u8B77\u58EB\u81E8\u5E8A\u6C7A\u5B9A",
-          "\u4E00\u5F8B\u9023\u6C34\u90FD\u5514\u7540",
-          "\u4EA4\u4FFE\u5BB6\u5C6C\u6C7A\u5B9A"
-        ],
-        answer: 1,
-        explain: "\u7D04\u675F\u4E2D\u9935\u98DF\u5FC5\u9808\u5750\u8D77\uFF0C\u7981\u6B62\u7793\u9935\u3002\u9935\u5514\u9935\u4FC2\u8B77\u58EB\u81E8\u5E8A\u6C7A\u5B9A\u3002",
-        points: ["\u5750\u8D77\u9935\u3002", "\u7981\u6B62\u7793\u9935\u3002", "\u81E8\u5E8A\u6C7A\u5B9A\uFF0C\u5514\u4FC2\u5BB6\u5C6C\u5168\u6B0A\u3002"]
-      }
-    ];
+    function eligibleVariants(item, ward2) {
+      return item.variants.filter(function(entry) {
+        return item.wards.indexOf(ward2) !== -1 && entry.stages.every(function(entryStage) {
+          return entryStage.source.scope === "shared" || entryStage.source.scope === ward2;
+        });
+      });
+    }
     var roomById = {};
     SHELL.rooms.forEach(function(r, i) {
       roomById[r.id] = r;
@@ -21665,8 +21759,35 @@
     var travel = 0;
     var taskBag = [];
     var lastQuest = "";
+    var ward = "C9";
+    var currentVariant = null;
+    var stageIndex = 0;
+    var stageAttempts = 0;
+    var stageResults = [];
+    var lastResult = null;
+    var variantBags = /* @__PURE__ */ Object.create(null);
     var taskProps = /* @__PURE__ */ Object.create(null);
-    var scenarioProps = { code: ["trolley", "incident", "fax"], admit: ["lift", "intake", "admitPatient"], rest: ["secl", "computer"] };
+    var scenarioProps = Object.fromEntries(catalog.map(function(item) {
+      return [item.id, Array.from(new Set(item.variants.flatMap(function(entry) {
+        return entry.stages.map(function(entryStage) {
+          return entryStage.target;
+        });
+      })))];
+    }));
+    var targetNames = {
+      computer: "\u8B77\u58EB\u7AD9\u96FB\u8166",
+      intake: "\u6536\u75C7\u6587\u4EF6",
+      lift: "\u5347\u964D\u6A5F\u5927\u5802\u6838\u5C0D\u9EDE",
+      bedside: "\u5E8A\u908A\u8A55\u4F30",
+      medication: "\u85E5\u623F\u6838\u5C0D\u67B1",
+      dining: "\u98EF\u5EF3\u9910\u55AE",
+      visitor: "\u63A2\u75C5\u5BA4\u9810\u7D04\u7C3F",
+      isolation: "\u9694\u96E2\u623F\u6AA2\u67E5\u8868",
+      handover: "\u8B77\u58EB\u7AD9\u4EA4\u66F4\u7C3F",
+      secl: "\u51B7\u975C\u623F\u75C5\u4EBA",
+      trolley: "\u6025\u6551\u8ECA",
+      incident: "\u4E8B\u767C\u4F4D\u7F6E"
+    };
     var active = false;
     var paused = false;
     var built = false;
@@ -21723,26 +21844,15 @@
       return dist(ax, az, bx, bz) < 1.55;
     }
     function setQuestLabel() {
-      var text = "\u6416\u687F\u4EFB\u610F\u65B9\u5411\u884C\u3002W A S D \u6216\u65B9\u5411\u9375\u4FC2\u516B\u5411\u3002A \u4E92\u52D5\uFF0CB \u4EFB\u52D9\u3002\u5514\u4F7F\u5BC6\u78BC\u3002";
-      if (quest === "code") {
-        if (step === "intro" || step === "goTrolley") text = "\u4EFB\u52D9\uFF1A\u53BB\u6CBB\u7642\u5BA4\uFF0C\u64B3 A \u651E\u6025\u6551\u8ECA\u3002";
-        else if (step === "push") text = "\u4EFB\u52D9\uFF1A\u63A8\u6025\u6551\u8ECA\u6CBF\u8D70\u5ECA\u8FD4\u4E8B\u767C\u4F4D\u7F6E\u3002";
-        else if (step === "battle") text = "\u4EFB\u52D9\uFF1A\u6025\u6551\u8A8D\u8B58\u554F\u7B54\u3002A \u78BA\u8A8D\uFF0CB \u53D6\u6D88\u9078\u64C7\u3002";
-        else if (step === "goFax") text = "\u4EFB\u52D9\uFF1A\u53BB\u8B77\u58EB\u7AD9\uFF0C\u64B3 A \u7528\u50B3\u771F\u6A5F\u5F71\u5370\u85E5\u7D19\u3002";
-        else if (step === "docs") text = "\u4EFB\u52D9\uFF1A\u518D\u64B3 A\uFF0C\u6E96\u5099\u6025\u6551\u6587\u4EF6\u3002";
-      } else if (quest === "admit") {
-        if (step === "intro" || step === "goElev") text = "\u4EFB\u52D9\uFF1A\u53BB\u5347\u964D\u6A5F\u5927\u5802\uFF0C\u64B3 A \u6838\u5C0D\u6536\u75C7\u3002";
-        else if (step === "battle") text = "\u4EFB\u52D9\uFF1A\u6536\u75C7\u554F\u7B54\u3002A \u78BA\u8A8D\uFF0CB \u53D6\u6D88\u9078\u64C7\u3002";
-        else if (step === "goBed") text = "\u4EFB\u52D9\uFF1A\u53BB\u6536\u75C7\u623F\uFF0C\u64B3 A \u5B8C\u6210\u5B89\u6392\u3002";
-      } else if (quest === "rest") {
-        if (step === "intro" || step === "goRoom") text = "\u4EFB\u52D9\uFF1A\u53BB\u51B7\u975C\u623F\uFF0C\u64B3 A \u8655\u7406\u8E81\u52D5\u3002";
-        else if (step === "battle") text = "\u4EFB\u52D9\uFF1A\u7D04\u675F\u554F\u7B54\u3002A \u78BA\u8A8D\uFF0CB \u53D6\u6D88\u9078\u64C7\u3002";
-        else if (step === "goNurse") text = "\u4EFB\u52D9\uFF1A\u53BB\u8B77\u58EB\u7AD9\u96FB\u8166\uFF0C\u64B3 A \u8A18\u9304\u7D04\u675F\u3002";
-      }
+      var entry = currentStage();
+      var text = entry ? currentVariant.title + " \xB7 " + (stageIndex + 1) + "/" + currentVariant.stages.length + "\uFF1A" + (step === "push" ? "\u63A8\u6025\u6551\u8ECA\u5230" : "\u524D\u5F80") + targetNames[entry.target] : "\u5DE1\u623F\u4E2D";
       var node = el("wardQuestLabel");
       if (node) node.textContent = text;
       var room = el("wardRoomLabel");
-      if (room) room.textContent = roomNameAt(player.x, player.z);
+      if (room) room.textContent = ward + " \xB7 " + roomNameAt(player.x, player.z);
+    }
+    function currentStage() {
+      return currentVariant && currentVariant.stages[stageIndex];
     }
     function say(lines, done) {
       dialog = { lines, i: 0, done: done || function() {
@@ -21772,6 +21882,7 @@
       show("wardMenu", true);
       var goal = el("wardQuestLabel") ? el("wardQuestLabel").textContent : "";
       el("wardMenuText").textContent = "\u4EFB\u52D9\u76EE\u6A19\n" + goal;
+      el("wardProfile").value = ward;
     }
     function closeMenu() {
       menuOpen = false;
@@ -21796,10 +21907,9 @@
         });
       } else {
         var ok = battle.lastOk;
-        var points = q.points.map(function(p) {
-          return "\u30FB" + p;
-        }).join(" ");
-        el("battleText").textContent = (ok ? "\u7B54\u5571\u3002 " : "\u5462\u500B\u9078\u64C7\u672A\u4FC2\u6700\u9069\u5207\u3002 ") + q.explain + " \u5B78\u7FD2\u91CD\u9EDE\uFF1A" + points;
+        var source = q.source;
+        var reference = source ? " \u4F86\u6E90\uFF1A" + source.file + "\uFF0F" + source.section + (source.override ? "\uFF08\u5DF2\u78BA\u8A8D\u66F4\u65B0\uFF09" : "") : "";
+        el("battleText").textContent = (ok ? "\u7B54\u5571\u3002 " : "\u5462\u500B\u9078\u64C7\u672A\u4FC2\u6700\u9069\u5207\u3002 ") + q.explain + (ok ? "" : " " + q.recovery) + reference;
         box.innerHTML = '<p class="battle-next">\u64B3 A \u7E7C\u7E8C</p>';
       }
       setQuestLabel();
@@ -21814,6 +21924,12 @@
       if (!battle) return;
       var q = battle.qs[battle.i];
       if (battle.phase === "explain") {
+        if (!battle.lastOk) {
+          battle.phase = "ask";
+          battle.cursor = 0;
+          renderBattle();
+          return;
+        }
         battle.i += 1;
         battle.cursor = 0;
         if (battle.i >= battle.qs.length) {
@@ -21826,6 +21942,7 @@
         renderBattle();
         return;
       }
+      stageAttempts += 1;
       battle.lastOk = battle.cursor === q.answer;
       battle.phase = "explain";
       renderBattle();
@@ -21840,24 +21957,28 @@
       renderBattle();
     }
     function onBattleDone() {
-      if (quest === "code") {
-        pushing = false;
-        step = "goFax";
-        say(["\u60C5\u6CC1\u66AB\u6642\u7A69\u5B9A\uFF08\u865B\u69CB\uFF09\u3002\u800C\u5BB6\u53BB\u8B77\u58EB\u7AD9\uFF0C\u7528\u50B3\u771F\u6A5F\u5F71\u5370\u85E5\u7D19\uFF0C\u518D\u6E96\u5099\u6587\u4EF6\u3002"], function() {
-          setQuestLabel();
-        });
-      } else if (quest === "admit") {
-        step = "goBed";
-        say(["\u8EAB\u4EFD\u540C\u5B89\u6AA2\u554F\u7B54\u5B8C\u3002\u53BB\u6536\u75C7\u623F\uFF0C\u64B3 A \u5B8C\u6210\u5462\u4F4D\u865B\u69CB\u75C5\u4EBA\u5605\u5B89\u6392\u3002"], function() {
-          setQuestLabel();
-        });
-      } else if (quest === "rest") {
-        step = "goNurse";
-        say(["\u554F\u7B54\u5B8C\u3002\u53BB\u8B77\u58EB\u7AD9\u96FB\u8166\u64B3 A\uFF0C\u8A18\u9304\u7D04\u675F\u539F\u56E0\u3001\u6642\u9593\u540C\u5FAA\u74B0\u6AA2\u67E5\u3002"], function() {
-          setQuestLabel();
-        });
+      var entry = currentStage();
+      stageResults.push({
+        index: stageIndex,
+        target: entry.target,
+        correctFirstAttempt: stageAttempts === 1,
+        corrected: stageAttempts > 1,
+        attempts: stageAttempts
+      });
+      if (entry.action === "collect") pushing = true;
+      if (entry.action === "deliver") pushing = false;
+      stageIndex += 1;
+      stageAttempts = 0;
+      if (!currentStage()) {
+        lastResult = { ward, family: quest, variant: currentVariant.id, stages: stageResults.slice() };
+        say(["\u60C5\u5883\u5B8C\u6210\u3002\u5DF2\u6838\u5C0D\u53CA\u8A18\u9304 " + stageResults.length + " \u6B65\uFF1B\u4FEE\u6B63 " + stageResults.filter(function(result) {
+          return result.corrected;
+        }).length + " \u6B65\u3002\u5168\u90E8\u500B\u6848\u5747\u5C6C\u865B\u69CB\u3002"], clearQuest);
+      } else {
+        step = currentStage().action === "deliver" ? "push" : "go:" + currentStage().target;
+        updateNPCs();
+        setQuestLabel();
       }
-      if (incidentMesh) incidentMesh.visible = false;
     }
     function clearQuest() {
       quest = "";
@@ -21865,66 +21986,47 @@
       pushing = false;
       triggeredPush = false;
       travel = 0;
+      currentVariant = null;
+      stageIndex = 0;
+      stageResults = [];
+      stageAttempts = 0;
       updateNPCs();
       setQuestLabel();
     }
-    function beginCode() {
-      quest = "code";
+    function beginScenario(item, entry) {
+      quest = item.id;
+      currentVariant = entry;
+      stageIndex = 0;
+      stageAttempts = 0;
+      stageResults = [];
       step = "intro";
       trolley.x = MARK.trolley.x;
       trolley.z = MARK.trolley.z;
-      trolleyMesh.position.set(trolley.x, 0, trolley.z);
+      if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
       pushing = false;
       triggeredPush = false;
       updateNPCs();
-      say([
-        "\u7A81\u7136\uFF1A\u8D70\u5ECA\u6709\u4EBA\u547C\u53EB\uFF01\u865B\u69CB\u75C5\u4EBA\u300C\u9673\u5148\u751F\u300D\u60C5\u6CC1\u5371\u6025\u3002",
-        "\u5148\u53BB\u6CBB\u7642\u5BA4\uFF0C\u64B3 A \u651E\u6025\u6551\u8ECA\uFF0C\u6CBF\u8D70\u5ECA\u63A8\u8FD4\u4E8B\u767C\u4F4D\u7F6E\u3002",
-        "\u672C\u904A\u6232\u53EA\u4F9B\u8A13\u7DF4\u7528\u9014\uFF0C\u5BE6\u969B\u5DE5\u4F5C\u8ACB\u4F9D\u7167\u90E8\u9580\u6307\u5F15\u3002"
-      ], function() {
-        step = "goTrolley";
-        setQuestLabel();
-      });
-    }
-    function beginAdmit() {
-      quest = "admit";
-      step = "intro";
-      updateNPCs();
-      say([
-        "\u6536\u75C7\uFF1A\u865B\u69CB\u75C5\u4EBA\u300C\u6797\u5148\u751F\u300D\u540C\u8B77\u9001\u55BA\u5347\u964D\u6A5F\u5927\u5802\u7B49\u5019\u3002",
-        "\u5148\u53BB\u5347\u964D\u6A5F\u5927\u5802\uFF0C\u64B3 A \u6838\u5C0D\u8EAB\u4EFD\uFF0C\u518D\u7B54\u6536\u75C7\u554F\u984C\uFF0C\u6700\u5F8C\u53BB\u6536\u75C7\u623F\u3002"
-      ], function() {
-        step = "goElev";
-        setQuestLabel();
-      });
-    }
-    function beginRest() {
-      quest = "rest";
-      step = "intro";
-      updateNPCs();
-      say([
-        "\u51B7\u975C\u623F\uFF1A\u865B\u69CB\u75C5\u4EBA\u8E81\u52D5\uFF0C\u540C\u4E8B\u60F3\u5373\u523B\u7D81\u8D77\u569F\u3002",
-        "\u53BB\u51B7\u975C\u623F\u75C5\u4EBA\u8EAB\u908A\u64B3 A\u3002\u7D04\u675F\u5514\u4FC2\u61F2\u7F70\uFF0C\u8DDF\u6307\u5F15\u5148\u8A55\u4F30\u518D\u7B54\u984C\uFF0C\u4E4B\u5F8C\u8FD4\u8B77\u58EB\u7AD9\u96FB\u8166\u8A18\u9304\u3002"
-      ], function() {
-        step = "goRoom";
+      say([ward + " \xB7 " + item.title + "\uFF1A" + entry.title + "\uFF08\u865B\u69CB\uFF09", entry.stages[0].q], function() {
+        step = "go:" + currentStage().target;
         setQuestLabel();
       });
     }
     function onTravel(meters) {
-      if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z) && propStatus("incident").problems.length === 0 && clearPath(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
+      if (!active || paused || dialog || battle || menuOpen || mapOpen) return;
+      if (quest && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z) && propStatus("incident").problems.length === 0 && clearPath(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
         triggeredPush = true;
         step = "battle";
-        say(["\u6025\u6551\u8ECA\u8D95\u5230\u4E8B\u767C\u4F4D\u7F6E\u3002\u9032\u5165\u6025\u6551\u8A8D\u8B58\u3002"], function() {
-          openBattle("\u6025\u6551\u8A8D\u8B58", CODE_QS);
-        });
+        openBattle(currentVariant.title, [currentStage()]);
         return;
       }
       if (quest) return;
       travel += meters;
       if (travel < (lastQuest ? 16 : 7)) return;
       travel = 0;
-      var ready = Object.keys(scenarioProps).filter(function(id) {
-        return scenarioProblems(id).length === 0;
+      var ready = catalog.filter(function(item2) {
+        return readyVariants(item2).length > 0;
+      }).map(function(item2) {
+        return item2.id;
       });
       if (ready.length === 1 && ready[0] === lastQuest) ready = [];
       taskBag = taskBag.filter(function(id) {
@@ -21948,7 +22050,23 @@
         }
       }
       lastQuest = taskBag.shift();
-      ({ code: beginCode, admit: beginAdmit, rest: beginRest })[lastQuest]();
+      var selected = catalog.find(function(item2) {
+        return item2.id === lastQuest;
+      });
+      var variants = readyVariants(selected);
+      var available = variants.map(function(entry) {
+        return entry.id;
+      });
+      var variantKey = ward + ":" + lastQuest;
+      var bag = (variantBags[variantKey] || []).filter(function(id) {
+        return available.indexOf(id) !== -1;
+      });
+      if (!bag.length) bag = available.slice();
+      var variantId = bag.shift();
+      variantBags[variantKey] = bag;
+      beginScenario(selected, variants.find(function(entry) {
+        return entry.id === variantId;
+      }));
     }
     function screenAxes() {
       if (!camera) {
@@ -22032,7 +22150,7 @@
       var point = MARK[prop.anchor];
       if (id === "trolley" && !preparing) point = trolley;
       if (id === "admitPatient") {
-        var anchor = LAY.npcs[quest === "admit" && step === "goBed" ? "admitIntake" : "admitLift"];
+        var anchor = LAY.npcs[patientAnchor()];
         point = { x: anchor[0] * TILE, z: anchor[1] * TILE };
       }
       var attached = false, visible = true;
@@ -22042,7 +22160,7 @@
       }
       var position = prop.mesh.getWorldPosition(new Vector3());
       if (!attached) problems.push("missing model");
-      if (!visible && !(preparing && prop.scenario && quest !== prop.scenario)) problems.push("hidden model");
+      if (!visible && !(preparing && prop.scenario)) problems.push("hidden model");
       var approaches = [point];
       if (id === "admitPatient" && preparing) {
         ["admitLift", "admitIntake"].forEach(function(name) {
@@ -22064,10 +22182,39 @@
       };
     }
     function scenarioProblems(id) {
-      return scenarioProps[id].flatMap(function(prop) {
+      var item = catalog.find(function(entry) {
+        return entry.id === id;
+      });
+      if (!item || !eligibleVariants(item, ward).length) return ["not eligible for " + ward];
+      var variants = eligibleVariants(item, ward);
+      if (variants.some(function(entry) {
+        return variantProblems(entry).length === 0;
+      })) return [];
+      return variants.flatMap(variantProblems);
+    }
+    function variantProblems(entry) {
+      var props = Array.from(new Set(entry.stages.map(function(entryStage) {
+        return entryStage.target;
+      })));
+      if (entry.stages.some(function(entryStage) {
+        return entryStage.target === "lift";
+      })) props.push("admitPatient");
+      var problems = props.flatMap(function(prop) {
         return propStatus(prop, true).problems.map(function(problem) {
           return prop + ": " + problem;
         });
+      });
+      entry.stages.forEach(function(entryStage) {
+        var anchor = LAY.npcs[patientAnchor(entryStage.target)];
+        if (!anchor || !canStand(anchor[0] * TILE, anchor[1] * TILE) || pathMeters(MARK.start.x, MARK.start.z, anchor[0] * TILE, anchor[1] * TILE) < 0) {
+          problems.push("patient: unreachable approach");
+        }
+      });
+      return problems;
+    }
+    function readyVariants(item) {
+      return eligibleVariants(item, ward).filter(function(entry) {
+        return variantProblems(entry).length === 0;
       });
     }
     function canUseProp(id) {
@@ -22079,7 +22226,7 @@
       if (npc.id === "nurse2") return "\u9700\u8981\u8A18\u9304\u6216\u8655\u7406\u6587\u4EF6\uFF0C\u53EF\u4EE5\u8FD4\u8B77\u58EB\u7AD9\u3002";
       if (npc.id === "nurse3") return "\u7167\u9867\u75C5\u4EBA\u6642\uFF0C\u8A18\u5F97\u6838\u5C0D\u8EAB\u4EFD\u540C\u7559\u610F\u79C1\u96B1\u3002";
       if (npc.id === "codePatient") return "\u75C5\u4EBA\u66AB\u6642\u6C92\u6709\u56DE\u61C9\uFF0C\u540C\u4E8B\u6B63\u7559\u5728\u65C1\u908A\u3002";
-      if (npc.id === "admitPatient") return step === "goBed" ? "\u591A\u8B1D\uFF0C\u6211\u6703\u7B49\u5019\u6536\u75C7\u5B89\u6392\u3002" : "\u4F60\u597D\uFF0C\u6211\u540C\u8B77\u9001\u55BA\u5EA6\u7B49\u5019\u6536\u75C7\u3002";
+      if (npc.id === "admitPatient") return "\u4F60\u597D\uFF0C\u6211\u6703\u7B49\u5019\u540C\u4E8B\u6838\u5C0D\u53CA\u89E3\u91CB\u5B89\u6392\u3002";
       return "\u6211\u6709\u5572\u7DCA\u5F35\uFF0C\u53EF\u4EE5\u5148\u540C\u6211\u89E3\u91CB\u55CE\uFF1F";
     }
     function tryInteract() {
@@ -22092,52 +22239,11 @@
         advanceDialog();
         return;
       }
-      if (quest === "code" && step === "goTrolley" && canUseProp("trolley") && !pushing) {
-        pushing = true;
-        step = "push";
-        if (incidentMesh) incidentMesh.visible = true;
-        say(["\u4F60\u63A8\u4F4F\u6025\u6551\u8ECA\u3002\u6CBF\u8D70\u5ECA\u884C\u53BB\u4E8B\u767C\u4F4D\u7F6E\u3002"], function() {
-          setQuestLabel();
-        });
-        return;
-      }
-      if (quest === "code" && (step === "goFax" || step === "docs") && canUseProp("fax")) {
-        if (step === "goFax") {
-          step = "docs";
-          say(["\u50B3\u771F\u6A5F\u5F71\u5370\u85E5\u7D19\uFF08\u865B\u69CB\uFF09\u3002\u6838\u5C0D\u75C5\u4EBA\u8EAB\u4EFD\u540C\u85E5\u55AE\u3002"], function() {
-            setQuestLabel();
-          });
-          return;
-        }
-        say(["\u6587\u4EF6\u5099\u597D\uFF1A\u6642\u9593\u3001\u505A\u904E\u5605\u4E8B\u3001\u908A\u500B\u5728\u5834\u3002\u4ECA\u6B21\u6025\u6551\u4E8B\u4EF6\u5B8C\u7D50\u3002\u5206\u6578\u53EA\u4FC2\u5B78\u7FD2\u56DE\u994B\u3002"], function() {
-          clearQuest();
-        });
-        return;
-      }
-      if (quest === "admit" && step === "goElev" && canUseProp("lift") && propStatus("admitPatient").problems.length === 0) {
+      var entry = currentStage();
+      if (entry && step !== "push" && canUseProp(entry.target)) {
+        if (entry.target === "lift" && propStatus("admitPatient").problems.length) return;
         step = "battle";
-        say(["\u6838\u5C0D\u300C\u6797\u5148\u751F\u300D\u8EAB\u4EFD\u540C\u8B77\u9001\u6587\u4EF6\uFF08\u865B\u69CB\uFF09\u3002\u63A5\u7740\u7B54\u6536\u75C7\u554F\u984C\u3002"], function() {
-          openBattle("\u6536\u75C7", ADMIT_QS);
-        });
-        return;
-      }
-      if (quest === "admit" && step === "goBed" && canUseProp("intake") && propStatus("admitPatient").problems.length === 0) {
-        say(["\u5DF2\u55BA\u6536\u75C7\u623F\u5B8C\u6210\u865B\u69CB\u5B89\u6392\u3002\u5BE6\u969B\u5E8A\u4F4D\u8DDF\u7576\u66F4\u3002"], function() {
-          clearQuest();
-        });
-        return;
-      }
-      if (quest === "rest" && step === "goRoom" && canUseProp("secl")) {
-        step = "battle";
-        say(["\u5148\u78BA\u4FDD\u5B89\u5168\uFF0C\u5514\u597D\u7576\u61F2\u7F70\u3002\u63A5\u7740\u7B54\u7D04\u675F\u554F\u984C\u3002"], function() {
-          openBattle("\u7D04\u675F", REST_QS);
-        });
-        return;
-      }
-      if (quest === "rest" && step === "goNurse" && canUseProp("computer")) {
-        say(["\u5DF2\u55BA\u8B77\u58EB\u7AD9\u8A18\u9304\u7D04\u675F\u539F\u56E0\u3001\u6642\u9593\u540C\u5FAA\u74B0\u6AA2\u67E5\uFF08\u865B\u69CB\uFF09\u3002\u4E8B\u4EF6\u5B8C\u7D50\u3002"], function() {
-          clearQuest();
-        });
+        openBattle(currentVariant.title, [entry]);
         return;
       }
       var nearby = Object.keys(npcs).map(function(id) {
@@ -22279,10 +22385,18 @@
       });
       placeNPC(npcs.codePatient, "codePatient");
       npcs.codePatient.mesh.visible = quest === "code";
-      placeNPC(npcs.admitPatient, step === "goBed" && quest === "admit" ? "admitIntake" : "admitLift");
-      npcs.admitPatient.mesh.visible = quest === "admit";
+      placeNPC(npcs.admitPatient, patientAnchor());
+      npcs.admitPatient.mesh.visible = !!quest && quest !== "code" && quest !== "rest";
       placeNPC(npcs.restPatient, "restPatient");
       npcs.restPatient.mesh.visible = quest === "rest";
+      if (incidentMesh) incidentMesh.visible = quest === "code" && currentVariant && currentVariant.id === "code000";
+    }
+    function patientAnchor(target) {
+      target = target || currentStage() && currentStage().target || "lift";
+      if (target === "lift") return "admitLift";
+      if (target === "incident" || target === "trolley") return "codePatient";
+      if (target === "secl") return "restPatient";
+      return LAY.npcs["at_" + target] ? "at_" + target : "admitIntake";
     }
     function buildScene() {
       var canvas = el("wardCanvas");
@@ -22518,7 +22632,7 @@
     }
     function addOtherRoomFurniture() {
       ["b1", "b2"].forEach(function(id) {
-        var ward = roomGroup(id), rect = LAY.rooms[id].rect;
+        var ward2 = roomGroup(id), rect = LAY.rooms[id].rect;
         var northBeds = LAY.beds.filter(function(bed) {
           return bed.room === id && bed.ang === 0;
         });
@@ -22534,13 +22648,30 @@
             partition.position.set(x, 0, z);
             partition.rotation.y = Math.PI / 2;
             addScreen(partition, 0, 0, 1.2);
-            ward.add(partition);
+            ward2.add(partition);
           });
         }
       });
       var room = roomGroup("iso1");
       addScreen(room, 2.5, 1, 1.1);
       addCabinet(room, 0.45, 3.5, 0.65, 0.6, 1.1);
+      [
+        ["bedside", "b1"],
+        ["medication", "med"],
+        ["dining", "dine"],
+        ["visitor", "vis1"],
+        ["isolation", "iso1"],
+        ["handover", "nurse"]
+      ].forEach(function(definition) {
+        var id = definition[0], parent = roomGroup(definition[1]);
+        var point = parent.worldToLocal(new Vector3(MARK[id].x, 0, MARK[id].z));
+        if (id === "bedside" || id === "handover" || id === "isolation") addTable(parent, point.x, point.z, 0.65, 0.45);
+        registerProp(id, addBox(parent, 0.3, 0.05, 0.38, 3308917, point.x, 0.87, point.z), id);
+        var label = labelSprite(targetNames[id]);
+        label.scale.set(1.3, 0.24, 1);
+        label.position.set(point.x, 1.3, point.z);
+        parent.add(label);
+      });
       room = roomGroup("intake");
       addTable(room, 2.3, 2.95, 1.4, 0.7);
       registerProp("intake", addBox(room, 0.32, 0.025, 0.42, 6717049, 2.3, 0.83, 2.95), "intake");
@@ -22752,6 +22883,14 @@
           ctx.fillText(String(label.number), label.x, label.y);
         });
       }
+      var objective = currentStage() && MARK[currentStage().target];
+      if (objective) {
+        ctx.strokeStyle = "#ffe04c";
+        ctx.lineWidth = labels ? 4 : 3;
+        ctx.beginPath();
+        ctx.arc(mx(objective.x), mz(objective.z), labels ? 10 : 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.fillStyle = "#e23b32";
       ctx.beginPath();
       ctx.arc(mx(player.x), mz(player.z), labels ? Math.max(4, 4 * labelScale) : Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
@@ -22778,6 +22917,7 @@
       var map = el("wardMapBig");
       if (!map) return;
       paintMap(map.getContext("2d"), map.width, map.height, true);
+      el("wardMapGoal").textContent = ward + " \xB7 " + (currentStage() ? targetNames[currentStage().target] : "\u5DE1\u623F\u4E2D");
       var legend = el("wardMapLegend");
       if (legend && !legend.children.length) {
         SHELL.rooms.forEach(function(room, index) {
@@ -22805,7 +22945,7 @@
         playerMesh.rotation.y = player.rot;
       }
       if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
-      if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
+      if (incidentMesh) incidentMesh.visible = quest === "code" && currentVariant && currentVariant.id === "code000";
       updateNPCs();
       drawMinimap();
       if (camera && renderer && !glFailed) {
@@ -22826,7 +22966,7 @@
         }
       }
       var roomNode = el("wardRoomLabel");
-      if (roomNode) roomNode.textContent = roomNameAt(player.x, player.z);
+      if (roomNode) roomNode.textContent = ward + " \xB7 " + roomNameAt(player.x, player.z);
     }
     function onResize() {
       var canvas = el("wardCanvas");
@@ -22848,6 +22988,12 @@
       travel = 0;
       taskBag = [];
       lastQuest = "";
+      currentVariant = null;
+      stageIndex = 0;
+      stageAttempts = 0;
+      stageResults = [];
+      lastResult = null;
+      variantBags = /* @__PURE__ */ Object.create(null);
       dialog = null;
       battle = null;
       menuOpen = false;
@@ -22875,6 +23021,22 @@
       return "";
     }
     function bind() {
+      el("wardProfile").addEventListener("change", function() {
+        var next = el("wardProfile").value;
+        if (next === ward) return;
+        if (quest) {
+          show("wardProfileConfirm", true);
+        } else {
+          changeWard(next);
+        }
+      });
+      el("wardProfileCancel").addEventListener("click", function() {
+        el("wardProfile").value = ward;
+        show("wardProfileConfirm", false);
+      });
+      el("wardProfileApply").addEventListener("click", function() {
+        changeWard(el("wardProfile").value);
+      });
       var joyEl = el("wardJoy");
       var knob = el("wardJoyKnob");
       if (joyEl) {
@@ -22943,13 +23105,15 @@
       });
       window.addEventListener("keydown", function(e) {
         if (!active) return;
+        if (e.target.matches && e.target.matches("select, input, textarea")) return;
         var dir = dirOfKey(e);
         if (dir) {
           e.preventDefault();
           if (paused) return;
           if (battle && battle.phase === "ask" && !e.repeat) {
-            if (dir === "up" || dir === "left") battle.cursor = (battle.cursor + 3) % 4;
-            else battle.cursor = (battle.cursor + 1) % 4;
+            var count = battle.qs[battle.i].options.length;
+            if (dir === "up" || dir === "left") battle.cursor = (battle.cursor + count - 1) % count;
+            else battle.cursor = (battle.cursor + 1) % count;
             renderBattle();
             return;
           }
@@ -23014,12 +23178,28 @@
         requestAnimationFrame(onResize);
       });
     }
+    function changeWard(next) {
+      if (next !== "C9" && next !== "C7") return;
+      ward = next;
+      resetPlay();
+      show("wardProfileConfirm", false);
+    }
     function stop() {
       active = false;
       keys = { up: false, down: false, left: false, right: false };
       joy.on = false;
     }
     window.WardMode = {
+      catalog: function() {
+        return JSON.parse(JSON.stringify(catalog));
+      },
+      policies,
+      variants: function(id, ward2) {
+        var item = catalog.find(function(entry) {
+          return entry.id === id;
+        });
+        return item ? JSON.parse(JSON.stringify(eligibleVariants(item, ward2))) : [];
+      },
       start,
       stop,
       setPaused: function(on) {
@@ -23038,6 +23218,15 @@
           tz: trolley.z,
           quest,
           step,
+          ward,
+          variant: currentVariant ? currentVariant.id : "",
+          stageIndex,
+          target: currentStage() ? currentStage().target : "",
+          stageAction: currentStage() ? currentStage().action : "",
+          stages: currentVariant ? currentVariant.stages.length : 0,
+          attempts: stageAttempts,
+          stageResults: stageResults.slice(),
+          lastResult,
           room: roomNameAt(player.x, player.z),
           dialog: !!dialog,
           battle: battle ? battle.phase : "",
@@ -23075,6 +23264,7 @@
         return canStand(x, z);
       },
       slide: function(dx, dz) {
+        if (!active || paused || dialog || battle || menuOpen || mapOpen) return 0;
         var m = slide(dx, dz);
         if (m) onTravel(m);
         return m;
@@ -23111,7 +23301,10 @@
           props: Object.keys(taskProps).map(function(id) {
             return propStatus(id);
           }),
-          scenarios: built ? Object.keys(scenarioProps).map(function(id) {
+          scenarios: built ? catalog.filter(function(item) {
+            return eligibleVariants(item, ward).length > 0;
+          }).map(function(item) {
+            var id = item.id;
             return { id, props: scenarioProps[id].slice(), problems: scenarioProblems(id) };
           }) : [],
           npcs: Object.keys(npcs).map(function(id) {

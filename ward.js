@@ -13,122 +13,198 @@ import * as THREE from "three";
   var SPEED = 2.55;
   var RADIUS = 0.28;
 
-  var CODE_QS = [
-    {
-      q: "模擬急救（虛構）：C座走廊有人呼叫。較適切的做法是？",
-      options: [
-        "自己一個做完先再叫人",
-        "呼叫支援，去治療室推急救車返事發位置，期間唔好留病人無人看管",
-        "先去護士站影印藥紙",
-        "叫病人自己行去升降機"
-      ],
-      answer: 1,
-      explain: "急救先呼叫支援，帶 E-trolley 返事發點。唔好留低危急病人一個人。影印藥紙係情況穩定之後先做。",
-      points: ["先呼叫支援。", "治療室攞急救車推返事發位置。", "唔好留病人無人看管。"]
-    },
-    {
-      q: "模擬急救（虛構）：要用邊套設備？較適切的是？",
-      options: [
-        "邊張床近就用邊張，唔使指定車",
-        "用治療室急救車（E-trolley），氧氣同吸引跟部門現場指引",
-        "只用大廳梳化",
-        "一定要先推去另一座病房先可以做"
-      ],
-      answer: 1,
-      explain: "訓練情境用治療室嘅急救車。氧氣、吸引同指定急救位以部門現場為準，唔好隨便用梳化代替。",
-      points: ["用 E-trolley。", "氧氣／吸引跟現場指引。", "實際位置以部門為準。"]
-    },
-    {
-      q: "模擬急救（虛構）：情況暫時穩定之後。較適切的是？",
-      options: [
-        "唔使寫，記得就得",
-        "返護士站用傳真機影印藥紙，並寫低時間、做過嘅事同在場職員",
-        "只同朋友講",
-        "等一個星期再補"
-      ],
-      answer: 1,
-      explain: "穩定之後返護士站影印藥紙，並準備紀錄。分數只係學習回饋，唔係評核。實際工作跟部門指引。",
-      points: ["護士站傳真機影印藥紙。", "寫時間、做法、在場人。", "跟部門指引交文件。"]
-    }
+  var ruleSources = {
+    admission: { file: "m10-current-rules.md", section: "1. 收症／入院編配", scope: "shared" },
+    safety: { file: "m10-practical-checklist.md", section: "病人安全／安檢", scope: "shared" },
+    medication: { file: "m10-practical-checklist.md", section: "用藥／e-Vital", scope: "shared" },
+    infection: { file: "m10-current-rules.md", section: "4. 感染控制／篩查", scope: "shared" },
+    emergency: { file: "m10-current-rules.md", section: "5. 事故通報／緊急", scope: "shared" },
+    transfer: { file: "m10-practical-checklist.md", section: "文件／法律／出院／運送", scope: "shared" },
+    logistics: { file: "m10-practical-checklist.md", section: "鎖匙／日常／人力", scope: "shared" },
+    c7admit: { file: "m10-c7-checklist.md", section: "收症／Rota", scope: "C7" },
+    c7visit: { file: "m10-c7-checklist.md", section: "探病預約", scope: "C7" },
+    c7care: { file: "m10-c7-checklist.md", section: "C7 本位運作速記", scope: "C7" },
+    c9visit: { file: "m10-practical-checklist.md", section: "探訪／私隱", scope: "C9" },
+    c9emergency: { file: "m10-current-rules.md", section: "6. 病人安全／安檢：A34", scope: "C9" },
+    diet: { file: "m10-current-rules.md", section: "6. 病人安全／安檢", scope: "shared", override: "2026-10-29：所有收症 ≥60；保留 MD 條件。UE＝入院無帶 HKID，不限 UE。" },
+    timing: { file: "m10-practical-checklist.md", section: "用藥／e-Vital", scope: "shared", override: "2026-10-29：晚間 BP 可由 18:00 開始，餐→BP→藥；仍依處方。" },
+    collection: { file: "m10-current-rules.md", section: "2. 轉院／出院／法律表格", scope: "shared", override: "2026-10-29：OPA 只限緊急取藥，先電話藥房。" },
+    ipmoe: { file: "m10-current-rules.md", section: "2. 轉院／出院／法律表格", scope: "shared", override: "2026-10-29：現用 IPMOE；急救毋須影印 MAR，L1 返回亦不用重開紙本 MAR。" }
+  };
+  var policies = {
+    dietRequired: function (age, md) { return age >= 60 || !!md; },
+    eveningBPAllowed: function (hour, minute) { return hour * 60 + minute >= 1080; },
+    collection: function (urgent) { return urgent ? "先電話藥房，再安排 OPA" : "ADS／獲授權職員或病人安排；不用 OPA"; },
+    chart: "IPMOE",
+    ue: "入院無帶 HKID",
+    precedence: "明確全院共用項有衝突用 C7；本位規則不跨病房套用"
+  };
+  function stage(target, rule, prompt, correct, wrong, detail, action) {
+    return { target: target, source: ruleSources[rule], action: action || "choice",
+      q: prompt, options: [wrong, correct], answer: 1, explain: detail || correct,
+      points: [correct], recovery: "重新選擇安全做法，再完成呢一步。" };
+  }
+  function variant(id, title, stages) { return { id: id, title: title, stages: stages }; }
+  function family(id, title, variants, wards) {
+    return { id: id, title: title, wards: wards || ["C9", "C7"], variants: variants };
+  }
+  var catalog = [
+    family("admit", "收症規劃", [
+      variant("booking", "AED 催車；CMO 未完成", [
+        stage("computer", "admission", "未 confirm 本 team 1:1，AED 催 book 車。", "先確認 1:1，填當期 rota 後 reload 確認已 save，才通知 book 車", "先叫車，之後補 rota"),
+        stage("lift", "admission", "虛構病人及 escort 到達。", "核對身份及文件，跟當更收症安排", "請病人自己搵床"),
+        stage("intake", "admission", "DMO 睇完，但 CMO 未完成 admission。", "保留 cover sheet，等 CMO 完成才抽起", "DMO 睇過即可抽起")
+      ]),
+      variant("rota", "分頁及覆核", [
+        stage("computer", "admission", "當期虛構 rota 指定 LD／PULD 分頁。", "用指定分頁並 reload 確認；一星期 AL 同事不編新 primary case", "全部放 general，亦派畀放 AL 同事"),
+        stage("intake", "admission", "TTO 文件到，CMO 已完成 admission procedure。", "核實 CMO 已完成後才抽起 cover sheet", "只睇 DMO 簽名就當完成")
+      ]),
+      variant("c7rota", "C7：LD／dual 分症", [
+        stage("computer", "c7admit", "虛構當期表：CSD Diagnosis＝LD；另一宗 LD+SA dual。", "LD 跟 C7 流程；dual 依當期表轉 B7 等，勿一律當 LD 收", "見到 LD 字眼全部收 C7"),
+        stage("intake", "c7admit", "C7 整理收症 rota 同 file。", "大 rota 派醫生、move-in rota 派病房；LD 橙／其他白／AC 綠；短 AL 保留 SKIP", "兩套 rota 合一；短 AL 直接跳過 SKIP")
+      ])
+    ]),
+    family("arrival", "到院安檢及財物", [
+      variant("ue60", "60 歲 UE，無私人物品", [
+        stage("lift", "diet", "虛構 60 歲 UE 入院；UE 是甚麼？", "UE＝入院無帶 HKID；≥60 仍需核碎餐，唔係只限 UE", "UE 代表可略過身份及飲食核對"),
+        stage("intake", "safety", "收症金屬探測及無物品記錄。", "屏風、解釋、雙人見證；有無物品均護士及病人簽名", "一人公開探測；無物品就不用簽"),
+        stage("bedside", "diet", "60 歲病人要求正餐。", "按 ≥60 規則核最低碎餐；堅持正餐轉介言語治療並核處方", "只有 ≥65 才需要核碎餐")
+      ]),
+      variant("property59", "59 歲、無 MD，有危險品", [
+        stage("intake", "safety", "虛構 59 歲無 MD 病人帶危險品。", "私隱下解釋及雙人探測，危險品交家人並寫 nursing note", "暫放床頭櫃不作記錄"),
+        stage("bedside", "diet", "59 歲無 MD，已提供虛構餐單處方。", "核對處方；不因年齡未滿 60 自行改餐，MD 仍另有碎餐條件", "把 ≥60 規則錯套所有 59 歲病人"),
+        stage("intake", "safety", "私家衫及個人物品需要封存。", "特厚透明袋封私家衫，護士及病人簽記錄，封存至出院，轉房簽收", "不用簽名，袋可隨便取出")
+      ])
+    ]),
+    family("medication", "派藥及 e-Vital", [
+      variant("evening", "晚餐及 BP", [
+        stage("dining", "timing", "虛構醫囑晚餐後量 BP 再派藥；現為 17:59。", "先等至 18:00 開餐後按處方量 BP；不提早派藥", "17:59 先量當作晚間 BP"),
+        stage("medication", "timing", "虛構時間已到 18:00，餐已開。", "按處方 BP 後才派藥，不用硬等 19:00", "一定等到 19:00，忽略處方"),
+        stage("bedside", "medication", "大廳及房內都有病人等藥。", "先大廳再推藥車入房；同一人執派簽，DDA／指定針劑雙核雙簽", "叫 PCA 送藥，另一人代簽")
+      ]),
+      variant("downtime", "異常值及 downtime", [
+        stage("medication", "medication", "e-Vital 有金色未量及異常讀數。", "跟進未量，先核異常，勿亂確認 upload；H'stix 選 A", "先全部確認 upload 再算"),
+        stage("computer", "medication", "系統 downtime；虛構 Inderal order 要核 HR，現 HR 58。", "用指定 downtime 信封流程及 retrospective；HR 未達 ＞60，先評估依醫囑處理", "downtime 不記錄，HR 58 仍照派"),
+        stage("medication", "medication", "病人質疑藥袋與 Omnicell 顯示不同。", "以藥袋核對再 double check；High Alert independent checking", "以螢幕為準忽略病人")
+      ])
+    ]),
+    family("infection", "隔離及樣本", [
+      variant("screen", "篩查名單及 CPE", [
+        stage("computer", "infection", "虛構 ICN 最新指示：此院舍爆發須 C. auris PCR。", "核最新 ICN 指示安排 PCR，不憑舊名單", "憑記憶九西全部豁免"),
+        stage("isolation", "infection", "虛構病人 CPE，已提供隔離指示。", "side／single 配 contact precaution，指定設備及手衛生", "安排大房共用設備")
+      ]),
+      variant("sample", "取樣本及疑 TB", [
+        stage("isolation", "infection", "虛構新症疑 TB；已提供當期 ICN 指示。", "單人房及 N95，跟當期隔離指示", "只戴普通口罩留大房"),
+        stage("handover", "infection", "到碧瑤收樣本，手上無膠箱。", "先取膠箱；無膠箱不收樣本", "用衫袋帶返病房"),
+        stage("computer", "infection", "病人發燒，需要通報。", "依電子表流程 email ICN，清潔／消毒取樣器皿", "只口頭講，唔使通報")
+      ])
+    ]),
+    family("visit", "探訪及私隱", [
+      variant("c9food", "C9：家屬帶食物", [
+        stage("visitor", "c9visit", "C9 當更 IC 確認 6 檯＋1 buffer。", "依 IC 確認名額預約，家屬面前檢查食物，核哽塞風險", "照抄 C7 時段並無限加檯"),
+        stage("intake", "safety", "探病後病人準備回房。", "回房前私隱下解釋及雙人金屬探測", "每日已做過，所以不用再檢")
+      ]),
+      variant("c9privacy", "C9：拍攝及個案禁探", [
+        stage("visitor", "c9visit", "有人拍攝，另有個案 CMO 禁探指示。", "制止擅自拍攝；個案限制按 CMO order，勿當全 ward SOP", "可自拍上傳，個案禁探套用全 ward"),
+        stage("computer", "c9visit", "來電者查病人資料並想約見醫生。", "保障私隱，不洩資料；約見用 N96", "公開交代病人及 VIP 細節")
+      ]),
+      variant("c7booking", "C7：同 Party 連續預約", [
+        stage("computer", "c7visit", "C7 家屬想連約下週兩節。", "只約下週一節；同 Party 不連續兩節，該節開始後才可再約", "照用 C9 6＋1 檯規則批准連續兩節"),
+        stage("visitor", "c7visit", "虛構探病預約遲到 10 分鐘。", "15:30–16:30／16:30–17:30；保留 15 分鐘才釋放 walk-in，備餐紙 master list", "10 分鐘即放位，不用餐紙")
+      ]),
+      variant("c7walkin", "C7：walk-in 及家屬餵食", [
+        stage("visitor", "c7visit", "C7 預約已遲到 16 分鐘。", "已過 15 分鐘才依安排釋放 walk-in；兩節中間清潔", "永遠留位或連續兩節全給同 Party"),
+        stage("dining", "safety", "家屬想用未核餐單食物餵病人。", "先核餐紙及哽塞風險，面前檢查食物，拒絕不當物品", "家屬自行決定，不用檢查")
+      ])
+    ]),
+    family("code", "緊急支援", [
+      variant("code000", "真正 000", [
+        stage("incident", "emergency", "走廊虛構病人無反應；同事留在旁邊。", "先 3999 講明 000／緊急／救命，真正 000 直接 Ambulance control", "先去影印 MAR，之後才叫支援"),
+        stage("trolley", "emergency", "同事繼續留守病人，你負責設備。", "取 E-trolley 推返事發位置，病人不可無人看管", "叫同事同去取車，病人獨留", null, "collect"),
+        stage("incident", "emergency", "急救車到場；情況暫時穩定。", "配合現場支援及設備，不等文書才援助", "先做完所有文件才處理病人", null, "deliver"),
+        stage("computer", "ipmoe", "穩定後處理藥單及事件記錄。", "用 IPMOE 電子藥單；記錄及依 AIRS／Risk Alert 流程，不要求影印 MAR", "強制去傳真機影印紙本 MAR")
+      ]),
+      variant("p1delay", "CMS P1 等候超時", [
+        stage("computer", "emergency", "虛構 CMS book P1 已過 5 分鐘無回覆。", "聯絡 Ambulance control，核 location、病房電話及 psychiatric patient", "繼續等，無時間限制"),
+        stage("handover", "emergency", "準備支援及交更；不是已確認 000。", "清楚交代情況，真正救命用 3999／000，勿只依賴未回覆 booking", "所有 booking 都當完成，不用交更"),
+        stage("computer", "ipmoe", "處理緊急轉送藥物記錄。", "使用 IPMOE 核對，完成事件及交接紀錄", "先印紙本 MAR 才准求援")
+      ])
+    ]),
+    family("rest", "躁動及約束照顧", [
+      variant("deescalation", "先評估，非懲罰", [
+        stage("secl", "safety", "虛構病人緊張；同事想用約束懲罰。", "先確保安全、評估及解釋，依指引嘗試 de-escalation，約束不是懲罰", "立即約束當懲罰"),
+        stage("computer", "safety", "CO for unpredictable behaviour 已有個案指示。", "Nurse notes 頂部 remark，記錄評估及照顧；依處方觀察", "只 tick，毋須文字紀錄")
+      ]),
+      variant("feeding", "已按醫囑約束，家屬餵食", [
+        stage("secl", "safety", "虛構個案已按醫囑約束，家屬想瞓餵。", "先臨床評估，必須坐起餵；不准瞓餵，是否餵食由護士決定", "躺着餵快啲，可交家屬決定"),
+        stage("bedside", "safety", "準備依現行指示解除約束。", "依指引評估及觀察，收回綁帶及紅帶，記錄照顧", "把綁帶留床邊，不作記錄"),
+        stage("computer", "safety", "記錄約束期間照顧。", "記錄原因、時間及依醫囑的循環／皮膚觀察，不自行發明頻率", "所有病人統一自行定時限")
+      ])
+    ]),
+    family("incidentReport", "事故通報", [
+      variant("uncertain", "未確定 AIRS", [
+        stage("handover", "emergency", "虛構 near miss；未定是否 AIRS。", "先通知經理，按 KCH Risk Alert 流程", "唔肯定就唔報"),
+        stage("computer", "emergency", "今次入院曾有 Risk Alert，準備交出院摘要。", "Discharge Summary remarks 及 ePAF affirmative history 都交代", "只在自己筆記寫")
+      ]),
+      variant("submitted", "已 submit AIRS", [
+        stage("computer", "emergency", "虛構 AIRS 已 submit。", "FU email 並 cc KCH Risk Alert，brief history／DASA score 寫清", "Submit 後不用再跟進"),
+        stage("handover", "emergency", "嚴重事件需要 handover。", "Immediate management 同步 Brief description，出院 summary 及 ePAF 帶齊風險", "只填分數，不交代處理")
+      ])
+    ]),
+    family("discharge", "轉院及出院", [
+      variant("planned", "計劃出院，非緊急取藥", [
+        stage("computer", "transfer", "虛構計劃出院，CPS referral 尚未做。", "安排最少 3 個工作天 referral；核陪同者、風險、覆診、藥及通知家人", "出院當刻才全部補做"),
+        stage("medication", "collection", "非緊急出院藥，Pharmacy 2/F BC。", policies.collection(false), "照叫 OPA 作常規取藥"),
+        stage("intake", "transfer", "準備出院交收。", "核財物／Deposit／個人物品簽收，帶齊覆診及用藥紀錄", "藥及財物下次先交")
+      ]),
+      variant("dama", "DAMA，緊急藥物", [
+        stage("computer", "transfer", "虛構病人 DAMA。", "CMS code 用 DAMA 並 Telecare；不能套計劃出院 CPS 三工作天時限", "Code 用 HOME WITH FU"),
+        stage("medication", "collection", "緊急出院藥需要職員取。", policies.collection(true), "未電話藥房就叫 OPA"),
+        stage("lift", "transfer", "住院病人 NEATS 司機要求地面上車。", "LGM／F 上車，要求返 LG；交接過往 risks 及藥欄／頁碼完整", "照去地面，風險留接收方再問")
+      ]),
+      variant("l1", "L1 轉送及返回", [
+        stage("computer", "transfer", "虛構轉 L1，CMS Transfer 選項。", "選 CH: Child & Adolescent，transfer slip 藥欄／MAR及NN頁碼／過往risks寫齊", "隨便選兒科項目"),
+        stage("medication", "ipmoe", "虛構病人從 L1 返回。", "用 IPMOE 電子藥單核對；不用重開紙本 MAR", "一定先重開紙本 MAR")
+      ])
+    ]),
+    family("legal", "法律提醒", [
+      variant("dual", "F123／4 due", [
+        stage("computer", "transfer", "虛構 F123／4，已由當期法律攻略核實 due 日期。", "把已核 due 同時入 Dashboard 及 PCHOS", "只靠水牌"),
+        stage("handover", "transfer", "向 IC 交更法律 due。", "due 入 IC list；依已核日期及當期攻略交代，勿自己估生效算法", "自行猜法律有效期")
+      ]),
+      variant("reminder", "F4／7 三日前提醒", [
+        stage("handover", "transfer", "虛構已核 F4／7 due；今天剛是 due 前三日。", "PCHOS 提醒及 IC list，日曆逐日核對當期攻略", "等 due 過後才補"),
+        stage("computer", "transfer", "另有 DASA／SO 需要記錄。", "DASA／SO 可只入 Dashboard；法律 F123／4 仍雙入", "所有資料都只入 Dashboard")
+      ])
+    ]),
+    family("shift", "交更安全", [
+      variant("keys", "鎖匙及 access card", [
+        stage("handover", "logistics", "未返到 ward，同事想預先取 key。", "返到 ward 才取；還 key 只交 IC／2nd IC，Learner Access Card 每更點算", "先大堂取匙再交任何同事"),
+        stage("bedside", "safety", "星期日朝早例行檢查。", "每日環境及病人安檢外，加 weekly 床頭櫃／床／單人房安檢", "做過每日就不用 weekly")
+      ]),
+      variant("alarm", "夜更電門故障", [
+        stage("handover", "emergency", "夜更離開護士站工作。", "隨身 personal security alarm 及 walkie talkie", "只帶私人手機就足夠"),
+        stage("lift", "emergency", "虛構電門故障，需要逃生。", "按指引用 Break Glass；報告故障，不自行發明撤離順序", "等第二朝工程先算")
+      ])
+    ]),
+    family("bowel", "C7 腸道及暫停藥", [
+      variant("clozapine", "C7：clozapine／LD 腸塞風險", [
+        stage("bedside", "c7care", "C7 虛構 clozapine／LD 個案，準備沖涼。", "先觀察並在 BO chart 記錄腸塞風險，依當期醫囑處理", "沖完涼先算，無需 BO chart"),
+        stage("dining", "c7care", "有已處方 laxative。", "按醫囑給藥及確保足夠飲水，觀察並記錄，不自行加劑量", "不問醫囑自行加量，毋須飲水")
+      ]),
+      variant("withheld", "C7：withhold 藥交接", [
+        stage("medication", "c7care", "C7 虛構病人已有 withhold 指示。", "TPR 獨立放藥紙籃，提醒同事，核當期醫囑", "TPR 混入普通文件，不提 withhold"),
+        stage("handover", "c7care", "下一更接手。", "清楚交接 withhold 指示及觀察，依處方跟進；勿自行恢復藥物", "自行恢復原劑量")
+      ])
+    ], ["C7"])
   ];
-
-  var ADMIT_QS = [
-    {
-      q: "模擬收症（虛構）：護送「林先生」同家屬到升降機口。較適切的是？",
-      options: [
-        "唔核對身份，快啲揾張床",
-        "先核對身份同文件，再按部門指引安排床位",
-        "叫病人自己喺走廊搵房",
-        "見到護送就一律拒收"
-      ],
-      answer: 1,
-      explain: "收症先核對身份同文件，再安排床位。呢個係虛構個案，床位同 rota 以當更為準。",
-      points: ["先核對身份同文件。", "再安排床位。", "當更安排跟部門。"]
-    },
-    {
-      q: "模擬收症（虛構）：要做金屬探測。較適切的是？",
-      options: [
-        "一個人喺走廊公開掃就得",
-        "屏風、解釋、雙人（一探測一見證），危險品交家人並記 note",
-        "唔解釋，以免病人拒絕",
-        "出院先做一次"
-      ],
-      answer: 1,
-      explain: "金屬探測要有私隱、解釋同雙人見證。危險品交家人並記低。",
-      points: ["屏風同解釋。", "雙人：一探測一見證。", "危險品交家人並記 note。"]
-    },
-    {
-      q: "模擬收症（虛構）：未 confirm 本 team 1:1，對方催住 book 車。較適切的是？",
-      options: [
-        "先 book 車，1:1 之後再算",
-        "1:1 安排確認先，車後",
-        "1:1 同車都唔使理",
-        "叫家屬自己叫的士代替"
-      ],
-      answer: 1,
-      explain: "未確認 1:1 唔好因為催而先 book 車。確認人手安排先，交通其後。",
-      points: ["1:1 先，車後。", "唔好被催打亂次序。", "實際調動跟當更 IC。"]
-    }
-  ];
-
-  var REST_QS = [
-    {
-      q: "模擬躁動（虛構）：同事話「綁起佢嚟懲罰」。較適切的是？",
-      options: [
-        "躁動就可以當懲罰綁",
-        "約束係最後手段，要有醫囑同部門指引，先試其他方法，並向病人解釋",
-        "唔使評估，越快越好",
-        "交俾家屬全權決定點綁"
-      ],
-      answer: 1,
-      explain: "約束唔係懲罰。係最後手段，要有醫囑同部門指引，先試其他方法，並解釋。",
-      points: ["最後手段，唔係懲罰。", "要有醫囑／部門指引。", "先試其他方法並解釋。"]
-    },
-    {
-      q: "模擬約束（虛構）：已經按指引用約束。較適切的觀察是？",
-      options: [
-        "綁完就可以唔再睇",
-        "定時檢查血液循環、皮膚同松緊，並記錄",
-        "綁得越緊越安全",
-        "收起呼叫鐘以免嘈"
-      ],
-      answer: 1,
-      explain: "用約束之後要定時睇循環、皮膚同松緊，並且寫低。呼叫鐘唔好收起。",
-      points: ["定時檢查循環同皮膚。", "檢查松緊。", "要記錄。"]
-    },
-    {
-      q: "模擬餵食（虛構）：約束中的病人躺住，家屬想瞓餵。較適切的是？",
-      options: [
-        "瞓餵快啲，可以",
-        "必須坐起餵，禁止瞓餵；餵唔餵係護士臨床決定",
-        "一律連水都唔畀",
-        "交俾家屬決定"
-      ],
-      answer: 1,
-      explain: "約束中餵食必須坐起，禁止瞓餵。餵唔餵係護士臨床決定。",
-      points: ["坐起餵。", "禁止瞓餵。", "臨床決定，唔係家屬全權。"]
-    }
-  ];
+  function eligibleVariants(item, ward) {
+    return item.variants.filter(function (entry) {
+      return item.wards.indexOf(ward) !== -1 && entry.stages.every(function (entryStage) {
+        return entryStage.source.scope === "shared" || entryStage.source.scope === ward;
+      });
+    });
+  }
 
   var roomById = {};
   SHELL.rooms.forEach(function (r, i) { roomById[r.id] = r; r.index = i + 2; });
@@ -460,8 +536,22 @@ import * as THREE from "three";
   var travel = 0;
   var taskBag = [];
   var lastQuest = "";
+  var ward = "C9";
+  var currentVariant = null;
+  var stageIndex = 0;
+  var stageAttempts = 0;
+  var stageResults = [];
+  var lastResult = null;
+  var variantBags = Object.create(null);
   var taskProps = Object.create(null);
-  var scenarioProps = { code: ["trolley", "incident", "fax"], admit: ["lift", "intake", "admitPatient"], rest: ["secl", "computer"] };
+  var scenarioProps = Object.fromEntries(catalog.map(function (item) {
+    return [item.id, Array.from(new Set(item.variants.flatMap(function (entry) {
+      return entry.stages.map(function (entryStage) { return entryStage.target; });
+    })))];
+  }));
+  var targetNames = { computer: "護士站電腦", intake: "收症文件", lift: "升降機大堂核對點",
+    bedside: "床邊評估", medication: "藥房核對枱", dining: "飯廳餐單", visitor: "探病室預約簿",
+    isolation: "隔離房檢查表", handover: "護士站交更簿", secl: "冷靜房病人", trolley: "急救車", incident: "事發位置" };
   var active = false;
   var paused = false;
   var built = false;
@@ -516,27 +606,15 @@ import * as THREE from "three";
   function near(ax, az, bx, bz) { return dist(ax, az, bx, bz) < 1.55; }
 
   function setQuestLabel() {
-    var text = "搖桿任意方向行。W A S D 或方向鍵係八向。A 互動，B 任務。唔使密碼。";
-    if (quest === "code") {
-      if (step === "intro" || step === "goTrolley") text = "任務：去治療室，撳 A 攞急救車。";
-      else if (step === "push") text = "任務：推急救車沿走廊返事發位置。";
-      else if (step === "battle") text = "任務：急救認識問答。A 確認，B 取消選擇。";
-      else if (step === "goFax") text = "任務：去護士站，撳 A 用傳真機影印藥紙。";
-      else if (step === "docs") text = "任務：再撳 A，準備急救文件。";
-    } else if (quest === "admit") {
-      if (step === "intro" || step === "goElev") text = "任務：去升降機大堂，撳 A 核對收症。";
-      else if (step === "battle") text = "任務：收症問答。A 確認，B 取消選擇。";
-      else if (step === "goBed") text = "任務：去收症房，撳 A 完成安排。";
-    } else if (quest === "rest") {
-      if (step === "intro" || step === "goRoom") text = "任務：去冷靜房，撳 A 處理躁動。";
-      else if (step === "battle") text = "任務：約束問答。A 確認，B 取消選擇。";
-      else if (step === "goNurse") text = "任務：去護士站電腦，撳 A 記錄約束。";
-    }
+    var entry = currentStage();
+    var text = entry ? currentVariant.title + " · " + (stageIndex + 1) + "/" + currentVariant.stages.length +
+      "：" + (step === "push" ? "推急救車到" : "前往") + targetNames[entry.target] : "巡房中";
     var node = el("wardQuestLabel");
     if (node) node.textContent = text;
     var room = el("wardRoomLabel");
-    if (room) room.textContent = roomNameAt(player.x, player.z);
+    if (room) room.textContent = ward + " · " + roomNameAt(player.x, player.z);
   }
+  function currentStage() { return currentVariant && currentVariant.stages[stageIndex]; }
 
   function say(lines, done) {
     dialog = { lines: lines, i: 0, done: done || function () {} };
@@ -565,6 +643,7 @@ import * as THREE from "three";
     show("wardMenu", true);
     var goal = el("wardQuestLabel") ? el("wardQuestLabel").textContent : "";
     el("wardMenuText").textContent = "任務目標\n" + goal;
+    el("wardProfile").value = ward;
   }
   function closeMenu() {
     menuOpen = false;
@@ -590,8 +669,10 @@ import * as THREE from "three";
       });
     } else {
       var ok = battle.lastOk;
-      var points = q.points.map(function (p) { return "・" + p; }).join(" ");
-      el("battleText").textContent = (ok ? "答啱。 " : "呢個選擇未係最適切。 ") + q.explain + " 學習重點：" + points;
+      var source = q.source;
+      var reference = source ? " 來源：" + source.file + "／" + source.section + (source.override ? "（已確認更新）" : "") : "";
+      el("battleText").textContent = (ok ? "答啱。 " : "呢個選擇未係最適切。 ") + q.explain +
+        (ok ? "" : " " + q.recovery) + reference;
       box.innerHTML = '<p class="battle-next">撳 A 繼續</p>';
     }
     setQuestLabel();
@@ -606,6 +687,12 @@ import * as THREE from "three";
     if (!battle) return;
     var q = battle.qs[battle.i];
     if (battle.phase === "explain") {
+      if (!battle.lastOk) {
+        battle.phase = "ask";
+        battle.cursor = 0;
+        renderBattle();
+        return;
+      }
       battle.i += 1;
       battle.cursor = 0;
       if (battle.i >= battle.qs.length) {
@@ -618,6 +705,7 @@ import * as THREE from "three";
       renderBattle();
       return;
     }
+    stageAttempts += 1;
     battle.lastOk = battle.cursor === q.answer;
     battle.phase = "explain";
     renderBattle();
@@ -629,18 +717,22 @@ import * as THREE from "three";
     renderBattle();
   }
   function onBattleDone() {
-    if (quest === "code") {
-      pushing = false;
-      step = "goFax";
-      say(["情況暫時穩定（虛構）。而家去護士站，用傳真機影印藥紙，再準備文件。"], function () { setQuestLabel(); });
-    } else if (quest === "admit") {
-      step = "goBed";
-      say(["身份同安檢問答完。去收症房，撳 A 完成呢位虛構病人嘅安排。"], function () { setQuestLabel(); });
-    } else if (quest === "rest") {
-      step = "goNurse";
-      say(["問答完。去護士站電腦撳 A，記錄約束原因、時間同循環檢查。"], function () { setQuestLabel(); });
+    var entry = currentStage();
+    stageResults.push({ index: stageIndex, target: entry.target, correctFirstAttempt: stageAttempts === 1,
+      corrected: stageAttempts > 1, attempts: stageAttempts });
+    if (entry.action === "collect") pushing = true;
+    if (entry.action === "deliver") pushing = false;
+    stageIndex += 1;
+    stageAttempts = 0;
+    if (!currentStage()) {
+      lastResult = { ward: ward, family: quest, variant: currentVariant.id, stages: stageResults.slice() };
+      say(["情境完成。已核對及記錄 " + stageResults.length + " 步；修正 " +
+        stageResults.filter(function (result) { return result.corrected; }).length + " 步。全部個案均屬虛構。"], clearQuest);
+    } else {
+      step = currentStage().action === "deliver" ? "push" : "go:" + currentStage().target;
+      updateNPCs();
+      setQuestLabel();
     }
-    if (incidentMesh) incidentMesh.visible = false;
   }
   function clearQuest() {
     quest = "";
@@ -648,55 +740,45 @@ import * as THREE from "three";
     pushing = false;
     triggeredPush = false;
     travel = 0;
+    currentVariant = null;
+    stageIndex = 0;
+    stageResults = [];
+    stageAttempts = 0;
     updateNPCs();
     setQuestLabel();
   }
-  function beginCode() {
-    quest = "code";
+  function beginScenario(item, entry) {
+    quest = item.id;
+    currentVariant = entry;
+    stageIndex = 0;
+    stageAttempts = 0;
+    stageResults = [];
     step = "intro";
     trolley.x = MARK.trolley.x;
     trolley.z = MARK.trolley.z;
-    trolleyMesh.position.set(trolley.x, 0, trolley.z);
+    if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
     pushing = false;
     triggeredPush = false;
     updateNPCs();
-    say([
-      "突然：走廊有人呼叫！虛構病人「陳先生」情況危急。",
-      "先去治療室，撳 A 攞急救車，沿走廊推返事發位置。",
-      "本遊戲只供訓練用途，實際工作請依照部門指引。"
-    ], function () { step = "goTrolley"; setQuestLabel(); });
-  }
-  function beginAdmit() {
-    quest = "admit";
-    step = "intro";
-    updateNPCs();
-    say([
-      "收症：虛構病人「林先生」同護送喺升降機大堂等候。",
-      "先去升降機大堂，撳 A 核對身份，再答收症問題，最後去收症房。"
-    ], function () { step = "goElev"; setQuestLabel(); });
-  }
-  function beginRest() {
-    quest = "rest";
-    step = "intro";
-    updateNPCs();
-    say([
-      "冷靜房：虛構病人躁動，同事想即刻綁起嚟。",
-      "去冷靜房病人身邊撳 A。約束唔係懲罰，跟指引先評估再答題，之後返護士站電腦記錄。"
-    ], function () { step = "goRoom"; setQuestLabel(); });
+    say([ward + " · " + item.title + "：" + entry.title + "（虛構）", entry.stages[0].q], function () {
+      step = "go:" + currentStage().target;
+      setQuestLabel();
+    });
   }
   function onTravel(meters) {
-    if (quest === "code" && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z) &&
+    if (!active || paused || dialog || battle || menuOpen || mapOpen) return;
+    if (quest && step === "push" && !triggeredPush && near(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z) &&
       propStatus("incident").problems.length === 0 && clearPath(trolley.x, trolley.z, MARK.incident.x, MARK.incident.z)) {
       triggeredPush = true;
       step = "battle";
-      say(["急救車趕到事發位置。進入急救認識。"], function () { openBattle("急救認識", CODE_QS); });
+      openBattle(currentVariant.title, [currentStage()]);
       return;
     }
     if (quest) return;
     travel += meters;
     if (travel < (lastQuest ? 16 : 7)) return;
     travel = 0;
-    var ready = Object.keys(scenarioProps).filter(function (id) { return scenarioProblems(id).length === 0; });
+    var ready = catalog.filter(function (item) { return readyVariants(item).length > 0; }).map(function (item) { return item.id; });
     if (ready.length === 1 && ready[0] === lastQuest) ready = [];
     taskBag = taskBag.filter(function (id) { return ready.indexOf(id) !== -1; });
     if (!ready.length) {
@@ -717,7 +799,15 @@ import * as THREE from "three";
       }
     }
     lastQuest = taskBag.shift();
-    ({ code: beginCode, admit: beginAdmit, rest: beginRest })[lastQuest]();
+    var selected = catalog.find(function (item) { return item.id === lastQuest; });
+    var variants = readyVariants(selected);
+    var available = variants.map(function (entry) { return entry.id; });
+    var variantKey = ward + ":" + lastQuest;
+    var bag = (variantBags[variantKey] || []).filter(function (id) { return available.indexOf(id) !== -1; });
+    if (!bag.length) bag = available.slice();
+    var variantId = bag.shift();
+    variantBags[variantKey] = bag;
+    beginScenario(selected, variants.find(function (entry) { return entry.id === variantId; }));
   }
 
   function screenAxes() {
@@ -807,7 +897,7 @@ import * as THREE from "three";
     var point = MARK[prop.anchor];
     if (id === "trolley" && !preparing) point = trolley;
     if (id === "admitPatient") {
-      var anchor = LAY.npcs[quest === "admit" && step === "goBed" ? "admitIntake" : "admitLift"];
+      var anchor = LAY.npcs[patientAnchor()];
       point = { x: anchor[0] * TILE, z: anchor[1] * TILE };
     }
     var attached = false, visible = true;
@@ -817,7 +907,7 @@ import * as THREE from "three";
     }
     var position = prop.mesh.getWorldPosition(new THREE.Vector3());
     if (!attached) problems.push("missing model");
-    if (!visible && !(preparing && prop.scenario && quest !== prop.scenario)) problems.push("hidden model");
+    if (!visible && !(preparing && prop.scenario)) problems.push("hidden model");
     var approaches = [point];
     if (id === "admitPatient" && preparing) {
       ["admitLift", "admitIntake"].forEach(function (name) {
@@ -835,9 +925,29 @@ import * as THREE from "three";
   }
 
   function scenarioProblems(id) {
-    return scenarioProps[id].flatMap(function (prop) {
+    var item = catalog.find(function (entry) { return entry.id === id; });
+    if (!item || !eligibleVariants(item, ward).length) return ["not eligible for " + ward];
+    var variants = eligibleVariants(item, ward);
+    if (variants.some(function (entry) { return variantProblems(entry).length === 0; })) return [];
+    return variants.flatMap(variantProblems);
+  }
+  function variantProblems(entry) {
+    var props = Array.from(new Set(entry.stages.map(function (entryStage) { return entryStage.target; })));
+    if (entry.stages.some(function (entryStage) { return entryStage.target === "lift"; })) props.push("admitPatient");
+    var problems = props.flatMap(function (prop) {
       return propStatus(prop, true).problems.map(function (problem) { return prop + ": " + problem; });
     });
+    entry.stages.forEach(function (entryStage) {
+      var anchor = LAY.npcs[patientAnchor(entryStage.target)];
+      if (!anchor || !canStand(anchor[0] * TILE, anchor[1] * TILE) ||
+        pathMeters(MARK.start.x, MARK.start.z, anchor[0] * TILE, anchor[1] * TILE) < 0) {
+        problems.push("patient: unreachable approach");
+      }
+    });
+    return problems;
+  }
+  function readyVariants(item) {
+    return eligibleVariants(item, ward).filter(function (entry) { return variantProblems(entry).length === 0; });
   }
 
   function canUseProp(id) {
@@ -851,7 +961,7 @@ import * as THREE from "three";
     if (npc.id === "nurse2") return "需要記錄或處理文件，可以返護士站。";
     if (npc.id === "nurse3") return "照顧病人時，記得核對身份同留意私隱。";
     if (npc.id === "codePatient") return "病人暫時沒有回應，同事正留在旁邊。";
-    if (npc.id === "admitPatient") return step === "goBed" ? "多謝，我會等候收症安排。" : "你好，我同護送喺度等候收症。";
+    if (npc.id === "admitPatient") return "你好，我會等候同事核對及解釋安排。";
     return "我有啲緊張，可以先同我解釋嗎？";
   }
 
@@ -859,38 +969,11 @@ import * as THREE from "three";
     if (!active || paused || menuOpen || mapOpen) return;
     if (battle) { confirmChoice(); return; }
     if (dialog) { advanceDialog(); return; }
-    if (quest === "code" && step === "goTrolley" && canUseProp("trolley") && !pushing) {
-      pushing = true;
-      step = "push";
-      if (incidentMesh) incidentMesh.visible = true;
-      say(["你推住急救車。沿走廊行去事發位置。"], function () { setQuestLabel(); });
-      return;
-    }
-    if (quest === "code" && (step === "goFax" || step === "docs") && canUseProp("fax")) {
-      if (step === "goFax") {
-        step = "docs";
-        say(["傳真機影印藥紙（虛構）。核對病人身份同藥單。"], function () { setQuestLabel(); });
-        return;
-      }
-      say(["文件備好：時間、做過嘅事、邊個在場。今次急救事件完結。分數只係學習回饋。"], function () { clearQuest(); });
-      return;
-    }
-    if (quest === "admit" && step === "goElev" && canUseProp("lift") && propStatus("admitPatient").problems.length === 0) {
+    var entry = currentStage();
+    if (entry && step !== "push" && canUseProp(entry.target)) {
+      if (entry.target === "lift" && propStatus("admitPatient").problems.length) return;
       step = "battle";
-      say(["核對「林先生」身份同護送文件（虛構）。接着答收症問題。"], function () { openBattle("收症", ADMIT_QS); });
-      return;
-    }
-    if (quest === "admit" && step === "goBed" && canUseProp("intake") && propStatus("admitPatient").problems.length === 0) {
-      say(["已喺收症房完成虛構安排。實際床位跟當更。"], function () { clearQuest(); });
-      return;
-    }
-    if (quest === "rest" && step === "goRoom" && canUseProp("secl")) {
-      step = "battle";
-      say(["先確保安全，唔好當懲罰。接着答約束問題。"], function () { openBattle("約束", REST_QS); });
-      return;
-    }
-    if (quest === "rest" && step === "goNurse" && canUseProp("computer")) {
-      say(["已喺護士站記錄約束原因、時間同循環檢查（虛構）。事件完結。"], function () { clearQuest(); });
+      openBattle(currentVariant.title, [entry]);
       return;
     }
     var nearby = Object.keys(npcs).map(function (id) { return npcs[id]; }).filter(function (npc) {
@@ -1018,10 +1101,18 @@ import * as THREE from "three";
     });
     placeNPC(npcs.codePatient, "codePatient");
     npcs.codePatient.mesh.visible = quest === "code";
-    placeNPC(npcs.admitPatient, step === "goBed" && quest === "admit" ? "admitIntake" : "admitLift");
-    npcs.admitPatient.mesh.visible = quest === "admit";
+    placeNPC(npcs.admitPatient, patientAnchor());
+    npcs.admitPatient.mesh.visible = !!quest && quest !== "code" && quest !== "rest";
     placeNPC(npcs.restPatient, "restPatient");
     npcs.restPatient.mesh.visible = quest === "rest";
+    if (incidentMesh) incidentMesh.visible = quest === "code" && currentVariant && currentVariant.id === "code000";
+  }
+  function patientAnchor(target) {
+    target = target || (currentStage() && currentStage().target) || "lift";
+    if (target === "lift") return "admitLift";
+    if (target === "incident" || target === "trolley") return "codePatient";
+    if (target === "secl") return "restPatient";
+    return LAY.npcs["at_" + target] ? "at_" + target : "admitIntake";
   }
 
   function buildScene() {
@@ -1277,6 +1368,18 @@ import * as THREE from "three";
     addScreen(room, 2.5, 1.0, 1.1);
     addCabinet(room, 0.45, 3.5, 0.65, 0.6, 1.1);
 
+    [["bedside", "b1"], ["medication", "med"], ["dining", "dine"],
+      ["visitor", "vis1"], ["isolation", "iso1"], ["handover", "nurse"]].forEach(function (definition) {
+      var id = definition[0], parent = roomGroup(definition[1]);
+      var point = parent.worldToLocal(new THREE.Vector3(MARK[id].x, 0, MARK[id].z));
+      if (id === "bedside" || id === "handover" || id === "isolation") addTable(parent, point.x, point.z, 0.65, 0.45);
+      registerProp(id, addBox(parent, 0.3, 0.05, 0.38, 0x327d75, point.x, 0.87, point.z), id);
+      var label = labelSprite(targetNames[id]);
+      label.scale.set(1.3, 0.24, 1);
+      label.position.set(point.x, 1.3, point.z);
+      parent.add(label);
+    });
+
     room = roomGroup("intake");
     addTable(room, 2.3, 2.95, 1.4, 0.7);
     registerProp("intake", addBox(room, 0.32, 0.025, 0.42, 0x667e79, 2.3, 0.83, 2.95), "intake");
@@ -1472,6 +1575,14 @@ import * as THREE from "three";
         ctx.fillText(String(label.number), label.x, label.y);
       });
     }
+    var objective = currentStage() && MARK[currentStage().target];
+    if (objective) {
+      ctx.strokeStyle = "#ffe04c";
+      ctx.lineWidth = labels ? 4 : 3;
+      ctx.beginPath();
+      ctx.arc(mx(objective.x), mz(objective.z), labels ? 10 : 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.fillStyle = "#e23b32";
     ctx.beginPath();
     ctx.arc(mx(player.x), mz(player.z), labels ? Math.max(4, 4 * labelScale) : Math.max(3.5, scale * 0.42), 0, Math.PI * 2);
@@ -1498,6 +1609,7 @@ import * as THREE from "three";
     var map = el("wardMapBig");
     if (!map) return;
     paintMap(map.getContext("2d"), map.width, map.height, true);
+    el("wardMapGoal").textContent = ward + " · " + (currentStage() ? targetNames[currentStage().target] : "巡房中");
     var legend = el("wardMapLegend");
     if (legend && !legend.children.length) {
       SHELL.rooms.forEach(function (room, index) {
@@ -1526,7 +1638,7 @@ import * as THREE from "three";
       playerMesh.rotation.y = player.rot;
     }
     if (trolleyMesh) trolleyMesh.position.set(trolley.x, 0, trolley.z);
-    if (incidentMesh) incidentMesh.visible = quest === "code" && (step === "push" || step === "goTrolley");
+    if (incidentMesh) incidentMesh.visible = quest === "code" && currentVariant && currentVariant.id === "code000";
     updateNPCs();
     drawMinimap();
     if (camera && renderer && !glFailed) {
@@ -1547,7 +1659,7 @@ import * as THREE from "three";
       }
     }
     var roomNode = el("wardRoomLabel");
-    if (roomNode) roomNode.textContent = roomNameAt(player.x, player.z);
+    if (roomNode) roomNode.textContent = ward + " · " + roomNameAt(player.x, player.z);
   }
 
   function onResize() {
@@ -1571,6 +1683,12 @@ import * as THREE from "three";
     travel = 0;
     taskBag = [];
     lastQuest = "";
+    currentVariant = null;
+    stageIndex = 0;
+    stageAttempts = 0;
+    stageResults = [];
+    lastResult = null;
+    variantBags = Object.create(null);
     dialog = null;
     battle = null;
     menuOpen = false;
@@ -1599,6 +1717,20 @@ import * as THREE from "three";
   }
 
   function bind() {
+    el("wardProfile").addEventListener("change", function () {
+      var next = el("wardProfile").value;
+      if (next === ward) return;
+      if (quest) {
+        show("wardProfileConfirm", true);
+      } else {
+        changeWard(next);
+      }
+    });
+    el("wardProfileCancel").addEventListener("click", function () {
+      el("wardProfile").value = ward;
+      show("wardProfileConfirm", false);
+    });
+    el("wardProfileApply").addEventListener("click", function () { changeWard(el("wardProfile").value); });
     var joyEl = el("wardJoy");
     var knob = el("wardJoyKnob");
     if (joyEl) {
@@ -1664,13 +1796,15 @@ import * as THREE from "three";
     });
     window.addEventListener("keydown", function (e) {
       if (!active) return;
+      if (e.target.matches && e.target.matches("select, input, textarea")) return;
       var dir = dirOfKey(e);
       if (dir) {
         e.preventDefault();
         if (paused) return;
         if (battle && battle.phase === "ask" && !e.repeat) {
-          if (dir === "up" || dir === "left") battle.cursor = (battle.cursor + 3) % 4;
-          else battle.cursor = (battle.cursor + 1) % 4;
+          var count = battle.qs[battle.i].options.length;
+          if (dir === "up" || dir === "left") battle.cursor = (battle.cursor + count - 1) % count;
+          else battle.cursor = (battle.cursor + 1) % count;
           renderBattle();
           return;
         }
@@ -1727,9 +1861,21 @@ import * as THREE from "three";
     if (!raf) raf = requestAnimationFrame(frame);
     requestAnimationFrame(function () { onResize(); requestAnimationFrame(onResize); });
   }
+  function changeWard(next) {
+    if (next !== "C9" && next !== "C7") return;
+    ward = next;
+    resetPlay();
+    show("wardProfileConfirm", false);
+  }
   function stop() { active = false; keys = { up: false, down: false, left: false, right: false }; joy.on = false; }
 
   window.WardMode = {
+    catalog: function () { return JSON.parse(JSON.stringify(catalog)); },
+    policies: policies,
+    variants: function (id, ward) {
+      var item = catalog.find(function (entry) { return entry.id === id; });
+      return item ? JSON.parse(JSON.stringify(eligibleVariants(item, ward))) : [];
+    },
     start: start,
     stop: stop,
     setPaused: function (on) { paused = !!on; },
@@ -1738,6 +1884,10 @@ import * as THREE from "three";
       return {
         x: player.x, z: player.z, rot: player.rot, pushing: pushing,
         tx: trolley.x, tz: trolley.z, quest: quest, step: step,
+        ward: ward, variant: currentVariant ? currentVariant.id : "", stageIndex: stageIndex,
+        target: currentStage() ? currentStage().target : "", stageAction: currentStage() ? currentStage().action : "",
+        stages: currentVariant ? currentVariant.stages.length : 0, attempts: stageAttempts,
+        stageResults: stageResults.slice(), lastResult: lastResult,
         room: roomNameAt(player.x, player.z),
         dialog: !!dialog, battle: battle ? battle.phase : "",
         menu: menuOpen, map: mapOpen, travel: travel,
@@ -1765,7 +1915,10 @@ import * as THREE from "three";
       return { tile: TILE, wall: wall, clear: clear, ortho: !!(camera && camera.isOrthographicCamera) };
     },
     walkable: function (x, z) { return canStand(x, z); },
-    slide: function (dx, dz) { var m = slide(dx, dz); if (m) onTravel(m); return m; },
+    slide: function (dx, dz) {
+      if (!active || paused || dialog || battle || menuOpen || mapOpen) return 0;
+      var m = slide(dx, dz); if (m) onTravel(m); return m;
+    },
     audit: function () {
       var beds = {}, bedPositions = [], partitions = [], furniture = {}, plants = 0;
       updateNPCs();
@@ -1786,7 +1939,8 @@ import * as THREE from "three";
         wallGeometry: { corridors: corridorWalls, rendered: renderedWalls, doors: doorSegments,
           corridorPolygons: corridorPolygons, roomPolygons: roomPolygons },
         props: Object.keys(taskProps).map(function (id) { return propStatus(id); }),
-        scenarios: built ? Object.keys(scenarioProps).map(function (id) {
+        scenarios: built ? catalog.filter(function (item) { return eligibleVariants(item, ward).length > 0; }).map(function (item) {
+          var id = item.id;
           return { id: id, props: scenarioProps[id].slice(), problems: scenarioProblems(id) };
         }) : [],
         npcs: Object.keys(npcs).map(function (id) {
